@@ -1,268 +1,167 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// MJ Maps — Vehicle Profiles & Turn-Feasibility Engine
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Vehicle Profiles
+ * Full geometry constants for UK + worldwide vehicle classes.
+ * Used by turn-engine, route-engine, and stop-precision service.
+ */
 
-export type VehicleClass =
+export type VehicleId =
   | 'bicycle'
-  | 'motorcycle'
-  | 'car'
+  | 'motorbike'
+  | 'small_car'
+  | 'large_car'
   | 'swb_van'
   | 'lwb_van'
-  | 'luton'
-  | 'transit_tipper'
-  | 'minibus'
-  | 'coach'
-  | 'rigid_75t'
-  | 'rigid_18t'
+  | 'luton_van'
+  | 'tipper_swb'
+  | 'tipper_lwb'
+  | '7_5t_rigid'
+  | '18t_rigid'
+  | '26t_rigid'
   | 'artic_13_6m'
-  | 'artic_16_5m';
+  | 'artic_15_5m'
+  | 'car_trailer'
+  | 'horse_trailer'
+  | 'caravan_7m'
+  | 'minibus'
+  | 'coach';
 
 export interface VehicleProfile {
-  id: VehicleClass;
+  id: VehicleId;
   label: string;
-  /** Overall length in metres */
   lengthM: number;
-  /** Width including mirrors in metres */
   widthM: number;
-  /** Height in metres */
   heightM: number;
-  /** Kerb-to-kerb turning radius in metres */
-  turningRadiusM: number;
   /** Gross vehicle weight in tonnes */
   gvwT: number;
-  /** Minimum road width needed for a forward 3-point turn, metres */
-  minRoadWidthTurn: number;
-  /** Minimum cul-de-sac / turning-head diameter for 1-shot turn, metres */
-  minTurningHeadDiamM: number;
-  /** Can legally use residential permit zones */
-  residentialAccess: boolean;
-  /** Requires prior access notice for private roads */
-  requiresNotice: boolean;
+  /** Minimum road width required to drive (not turn) */
+  minDriveWidthM: number;
+  /** Outer turning radius, kerb-to-kerb */
+  outerTurningRadiusM: number;
+  /** Inner turning radius */
+  innerTurningRadiusM: number;
+  /** Minimum cul-de-sac / turning head diameter for 3-point turn */
+  minThreePointTurnDiameterM: number;
+  /** True if legally requires HGV routing (>3.5t GVW in UK) */
+  hgvRouting: boolean;
+  /** True if requires special access permissions for some road types */
+  requiresAccessPermit: boolean;
 }
 
-export const VEHICLE_PROFILES: Record<VehicleClass, VehicleProfile> = {
+export const VEHICLE_PROFILES: Record<VehicleId, VehicleProfile> = {
   bicycle: {
-    id: 'bicycle', label: 'Bicycle', lengthM: 1.8, widthM: 0.6, heightM: 1.2,
-    turningRadiusM: 1.5, gvwT: 0.1, minRoadWidthTurn: 2.0,
-    minTurningHeadDiamM: 3.5, residentialAccess: true, requiresNotice: false,
+    id: 'bicycle', label: 'Bicycle',
+    lengthM: 1.8, widthM: 0.6, heightM: 1.1, gvwT: 0.1,
+    minDriveWidthM: 0.8, outerTurningRadiusM: 2.5, innerTurningRadiusM: 1.0,
+    minThreePointTurnDiameterM: 3.0, hgvRouting: false, requiresAccessPermit: false,
   },
-  motorcycle: {
-    id: 'motorcycle', label: 'Motorcycle', lengthM: 2.2, widthM: 0.8, heightM: 1.4,
-    turningRadiusM: 3.0, gvwT: 0.4, minRoadWidthTurn: 3.5,
-    minTurningHeadDiamM: 6.0, residentialAccess: true, requiresNotice: false,
+  motorbike: {
+    id: 'motorbike', label: 'Motorbike',
+    lengthM: 2.2, widthM: 0.8, heightM: 1.2, gvwT: 0.5,
+    minDriveWidthM: 1.0, outerTurningRadiusM: 3.5, innerTurningRadiusM: 1.5,
+    minThreePointTurnDiameterM: 4.0, hgvRouting: false, requiresAccessPermit: false,
   },
-  car: {
-    id: 'car', label: 'Car / SUV', lengthM: 4.5, widthM: 2.1, heightM: 1.6,
-    turningRadiusM: 5.5, gvwT: 2.0, minRoadWidthTurn: 6.5,
-    minTurningHeadDiamM: 11.0, residentialAccess: true, requiresNotice: false,
+  small_car: {
+    id: 'small_car', label: 'Small Car',
+    lengthM: 3.9, widthM: 1.7, heightM: 1.5, gvwT: 1.8,
+    minDriveWidthM: 2.5, outerTurningRadiusM: 5.0, innerTurningRadiusM: 2.5,
+    minThreePointTurnDiameterM: 7.5, hgvRouting: false, requiresAccessPermit: false,
+  },
+  large_car: {
+    id: 'large_car', label: 'Large Car / SUV',
+    lengthM: 4.9, widthM: 1.95, heightM: 1.65, gvwT: 2.5,
+    minDriveWidthM: 2.8, outerTurningRadiusM: 6.0, innerTurningRadiusM: 2.8,
+    minThreePointTurnDiameterM: 9.0, hgvRouting: false, requiresAccessPermit: false,
   },
   swb_van: {
-    id: 'swb_van', label: 'SWB Van (Transit / Sprinter SWB)', lengthM: 5.1, widthM: 2.4, heightM: 2.5,
-    turningRadiusM: 6.3, gvwT: 3.5, minRoadWidthTurn: 7.5,
-    minTurningHeadDiamM: 13.0, residentialAccess: true, requiresNotice: false,
+    id: 'swb_van', label: 'SWB Van (e.g. Transit SWB)',
+    lengthM: 4.8, widthM: 2.0, heightM: 2.5, gvwT: 3.0,
+    minDriveWidthM: 2.8, outerTurningRadiusM: 5.8, innerTurningRadiusM: 2.2,
+    minThreePointTurnDiameterM: 9.0, hgvRouting: false, requiresAccessPermit: false,
   },
   lwb_van: {
-    id: 'lwb_van', label: 'LWB Van (Transit LWB / Sprinter LWB)', lengthM: 6.0, widthM: 2.4, heightM: 2.7,
-    turningRadiusM: 7.2, gvwT: 3.5, minRoadWidthTurn: 8.5,
-    minTurningHeadDiamM: 15.0, residentialAccess: true, requiresNotice: false,
+    id: 'lwb_van', label: 'LWB Van (e.g. Transit LWB)',
+    lengthM: 5.5, widthM: 2.0, heightM: 2.5, gvwT: 3.5,
+    minDriveWidthM: 3.0, outerTurningRadiusM: 6.4, innerTurningRadiusM: 2.4,
+    minThreePointTurnDiameterM: 10.5, hgvRouting: false, requiresAccessPermit: false,
   },
-  luton: {
-    id: 'luton', label: 'Luton Box Van', lengthM: 6.5, widthM: 2.5, heightM: 3.3,
-    turningRadiusM: 7.5, gvwT: 3.5, minRoadWidthTurn: 9.0,
-    minTurningHeadDiamM: 15.5, residentialAccess: true, requiresNotice: false,
+  luton_van: {
+    id: 'luton_van', label: 'Luton Box Van',
+    lengthM: 6.0, widthM: 2.1, heightM: 3.5, gvwT: 3.5,
+    minDriveWidthM: 3.2, outerTurningRadiusM: 7.2, innerTurningRadiusM: 2.6,
+    minThreePointTurnDiameterM: 12.0, hgvRouting: false, requiresAccessPermit: false,
   },
-  transit_tipper: {
-    id: 'transit_tipper', label: 'Transit Tipper / Dropside', lengthM: 6.0, widthM: 2.5, heightM: 2.6,
-    turningRadiusM: 7.2, gvwT: 3.5, minRoadWidthTurn: 8.5,
-    minTurningHeadDiamM: 15.0, residentialAccess: true, requiresNotice: false,
+  tipper_swb: {
+    id: 'tipper_swb', label: 'Tipper SWB',
+    lengthM: 5.0, widthM: 2.1, heightM: 2.6, gvwT: 3.5,
+    minDriveWidthM: 3.0, outerTurningRadiusM: 6.2, innerTurningRadiusM: 2.3,
+    minThreePointTurnDiameterM: 10.0, hgvRouting: false, requiresAccessPermit: false,
   },
-  minibus: {
-    id: 'minibus', label: 'Minibus (16 seat)', lengthM: 6.5, widthM: 2.3, heightM: 2.8,
-    turningRadiusM: 7.8, gvwT: 4.5, minRoadWidthTurn: 9.5,
-    minTurningHeadDiamM: 16.0, residentialAccess: true, requiresNotice: false,
+  tipper_lwb: {
+    id: 'tipper_lwb', label: 'Tipper LWB',
+    lengthM: 6.2, widthM: 2.2, heightM: 2.8, gvwT: 3.5,
+    minDriveWidthM: 3.2, outerTurningRadiusM: 7.0, innerTurningRadiusM: 2.5,
+    minThreePointTurnDiameterM: 11.5, hgvRouting: false, requiresAccessPermit: false,
   },
-  coach: {
-    id: 'coach', label: 'Coach / Full-size Bus', lengthM: 12.0, widthM: 2.55, heightM: 3.8,
-    turningRadiusM: 12.0, gvwT: 18.0, minRoadWidthTurn: 14.5,
-    minTurningHeadDiamM: 24.0, residentialAccess: false, requiresNotice: true,
+  '7_5t_rigid': {
+    id: '7_5t_rigid', label: '7.5t Rigid',
+    lengthM: 7.5, widthM: 2.4, heightM: 3.5, gvwT: 7.5,
+    minDriveWidthM: 3.5, outerTurningRadiusM: 9.0, innerTurningRadiusM: 3.0,
+    minThreePointTurnDiameterM: 15.0, hgvRouting: true, requiresAccessPermit: false,
   },
-  rigid_75t: {
-    id: 'rigid_75t', label: '7.5t Rigid HGV', lengthM: 8.5, widthM: 2.55, heightM: 3.7,
-    turningRadiusM: 8.5, gvwT: 7.5, minRoadWidthTurn: 10.5,
-    minTurningHeadDiamM: 17.5, residentialAccess: false, requiresNotice: false,
+  '18t_rigid': {
+    id: '18t_rigid', label: '18t Rigid',
+    lengthM: 10.0, widthM: 2.5, heightM: 4.0, gvwT: 18.0,
+    minDriveWidthM: 3.8, outerTurningRadiusM: 11.5, innerTurningRadiusM: 3.5,
+    minThreePointTurnDiameterM: 20.0, hgvRouting: true, requiresAccessPermit: false,
   },
-  rigid_18t: {
-    id: 'rigid_18t', label: '18t Rigid HGV', lengthM: 12.0, widthM: 2.6, heightM: 4.0,
-    turningRadiusM: 11.0, gvwT: 18.0, minRoadWidthTurn: 14.0,
-    minTurningHeadDiamM: 22.5, residentialAccess: false, requiresNotice: true,
+  '26t_rigid': {
+    id: '26t_rigid', label: '26t Rigid',
+    lengthM: 12.0, widthM: 2.55, heightM: 4.0, gvwT: 26.0,
+    minDriveWidthM: 4.0, outerTurningRadiusM: 13.5, innerTurningRadiusM: 4.0,
+    minThreePointTurnDiameterM: 24.0, hgvRouting: true, requiresAccessPermit: false,
   },
   artic_13_6m: {
-    id: 'artic_13_6m', label: 'Artic 13.6m Trailer', lengthM: 16.5, widthM: 2.6, heightM: 4.2,
-    turningRadiusM: 14.5, gvwT: 44.0, minRoadWidthTurn: 17.0,
-    minTurningHeadDiamM: 29.0, residentialAccess: false, requiresNotice: true,
+    id: 'artic_13_6m', label: 'Artic (13.6m trailer)',
+    lengthM: 16.5, widthM: 2.55, heightM: 4.2, gvwT: 44.0,
+    minDriveWidthM: 4.5, outerTurningRadiusM: 14.5, innerTurningRadiusM: 4.5,
+    minThreePointTurnDiameterM: 30.0, hgvRouting: true, requiresAccessPermit: true,
   },
-  artic_16_5m: {
-    id: 'artic_16_5m', label: 'Artic 16.5m Trailer (Mega)', lengthM: 18.75, widthM: 2.6, heightM: 4.5,
-    turningRadiusM: 16.0, gvwT: 44.0, minRoadWidthTurn: 19.0,
-    minTurningHeadDiamM: 32.0, residentialAccess: false, requiresNotice: true,
+  artic_15_5m: {
+    id: 'artic_15_5m', label: 'Artic (15.5m mega-trailer)',
+    lengthM: 18.75, widthM: 2.55, heightM: 4.2, gvwT: 44.0,
+    minDriveWidthM: 4.8, outerTurningRadiusM: 16.0, innerTurningRadiusM: 5.0,
+    minThreePointTurnDiameterM: 34.0, hgvRouting: true, requiresAccessPermit: true,
+  },
+  car_trailer: {
+    id: 'car_trailer', label: 'Car + Trailer',
+    lengthM: 9.5, widthM: 2.0, heightM: 1.8, gvwT: 3.5,
+    minDriveWidthM: 3.0, outerTurningRadiusM: 11.0, innerTurningRadiusM: 3.5,
+    minThreePointTurnDiameterM: 18.0, hgvRouting: false, requiresAccessPermit: false,
+  },
+  horse_trailer: {
+    id: 'horse_trailer', label: 'Car + Horse Trailer',
+    lengthM: 10.5, widthM: 2.2, heightM: 2.8, gvwT: 4.5,
+    minDriveWidthM: 3.3, outerTurningRadiusM: 12.5, innerTurningRadiusM: 4.0,
+    minThreePointTurnDiameterM: 20.0, hgvRouting: false, requiresAccessPermit: false,
+  },
+  caravan_7m: {
+    id: 'caravan_7m', label: 'Car + 7m Caravan',
+    lengthM: 11.5, widthM: 2.3, heightM: 2.7, gvwT: 4.5,
+    minDriveWidthM: 3.3, outerTurningRadiusM: 13.0, innerTurningRadiusM: 4.2,
+    minThreePointTurnDiameterM: 21.0, hgvRouting: false, requiresAccessPermit: false,
+  },
+  minibus: {
+    id: 'minibus', label: 'Minibus (up to 17 seats)',
+    lengthM: 6.5, widthM: 2.1, heightM: 2.8, gvwT: 5.0,
+    minDriveWidthM: 3.2, outerTurningRadiusM: 8.5, innerTurningRadiusM: 3.0,
+    minThreePointTurnDiameterM: 14.0, hgvRouting: false, requiresAccessPermit: false,
+  },
+  coach: {
+    id: 'coach', label: 'Full-Size Coach',
+    lengthM: 12.0, widthM: 2.55, heightM: 4.0, gvwT: 18.0,
+    minDriveWidthM: 4.0, outerTurningRadiusM: 13.0, innerTurningRadiusM: 4.0,
+    minThreePointTurnDiameterM: 24.0, hgvRouting: true, requiresAccessPermit: false,
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Turn-Alert Distances (metres before the problematic point)
-// ─────────────────────────────────────────────────────────────────────────────
-export const TURN_ALERT_DISTANCES = {
-  GREEN: 0,
-  AMBER: 300,
-  RED: 500,
-} as const;
-
-export type TurnAlertLevel = 'GREEN' | 'AMBER' | 'RED';
-
-export interface RoadGeometry {
-  /** Estimated kerb-to-kerb width in metres (from OSM width tag or CV estimate) */
-  roadWidthM: number;
-  /** Estimated diameter of turning head / cul-de-sac in metres; 0 = none detected */
-  turningHeadDiamM: number;
-  /** Distance from driver's current position to the point of no return, metres */
-  distanceToDeadEndM: number;
-  /** Whether OSM or community reports say this road is a dead-end */
-  isDeadEnd: boolean;
-  /** OSM highway class */
-  highwayClass:
-    | 'motorway' | 'trunk' | 'primary' | 'secondary' | 'tertiary'
-    | 'unclassified' | 'residential' | 'service' | 'track' | 'path' | 'private';
-  /** Optional community-sourced override score 0..1 (1 = fully trusted) */
-  communityScoreOverride?: number;
-  /** Estimated axle weight limit in tonnes; undefined = unknown */
-  weightLimitT?: number;
-  /** Height restriction in metres; undefined = none */
-  heightRestrictionM?: number;
-}
-
-export interface TurnFeasibilityResult {
-  score: number;          // 0..1
-  alert: TurnAlertLevel;
-  alertDistanceM: number;
-  canForwardTurn: boolean;
-  canUseHead: boolean;
-  mustReverse: boolean;
-  mustNotEnter: boolean;
-  /** Human-readable driver instruction */
-  instruction: string;
-  /** Why this score was calculated */
-  reasoning: string[];
-}
-
-/**
- * Compute turn feasibility score for a given vehicle entering a given road segment.
- *
- * Score derivation:
- *   base  = clamp(roadWidthM / minRoadWidthTurn, 0, 1)
- *   +0.30  if turning head diameter >= vehicle.minTurningHeadDiamM
- *   ×0.50  penalty if dead-end sooner than 2× vehicle length
- *   final = blend 60% geometry + 40% community reports (when available)
- */
-export function computeTurnScore(
-  vehicle: VehicleProfile,
-  road: RoadGeometry,
-): TurnFeasibilityResult {
-  const reasoning: string[] = [];
-  let score = 0;
-
-  // 1. Base score: road width vs minimum needed for forward turn
-  const widthRatio = Math.min(road.roadWidthM / vehicle.minRoadWidthTurn, 1.0);
-  score = widthRatio;
-  reasoning.push(
-    `Road width ${road.roadWidthM.toFixed(1)}m vs required ${vehicle.minRoadWidthTurn}m → width ratio ${widthRatio.toFixed(2)}`,
-  );
-
-  // 2. Turning head bonus
-  const canUseHead = road.turningHeadDiamM >= vehicle.minTurningHeadDiamM;
-  if (canUseHead) {
-    score = Math.min(score + 0.30, 1.0);
-    reasoning.push(
-      `Turning head ${road.turningHeadDiamM}m ≥ required ${vehicle.minTurningHeadDiamM}m (+0.30 bonus)`,
-    );
-  } else if (road.turningHeadDiamM > 0) {
-    reasoning.push(
-      `Turning head ${road.turningHeadDiamM}m < required ${vehicle.minTurningHeadDiamM}m (no bonus)`,
-    );
-  }
-
-  // 3. Dead-end penalty — caught too close to end
-  const dangerThreshold = vehicle.lengthM * 2;
-  if (road.isDeadEnd && road.distanceToDeadEndM < dangerThreshold) {
-    score *= 0.50;
-    reasoning.push(
-      `Dead-end only ${road.distanceToDeadEndM}m away (< ${dangerThreshold}m threshold) → ×0.50 penalty`,
-    );
-  }
-
-  // 4. Hard overrides: height / weight restrictions
-  if (road.heightRestrictionM !== undefined && road.heightRestrictionM < vehicle.heightM) {
-    score = 0;
-    reasoning.push(
-      `Height restriction ${road.heightRestrictionM}m < vehicle height ${vehicle.heightM}m → MUST NOT ENTER`,
-    );
-  }
-  if (road.weightLimitT !== undefined && road.weightLimitT < vehicle.gvwT) {
-    score = 0;
-    reasoning.push(
-      `Weight limit ${road.weightLimitT}t < vehicle GVW ${vehicle.gvwT}t → MUST NOT ENTER`,
-    );
-  }
-
-  // 5. Blend with community score if available
-  if (road.communityScoreOverride !== undefined) {
-    const blended = score * 0.60 + road.communityScoreOverride * 0.40;
-    reasoning.push(
-      `Community score ${road.communityScoreOverride.toFixed(2)} blended 40% → final ${blended.toFixed(2)}`,
-    );
-    score = blended;
-  }
-
-  score = Math.max(0, Math.min(1, score));
-
-  // 6. Derive alert level
-  let alert: TurnAlertLevel;
-  if (score >= 0.75) alert = 'GREEN';
-  else if (score >= 0.40) alert = 'AMBER';
-  else alert = 'RED';
-
-  const alertDistanceM = TURN_ALERT_DISTANCES[alert];
-
-  // 7. Derive action flags
-  const canForwardTurn = score >= 0.75;
-  const mustReverse = score >= 0.40 && !canForwardTurn;
-  const mustNotEnter = score < 0.40;
-
-  // 8. Driver instruction
-  let instruction: string;
-  if (mustNotEnter) {
-    instruction = `⛔ DO NOT ENTER — ${vehicle.label} cannot safely manoeuvre on this road. Find an alternative approach.`;
-  } else if (mustReverse) {
-    instruction = `⚠️ CAUTION — Limited room. You may need to reverse out. Proceed slowly and locate a passing place before entering.`;
-  } else if (canUseHead) {
-    instruction = `✅ CLEAR — Turning head available. You can turn around using the turning head ahead.`;
-  } else {
-    instruction = `✅ CLEAR — Sufficient road width for a 3-point turn.`;
-  }
-
-  return {
-    score,
-    alert,
-    alertDistanceM,
-    canForwardTurn,
-    canUseHead,
-    mustReverse,
-    mustNotEnter,
-    instruction,
-    reasoning,
-  };
-}
-
-/** Quick helper — just returns the alert level */
-export function getTurnAlert(vehicle: VehicleProfile, road: RoadGeometry): TurnAlertLevel {
-  return computeTurnScore(vehicle, road).alert;
-}
+export const ALL_VEHICLE_IDS = Object.keys(VEHICLE_PROFILES) as VehicleId[];
