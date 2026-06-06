@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f1117">
+  <title>MJ Maps — Driver</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/styles/app.css">
+</head>
+<body>
+
+  <!-- ═══ TURN ALERT OVERLAY (sits above everything) ═══════════════════════ -->
+  <div id="turn-alert" class="turn-alert hidden" role="alert" aria-live="assertive">
+    <div class="turn-alert__icon" id="turn-alert-icon">⚠️</div>
+    <div class="turn-alert__body">
+      <p class="turn-alert__title" id="turn-alert-title">Road too narrow</p>
+      <p class="turn-alert__sub"   id="turn-alert-sub">Cannot turn your Luton van here</p>
+    </div>
+    <button class="turn-alert__dismiss" id="turn-alert-dismiss" aria-label="Dismiss alert">✕</button>
+  </div>
+
+  <!-- ═══ APP SHELL ════════════════════════════════════════════════════════ -->
+  <div class="app-shell">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-header__left">
+        <svg class="logo" viewBox="0 0 32 32" fill="none" aria-label="MJ Maps">
+          <rect width="32" height="32" rx="8" fill="#00c2a8"/>
+          <path d="M8 24 L16 8 L24 24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="2.5" fill="white"/>
+        </svg>
+        <span class="app-header__title">MJ Maps</span>
+      </div>
+      <div class="app-header__right">
+        <div class="shift-badge" id="shift-badge">
+          <span class="shift-badge__dot"></span>
+          <span id="shift-status-text">On Shift</span>
+        </div>
+        <div class="vehicle-chip" id="vehicle-chip">Luton</div>
+      </div>
+    </header>
+
+    <!-- Main content area -->
+    <main class="app-main">
+
+      <!-- ── VIEW: MAP ──────────────────────────────────────────────────── -->
+      <section class="view view--map active" id="view-map">
+        <div class="map-container" id="map-container">
+          <!-- Leaflet map mounts here -->
+          <div class="map-placeholder">
+            <div class="map-placeholder__inner">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5"/>
+              </svg>
+              <p>Map loading…</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating next-stop card -->
+        <div class="next-stop-card" id="next-stop-card">
+          <div class="next-stop-card__header">
+            <span class="next-stop-card__label">NEXT STOP</span>
+            <span class="next-stop-card__seq" id="stop-seq">1 of 12</span>
+          </div>
+          <p class="next-stop-card__address" id="stop-address">14 Orchard Lane, Chelmsford CM1 4PP</p>
+          <div class="next-stop-card__meta">
+            <span class="meta-chip meta-chip--dist" id="stop-dist">1.2 km</span>
+            <span class="meta-chip meta-chip--eta"  id="stop-eta">ETA 14:32</span>
+            <span class="meta-chip meta-chip--turn" id="stop-turn">🟢 Turn OK</span>
+          </div>
+          <div class="next-stop-card__actions">
+            <button class="btn btn--nav" id="btn-navigate">Navigate</button>
+            <button class="btn btn--arrived" id="btn-arrived">Arrived</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: STOPS LIST ───────────────────────────────────────────── -->
+      <section class="view view--stops" id="view-stops">
+        <div class="stops-header">
+          <h2>Today's Stops</h2>
+          <div class="stops-summary" id="stops-summary">12 stops · 47 km · ETA finish 17:20</div>
+        </div>
+        <ul class="stops-list" id="stops-list" role="list"></ul>
+      </section>
+
+      <!-- ── VIEW: ARRIVED / DELIVERY ──────────────────────────────────── -->
+      <section class="view view--delivery" id="view-delivery">
+        <div class="delivery-header">
+          <button class="btn-back" id="btn-back-from-delivery" aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          </button>
+          <h2 id="delivery-stop-title">Stop 3</h2>
+        </div>
+        <div class="delivery-body">
+          <p class="delivery-address" id="delivery-address">14 Orchard Lane, Chelmsford</p>
+
+          <!-- Turn alert summary -->
+          <div class="turn-summary" id="turn-summary">
+            <div class="turn-summary__indicator" id="turn-indicator">🟢</div>
+            <div class="turn-summary__text">
+              <strong id="turn-label">Turn OK</strong>
+              <span id="turn-rec">Forward turn possible on this road</span>
+            </div>
+          </div>
+
+          <!-- Scan / reference -->
+          <div class="scan-area">
+            <label class="field-label" for="scan-input">Scan or enter reference</label>
+            <div class="scan-row">
+              <input class="scan-input" id="scan-input" type="text" placeholder="Track / barcode" autocomplete="off">
+              <button class="btn btn--scan" id="btn-scan" aria-label="Scan barcode">📷</button>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="notes-area">
+            <label class="field-label" for="delivery-notes">Notes for this stop</label>
+            <textarea class="notes-input" id="delivery-notes" rows="2" placeholder="Gate code, parking info…"></textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="delivery-actions">
+            <button class="btn btn--success btn--full" id="btn-complete">✓ Mark Delivered</button>
+            <button class="btn btn--danger  btn--full" id="btn-failed">✕ Report Failed</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: FAILED DROP ──────────────────────────────────────────── -->
+      <section class="view view--failed" id="view-failed">
+        <div class="delivery-header">
+          <button class="btn-back" id="btn-back-from-failed" aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          </button>
+          <h2>Report Failed Drop</h2>
+        </div>
+        <div class="failed-body">
+          <p class="field-label">Reason</p>
+          <div class="reason-grid" id="reason-grid">
+            <button class="reason-btn" data-reason="NOT_IN">Not in</button>
+            <button class="reason-btn" data-reason="ACCESS_DENIED">Access denied</button>
+            <button class="reason-btn" data-reason="DAMAGED">Parcel damaged</button>
+            <button class="reason-btn" data-reason="WRONG_ADDRESS">Wrong address</button>
+            <button class="reason-btn" data-reason="OTHER">Other</button>
+          </div>
+          <textarea class="notes-input" id="failed-notes" rows="2" placeholder="Additional details…"></textarea>
+          <button class="btn btn--danger btn--full" id="btn-confirm-failed" disabled>Confirm Failed Drop</button>
+        </div>
+      </section>
+
+      <!-- ── VIEW: SETTINGS ─────────────────────────────────────────────── -->
+      <section class="view view--settings" id="view-settings">
+        <h2>Settings</h2>
+        <div class="settings-group">
+          <label class="settings-label">Vehicle type</label>
+          <select class="settings-select" id="vehicle-select">
+            <option value="swb_van">SWB Van</option>
+            <option value="lwb_van">LWB Van</option>
+            <option value="luton" selected>Luton Van</option>
+            <option value="luton_tail">Luton + Tail Lift</option>
+            <option value="hgv_75t">7.5t HGV</option>
+            <option value="hgv_18t">18t Rigid</option>
+            <option value="artic">Artic</option>
+          </select>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Driver name</label>
+          <input class="settings-input" id="driver-name" type="text" placeholder="Your name">
+        </div>
+        <div class="settings-group settings-group--toggle">
+          <label class="settings-label">Turn alerts</label>
+          <button class="toggle" id="toggle-turn-alerts" aria-pressed="true">ON</button>
+        </div>
+        <div class="settings-group settings-group--toggle">
+          <label class="settings-label">Dark mode</label>
+          <button class="toggle" id="toggle-theme" aria-pressed="true">ON</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom nav -->
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-btn active" data-view="map"      aria-label="Map">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+        <span>Map</span>
+      </button>
+      <button class="nav-btn" data-view="stops" aria-label="Stops">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <span>Stops</span>
+      </button>
+      <button class="nav-btn" data-view="settings" aria-label="Settings">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+  </div><!-- /.app-shell -->
+
+  <!-- Leaflet CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
