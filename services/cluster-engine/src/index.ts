@@ -1,87 +1,184 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Cluster Engine
-// Groups stops into sweep zones for anti-backtracking.
-// Exposes endpoint for dispatcher dashboard map view.
-// Uses DBSCAN-inspired density clustering with configurable epsilon.
-// ─────────────────────────────────────────────────────────────────────────────
-import Fastify from 'fastify';
-
-const app = Fastify({ logger: true });
-
-export interface ClusterPoint {
-  id: string;
-  lat: number;
-  lon: number;
-}
-
-export interface Cluster {
-  clusterId: number;
-  points: ClusterPoint[];
-  centroidLat: number;
-  centroidLon: number;
-  radiusKm: number;
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 /**
- * Simple radius-based clustering (greedy).
- * More accurate than k-means for geographic route grouping
- * because cluster count is not predefined.
+ * Cluster Engine — main entry point.
+ *
+ * Takes raw stops + config, returns:
+ *  1. DBSCAN clusters with centroid + ordered stops
+ *  2. Clusters ordered by nearest-neighbour from depot
+ *  3. Flat orderedStops array ready for route-engine
+ *  4. Estimated backtrack reduction percentage
+ *
+ * Anti-backtrack guarantee:
+ *  All stops in cluster N are completed before any stop in cluster N+1.
+ *  The driver never leaves a neighbourhood and comes back later.
  */
-export function clusterPoints(
-  points: ClusterPoint[],
-  epsilonKm = 0.5,
-  minPoints = 1,
+import { dbscan } from './dbscan';
+import { haversineMetres, bearingDegrees } from './haversine';
+import type { ClusterStop, Cluster, ClusterEngineConfig, ClusterResult } from './types';
+
+// ─── Centroid ─────────────────────────────────────────────────────────────────
+function centroid(stops: ClusterStop[]): { lat: number; lng: number } {
+  const lat = stops.reduce((s, p) => s + p.lat, 0) / stops.length;
+  const lng = stops.reduce((s, p) => s + p.lng, 0) / stops.length;
+  return { lat, lng };
+}
+
+// ─── Nearest-neighbour cluster ordering ──────────────────────────────────────
+// Greedy nearest-centroid from depot. Good enough at cluster scale (5-25 clusters).
+function orderClusters(
+  clusters: Cluster[],
+  depotLat: number,
+  depotLng: number,
 ): Cluster[] {
-  const assigned = new Set<string>();
-  const clusters: Cluster[] = [];
-  let clusterId = 0;
+  const unvisited = [...clusters];
+  const ordered:   Cluster[] = [];
+  let curLat = depotLat;
+  let curLng = depotLng;
 
-  for (const seed of points) {
-    if (assigned.has(seed.id)) continue;
-    const members: ClusterPoint[] = [seed];
-    assigned.add(seed.id);
-
-    for (const candidate of points) {
-      if (assigned.has(candidate.id)) continue;
-      if (haversineKm(seed.lat, seed.lon, candidate.lat, candidate.lon) <= epsilonKm) {
-        members.push(candidate);
-        assigned.add(candidate.id);
-      }
+  while (unvisited.length > 0) {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < unvisited.length; i++) {
+      const d = haversineMetres(curLat, curLng, unvisited[i].centroidLat, unvisited[i].centroidLng);
+      if (d < bestDist) { bestDist = d; best = i; }
     }
-
-    if (members.length >= minPoints) {
-      const centroidLat = members.reduce((s, p) => s + p.lat, 0) / members.length;
-      const centroidLon = members.reduce((s, p) => s + p.lon, 0) / members.length;
-      const radiusKm = Math.max(
-        ...members.map((p) => haversineKm(centroidLat, centroidLon, p.lat, p.lon)),
-      );
-      clusters.push({ clusterId: clusterId++, points: members, centroidLat, centroidLon, radiusKm });
-    }
+    const chosen = unvisited.splice(best, 1)[0];
+    ordered.push(chosen);
+    curLat = chosen.centroidLat;
+    curLng = chosen.centroidLng;
   }
 
-  return clusters;
+  return ordered.map((c, i) => ({ ...c, orderIndex: i }));
 }
 
-app.post<{ Body: { points: ClusterPoint[]; epsilonKm?: number; minPoints?: number } }>(
-  '/cluster',
-  async (req, reply) => {
-    const { points, epsilonKm = 0.5, minPoints = 1 } = req.body;
-    const result = clusterPoints(points, epsilonKm, minPoints);
-    return reply.send(result);
-  },
-);
+// ─── Within-cluster stop ordering ────────────────────────────────────────────
+// Nearest-neighbour from cluster entry point (previous cluster exit or depot).
+function orderStopsInCluster(
+  stops: ClusterStop[],
+  entryLat: number,
+  entryLng: number,
+): ClusterStop[] {
+  const unvisited = [...stops];
+  const ordered:   ClusterStop[] = [];
+  let curLat = entryLat;
+  let curLng = entryLng;
 
-app.get('/health', async () => ({ status: 'ok', service: 'cluster-engine' }));
+  while (unvisited.length > 0) {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < unvisited.length; i++) {
+      const d = haversineMetres(curLat, curLng, unvisited[i].lat, unvisited[i].lng);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    const chosen = unvisited.splice(best, 1)[0];
+    // Calculate approach bearing from previous position
+    const approachBearing = bearingDegrees(curLat, curLng, chosen.lat, chosen.lng);
+    ordered.push({ ...chosen, approachBearing });
+    curLat = chosen.lat;
+    curLng = chosen.lng;
+  }
 
-const PORT = Number(process.env.PORT ?? 3010);
-app.listen({ port: PORT, host: '0.0.0.0' });
+  return ordered.map((s, i) => ({ ...s, clusterIndex: i }));
+}
+
+// ─── Backtrack reduction estimate ─────────────────────────────────────────────
+// Rough estimate: compare clustered route distance to naive sequential distance.
+function estimateBacktrackReduction(
+  clusteredStops: ClusterStop[],
+  originalStops: ClusterStop[],
+): number {
+  const routeDistance = (stops: ClusterStop[]) => {
+    let d = 0;
+    for (let i = 1; i < stops.length; i++) {
+      d += haversineMetres(stops[i-1].lat, stops[i-1].lng, stops[i].lat, stops[i].lng);
+    }
+    return d;
+  };
+
+  const original   = routeDistance(originalStops);
+  const clustered  = routeDistance(clusteredStops);
+  if (original === 0) return 0;
+
+  return Math.max(0, Math.round(((original - clustered) / original) * 100));
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+export function clusterStops(
+  stops: ClusterStop[],
+  config: Partial<ClusterEngineConfig> & { depotLat: number; depotLng: number },
+): ClusterResult {
+  const cfg: ClusterEngineConfig = {
+    epsilonMetres:  config.epsilonMetres  ?? 400,
+    minPoints:      config.minPoints      ?? 2,
+    depotLat:       config.depotLat,
+    depotLng:       config.depotLng,
+    sideOfRoadSort: config.sideOfRoadSort ?? true,
+  };
+
+  if (stops.length === 0) {
+    return { clusters: [], orderedStops: [], totalClusters: 0, noiseStops: 0, estimatedBacktrackReductionPct: 0 };
+  }
+
+  // 1. DBSCAN
+  const { labels, numClusters } = dbscan(stops, cfg.epsilonMetres, cfg.minPoints);
+
+  // 2. Build cluster objects
+  const clusterMap = new Map<number, ClusterStop[]>();
+  stops.forEach((stop, i) => {
+    const cid = labels[i];
+    if (!clusterMap.has(cid)) clusterMap.set(cid, []);
+    clusterMap.get(cid)!.push({ ...stop, clusterId: cid });
+  });
+
+  const noiseStops = clusterMap.get(-1)?.length ?? 0;
+
+  // Treat each noise stop as its own single-stop cluster
+  const noiseClusters: Cluster[] = (clusterMap.get(-1) ?? []).map((s, i) => ({
+    id:          -(i + 1),
+    centroidLat: s.lat,
+    centroidLng: s.lng,
+    stops:       [s],
+    orderIndex:  0,
+  }));
+
+  const realClusters: Cluster[] = [];
+  for (let cid = 0; cid < numClusters; cid++) {
+    const clStops = clusterMap.get(cid) ?? [];
+    const c = centroid(clStops);
+    realClusters.push({
+      id:          cid,
+      centroidLat: c.lat,
+      centroidLng: c.lng,
+      stops:       clStops,
+      orderIndex:  0,
+    });
+  }
+
+  // 3. Order clusters by nearest-neighbour from depot
+  const allClusters = [...realClusters, ...noiseClusters];
+  const ordered = orderClusters(allClusters, cfg.depotLat, cfg.depotLng);
+
+  // 4. Order stops within each cluster
+  let entryLat = cfg.depotLat;
+  let entryLng = cfg.depotLng;
+  const orderedStops: ClusterStop[] = [];
+
+  for (const cluster of ordered) {
+    const sortedStops = orderStopsInCluster(cluster.stops, entryLat, entryLng);
+    orderedStops.push(...sortedStops);
+    // Next cluster entry = last stop in this cluster
+    const last = sortedStops[sortedStops.length - 1];
+    if (last) { entryLat = last.lat; entryLng = last.lng; }
+    cluster.stops = sortedStops;
+  }
+
+  // 5. Estimate backtrack reduction vs original order
+  const reductionPct = estimateBacktrackReduction(orderedStops, stops);
+
+  return {
+    clusters:    ordered,
+    orderedStops,
+    totalClusters:  numClusters,
+    noiseStops,
+    estimatedBacktrackReductionPct: reductionPct,
+  };
+}
