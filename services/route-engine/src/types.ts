@@ -1,106 +1,107 @@
 /**
- * MJ Maps Systems — Route Engine
- * Core types for stop sequencing, approach logic, and route planning
+ * Route Engine — types
+ *
+ * Central data contracts for the stop sequencer and replan engine.
+ * All other services (turn-engine, bridge-engine, traffic-engine,
+ * property-engine) feed their results into these structures.
  */
 
-import type { TurnAlert } from '../../../packages/vehicle-profiles/index';
-import type { TurnEngineResult, LatLng } from '../../turn-engine/src/types';
+import type { TurnScoreResult } from '../../turn-engine/src/types';
+import type { RestrictionCheckResult } from '../../bridge-engine/src/types';
+import type { PropertyPin } from '../../property-engine/src/types';
 
-// ─── STOP ────────────────────────────────────────────────────────────────────
+// ─── Stop ────────────────────────────────────────────────────────────────────
 
-export type StopStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+export type StopStatus =
+  | 'PENDING'
+  | 'EN_ROUTE'
+  | 'ARRIVED'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SKIPPED';
 
-export interface StopPoint {
-  /** Unique stop identifier within the route */
-  id: string;
-  /** Driver-facing label: house number + street, or property name */
-  label: string;
-  location: LatLng;
-  /** Requested delivery/collection window — null = anytime */
-  timeWindowStart: string | null;  // ISO
-  timeWindowEnd:   string | null;  // ISO
-  /** Estimated dwell time at stop in seconds */
-  dwellTimeS: number;
-  status: StopStatus;
-  /** Stop-level notes (access codes, instructions from sender) */
-  notes: string | null;
-  /** Sequence index in the planned route (0-based) */
-  sequenceIndex: number;
+export interface TimeWindow {
+  /** Earliest acceptable arrival (Unix ms). null = no constraint */
+  earliest: number | null;
+  /** Latest acceptable arrival (Unix ms). null = no constraint */
+  latest:   number | null;
+  /** If true, arriving outside window is a hard failure (not just a warning) */
+  hard:     boolean;
 }
 
-// ─── APPROACHED STOP ─────────────────────────────────────────────────────────
-
-export type ApproachSide = 'LEFT' | 'RIGHT' | 'EITHER';
-export type TurnAroundMethod = 'FORWARD_TURN' | 'REVERSE_OUT' | 'THREE_POINT' | 'NOT_REQUIRED';
-
-export interface ApproachedStop extends StopPoint {
-  /** Turn score result from turn-engine */
-  turnResult: TurnEngineResult;
-  /** Which side of the road to park / deliver from */
-  approachSide: ApproachSide;
-  /** Recommended turn-around method for this stop */
-  turnAroundMethod: TurnAroundMethod;
-  /**
-   * Whether the route engine has pre-computed an alternate approach path
-   * for this stop (used when alert = RED to avoid entering bad road).
-   */
-  hasAlternateApproach: boolean;
-  /** Alternate approach waypoint to navigate to before the stop (if RED) */
-  alternateApproachWaypoint: LatLng | null;
-  /** Distance from current position at which driver must be alerted */
-  alertDistanceM: number;
+export interface Stop {
+  id:            string;
+  sequence:      number;       // 1-based position in the planned route
+  pin:           PropertyPin;
+  status:        StopStatus;
+  timeWindow:    TimeWindow | null;
+  /** Expected dwell time in seconds (load/unload + interaction) */
+  dwellSeconds:  number;
+  /** Parcel / item count at this stop */
+  itemCount:     number;
+  notes:         string | null;
+  /** Barcode / tracking reference */
+  reference:     string | null;
+  /** Pre-computed turn score for this stop's access road */
+  turnScore:     TurnScoreResult | null;
+  /** Pre-computed bridge/restriction check for the segment into this stop */
+  restrictions:  RestrictionCheckResult | null;
+  /** Side of road driver should stop on (L = kerb left, R = kerb right) */
+  stopSide:      'L' | 'R' | null;
+  /** Planned ETA (Unix ms) */
+  eta:           number | null;
+  /** Actual arrival time (Unix ms) */
+  arrivedAt:     number | null;
+  /** Actual departure time (Unix ms) */
+  departedAt:    number | null;
 }
 
-// ─── ROUTE ───────────────────────────────────────────────────────────────────
+// ─── Route ───────────────────────────────────────────────────────────────────
 
-export type RouteStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'ABANDONED';
+export interface RouteConstraints {
+  vehicleId:        string;
+  /** Shift start time (Unix ms) */
+  shiftStartMs:     number;
+  /** Max shift duration in seconds */
+  maxShiftSeconds:  number;
+  /** Max stops per shift */
+  maxStops:         number;
+  /** Depot / start location */
+  depotLat:         number;
+  depotLng:         number;
+  /** Whether driver must return to depot at end of shift */
+  returnToDepot:    boolean;
+}
 
 export interface PlannedRoute {
-  id: string;
-  vehicleProfileId: string;
-  depotLocation: LatLng;
-  stops: ApproachedStop[];
-  /** Total estimated route distance in metres */
-  totalDistanceM: number;
-  /** Total estimated route duration in seconds */
-  totalDurationS: number;
-  status: RouteStatus;
-  createdAt: string;  // ISO
-  /** How many stops were rerouted due to RED turn alerts */
-  redStopsRerouted: number;
-  /** How many stops were resequenced by anti-backtrack sweep */
-  stopsResequenced: number;
+  id:               string;
+  vehicleId:        string;
+  stops:            Stop[];
+  constraints:      RouteConstraints;
+  /** Total estimated distance in metres */
+  totalDistanceM:   number;
+  /** Total estimated duration in seconds */
+  totalDurationSec: number;
+  /** Number of stops with active bridge/restriction blockers */
+  blockerCount:     number;
+  /** Number of stops with AMBER/RED turn scores */
+  turnWarningCount: number;
+  createdAt:        number;
+  lastReplannedAt:  number | null;
 }
 
-// ─── SEQUENCING ──────────────────────────────────────────────────────────────
+// ─── Solver I/O ──────────────────────────────────────────────────────────────
 
-export interface SequencerInput {
-  stops: StopPoint[];
-  vehicleProfileId: string;
-  depotLocation: LatLng;
-  /** Honour hard time windows during sequencing */
-  respectTimeWindows: boolean;
+export interface SolverInput {
+  stops:       Stop[];
+  constraints: RouteConstraints;
 }
 
-export interface SequencerOutput {
-  orderedStops: StopPoint[];
-  /** Indexes of stops that were resequenced vs original input order */
-  resequencedIndexes: number[];
-  /** Estimated total distance saving vs naive order (metres) */
-  estimatedSavingM: number;
-}
-
-// ─── SWEEP ZONE ──────────────────────────────────────────────────────────────
-
-/**
- * A geographic cluster of stops that should be completed together
- * before moving to the next zone — prevents backtracking.
- */
-export interface SweepZone {
-  id: string;
-  centroid: LatLng;
-  radiusM: number;
-  stopIds: string[];
-  /** Suggested entry bearing (degrees) */
-  entryBearing: number | null;
+export interface SolverResult {
+  orderedStops:    Stop[];
+  totalDistanceM:  number;
+  totalDurationSec: number;
+  droppedStops:    Stop[];   // stops that couldn't fit in shift
+  solvedIn:        number;   // ms
+  algorithm:       string;
 }
