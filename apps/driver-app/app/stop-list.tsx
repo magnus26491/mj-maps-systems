@@ -1,0 +1,149 @@
+/**
+ * Stop List Screen — full route view with alert pills.
+ * FlatList with fixed item height for virtualisation performance.
+ * Bottom back button stays in thumb zone.
+ */
+import { useCallback } from 'react';
+import {
+  View, Text, TouchableOpacity, FlatList, StyleSheet,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useShiftStore } from '../store/shift';
+
+const ITEM_HEIGHT = 88;
+
+export default function StopListScreen() {
+  const shift      = useShiftStore(s => s.shift);
+  const stops      = useShiftStore(s => s.stops);
+  const currentIdx = useShiftStore(s => s.currentStop?.index ?? 0);
+
+  const renderStop = useCallback(({ item, index }: any) => {
+    const isDone    = index < currentIdx;
+    const isCurrent = index === currentIdx;
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.stopRow,
+          isCurrent && styles.stopRowCurrent,
+          isDone    && styles.stopRowDone,
+        ]}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={`Stop ${index + 1}: ${item.address}`}
+      >
+        <View style={[
+          styles.indexBadge,
+          isCurrent && styles.indexBadgeCurrent,
+          isDone    && styles.indexBadgeDone,
+        ]}>
+          <Text style={styles.indexText}>{isDone ? '✓' : index + 1}</Text>
+        </View>
+
+        <View style={styles.stopInfo}>
+          <Text
+            style={[styles.stopAddr, isDone && styles.stopAddrDone]}
+            numberOfLines={2}
+          >
+            {item.address}
+          </Text>
+          {item.notes ? (
+            <Text style={styles.stopNote} numberOfLines={1}>{item.notes}</Text>
+          ) : null}
+          <View style={styles.stopMeta}>
+            {item.alertLevel && item.alertLevel !== 'GREEN' && (
+              <View style={[
+                styles.alertPill,
+                item.alertLevel === 'RED'   && styles.alertPillRed,
+                item.alertLevel === 'AMBER' && styles.alertPillAmber,
+              ]}>
+                <Text style={styles.alertPillText}>
+                  {item.alertLevel === 'RED' ? '🚨 No turn' : '⚠️ Tight'}
+                </Text>
+              </View>
+            )}
+            {item.etaLabel && (
+              <Text style={styles.metaText}>{item.etaLabel}</Text>
+            )}
+          </View>
+        </View>
+
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
+    );
+  }, [currentIdx]);
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Back to HUD"
+        >
+          <Text style={styles.backText}>‹ HUD</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>{shift?.totalStops ?? 0} Stops</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <FlatList
+        data={stops}
+        keyExtractor={item => item.id}
+        renderItem={renderStop}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        getItemLayout={(_, index) => ({
+          length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index,
+        })}
+        initialScrollIndex={Math.max(0, currentIdx - 1)}
+        maxToRenderPerBatch={12}
+        windowSize={5}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:               { flex: 1, backgroundColor: '#0f1923' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c2a37',
+  },
+  backBtn:            { minWidth: 60, minHeight: 44, justifyContent: 'center' },
+  backText:           { color: '#4fc3f7', fontSize: 17, fontWeight: '600' },
+  title:              { color: '#e0eaf4', fontSize: 17, fontWeight: '700' },
+  list:               { paddingVertical: 8 },
+  stopRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    minHeight: ITEM_HEIGHT, borderBottomWidth: 1, borderBottomColor: '#1c2a37',
+  },
+  stopRowCurrent:     { backgroundColor: '#1a2f3f' },
+  stopRowDone:        { opacity: 0.45 },
+  indexBadge: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1c2a37', alignItems: 'center', justifyContent: 'center',
+    marginRight: 14,
+  },
+  indexBadgeCurrent:  { backgroundColor: '#4fc3f7' },
+  indexBadgeDone:     { backgroundColor: '#2e7d32' },
+  indexText:          { color: '#e0eaf4', fontWeight: '700', fontSize: 14 },
+  stopInfo:           { flex: 1 },
+  stopAddr:           { color: '#c8d8e8', fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  stopAddrDone:       { color: '#607080' },
+  stopNote:           { color: '#8fa0b0', fontSize: 12, marginTop: 2 },
+  stopMeta:           { flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'center' },
+  alertPill: {
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+    backgroundColor: '#3b2a0d',
+  },
+  alertPillRed:       { backgroundColor: '#3b0d0d' },
+  alertPillAmber:     { backgroundColor: '#3b2a0d' },
+  alertPillText:      { fontSize: 11, fontWeight: '700', color: '#ffe082' },
+  metaText:           { fontSize: 12, color: '#607080' },
+  chevron:            { color: '#2a3f52', fontSize: 22, marginLeft: 8 },
+});

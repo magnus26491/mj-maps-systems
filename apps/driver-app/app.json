@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "MJ Maps",
+    "slug": "mj-maps-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "mjmaps",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f1923"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mjmaps.driver",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "MJ Maps needs your location to guide you to each stop.",
+        "NSLocationAlwaysUsageDescription": "MJ Maps tracks your location in the background so the route updates as you drive.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f1923"
+      },
+      "package": "com.mjmaps.driver",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      ["expo-background-fetch", { "statusBarColor": "#0f1923" }]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
