@@ -1,114 +1,141 @@
 /**
- * Bridge Engine — vehicle height/weight clearance checks.
+ * Bridge & Restriction Engine
  *
- * Checks whether a vehicle can safely pass under a bridge or through
- * a restricted road section, using OSM bridge height/weight data.
+ * Checks height, weight, and width restrictions on the route ahead.
+ * Sources:
+ *  1. OSM tags: maxheight, maxweight, maxwidth on way/node
+ *  2. UK Highways England NTIS feed (closure + restriction events)
+ *  3. Driver-reported corrections (stored in Redis)
  *
- * Called by:
- *  · route-engine at planning time (pre-filters routes with known bridge conflicts)
- *  · turn-engine at approach time (300m warning if bridge on approach path)
- *
- * OSM tags used:
- *  · maxheight (metres) — bridge clearance
- *  · maxweight (tonnes) — weight restriction
- *  · maxwidth  (metres) — width restriction (narrow bridges)
- *
- * Vehicle profiles provide:
- *  · heightM  — vehicle height including load
- *  · weightT  — gross vehicle weight
- *  · widthM   — vehicle width including mirrors
+ * Alert fired when vehicle dimensions breach ANY upcoming restriction
+ * within the next 2km of route.
  */
-import type { VehicleProfile } from '../../packages/vehicle-profiles/index';
 
-export interface BridgeNode {
-  id:          string;  // OSM node/way ID
+export interface VehicleDimensions {
+  heightM:  number;
+  weightT:  number; // tonnes GVW
+  widthM:   number;
+  lengthM:  number;
+}
+
+export interface RoadRestriction {
+  type:        'height' | 'weight' | 'width' | 'length' | 'no_hgv' | 'no_motor_vehicles';
+  valueM?:     number;   // metres — for height/width/length
+  valueT?:     number;   // tonnes — for weight
   lat:         number;
   lng:         number;
-  maxHeightM:  number | null;  // null = unrestricted
-  maxWeightT:  number | null;
-  maxWidthM:   number | null;
-  source:      'osm' | 'community';
+  osmNodeId?:  string;
+  osmWayId?:   string;
+  source:      'osm' | 'ntis' | 'driver_report';
+  reportedAt?: number;
 }
 
-export type BridgeClearance = {
-  canPass:   boolean;
-  limitingFactor: 'height' | 'weight' | 'width' | null;
-  marginM?:  number;   // positive = clearance, negative = clash
-  marginT?:  number;
-  bridge:    BridgeNode;
-};
-
-/**
- * Check if a vehicle can pass a specific bridge node.
- * Returns clearance details so the caller can produce a helpful alert.
- */
-export function checkBridgeClearance(
-  bridge: BridgeNode,
-  vehicle: VehicleProfile,
-): BridgeClearance {
-  let canPass         = true;
-  let limitingFactor: BridgeClearance['limitingFactor'] = null;
-  let marginM: number | undefined;
-  let marginT: number | undefined;
-
-  // Height check — most common bridge strike cause
-  if (bridge.maxHeightM !== null) {
-    marginM = bridge.maxHeightM - vehicle.heightM;
-    if (marginM < 0) {
-      canPass        = false;
-      limitingFactor = 'height';
-    }
-  }
-
-  // Weight check
-  if (canPass && bridge.maxWeightT !== null) {
-    marginT = bridge.maxWeightT - vehicle.weightT;
-    if (marginT < 0) {
-      canPass        = false;
-      limitingFactor = 'weight';
-    }
-  }
-
-  // Width check
-  if (canPass && bridge.maxWidthM !== null) {
-    const wMargin = bridge.maxWidthM - vehicle.widthM;
-    if (wMargin < 0) {
-      canPass        = false;
-      limitingFactor = limitingFactor ?? 'width';
-      marginM        = wMargin; // reuse marginM for width margin
-    }
-  }
-
-  return { canPass, limitingFactor, marginM, marginT, bridge };
+export interface RestrictionAlert {
+  breached:     boolean;
+  restriction?: RoadRestriction;
+  message?:     string;
+  alertLevel:   'GREEN' | 'AMBER' | 'RED';
 }
 
 /**
- * Filter a list of bridge nodes to only those that conflict with the vehicle.
- * Used by route-engine to pre-screen a planned path before sending to driver.
+ * Parse OSM maxheight tag value into metres.
+ * Handles: "4.2", "4.2 m", "14'0\"", "imperial" notations.
  */
-export function findBridgeConflicts(
-  bridges: BridgeNode[],
-  vehicle: VehicleProfile,
-): BridgeClearance[] {
-  return bridges
-    .map(b => checkBridgeClearance(b, vehicle))
-    .filter(r => !r.canPass);
+export function parseMaxHeight(raw: string): number | null {
+  if (!raw) return null;
+  const clean = raw.trim();
+
+  // Decimal metres: "4.2" or "4.2 m"
+  const metricMatch = clean.match(/^([\d.]+)\s*m?$/);
+  if (metricMatch) return parseFloat(metricMatch[1]);
+
+  // Feet and inches: 14'0" or 14'
+  const imperialMatch = clean.match(/^(\d+)'\s*(\d+)?"?$/);
+  if (imperialMatch) {
+    const feet   = parseInt(imperialMatch[1], 10);
+    const inches = parseInt(imperialMatch[2] ?? '0', 10);
+    return parseFloat(((feet * 12 + inches) * 0.0254).toFixed(2));
+  }
+
+  return null;
 }
 
 /**
- * Human-readable alert message for a bridge conflict.
- * Used by the HUD and turn-warning overlay.
+ * Parse OSM maxweight tag into tonnes.
+ * Handles: "7.5", "7.5 t", "3.5 T"
  */
-export function bridgeAlertMessage(clearance: BridgeClearance): string {
-  const { limitingFactor, marginM, marginT, bridge } = clearance;
-  switch (limitingFactor) {
+export function parseMaxWeight(raw: string): number | null {
+  if (!raw) return null;
+  const match = raw.trim().match(/^([\d.]+)\s*[tT]?$/);
+  return match ? parseFloat(match[1]) : null;
+}
+
+/**
+ * Check whether a vehicle breaches a single restriction.
+ */
+export function checkRestriction(
+  vehicle: VehicleDimensions,
+  restriction: RoadRestriction,
+): RestrictionAlert {
+  let breached = false;
+  let message: string | undefined;
+
+  switch (restriction.type) {
     case 'height':
-      return `Bridge ahead: ${bridge.maxHeightM}m clearance — your vehicle is ${Math.abs(marginM ?? 0).toFixed(2)}m too tall.`;
+      if (restriction.valueM !== undefined && vehicle.heightM > restriction.valueM) {
+        breached = true;
+        message = `Vehicle height ${vehicle.heightM}m exceeds ${restriction.valueM}m limit`;
+      }
+      break;
     case 'weight':
-      return `Weight limit ahead: ${bridge.maxWeightT}t — your vehicle exceeds by ${Math.abs(marginT ?? 0).toFixed(1)}t.`;
+      if (restriction.valueT !== undefined && vehicle.weightT > restriction.valueT) {
+        breached = true;
+        message = `Vehicle weight ${vehicle.weightT}t exceeds ${restriction.valueT}t limit`;
+      }
+      break;
     case 'width':
-      return `Narrow bridge: ${bridge.maxWidthM}m wide — your vehicle needs ${Math.abs(marginM ?? 0).toFixed(2)}m more clearance.`;
-    default:
-      return 'Restriction ahead — check before proceeding.';
+      if (restriction.valueM !== undefined && vehicle.widthM > restriction.valueM) {
+        breached = true;
+        message = `Vehicle width ${vehicle.widthM}m exceeds ${restriction.valueM}m limit`;
+      }
+      break;
+    case 'length':
+      if (restriction.valueM !== undefined && vehicle.lengthM > restriction.valueM) {
+        breached = true;
+        message = `Vehicle length ${vehicle.lengthM}m exceeds ${restriction.valueM}m limit`;
+      }
+      break;
+    case 'no_hgv':
+      if (vehicle.weightT > 3.5) {
+        breached = true;
+        message = `No HGV restriction — vehicle over 3.5t`;
+      }
+      break;
+    case 'no_motor_vehicles':
+      breached = true;
+      message  = `No motor vehicles permitted on this road`;
+      break;
   }
+
+  return {
+    breached,
+    restriction: breached ? restriction : undefined,
+    message,
+    alertLevel: breached ? 'RED' : 'GREEN',
+  };
+}
+
+/**
+ * Check a vehicle against a list of upcoming restrictions.
+ * Returns the first RED breach found, or GREEN if all clear.
+ */
+export function checkUpcomingRestrictions(
+  vehicle: VehicleDimensions,
+  restrictions: RoadRestriction[],
+): RestrictionAlert {
+  for (const r of restrictions) {
+    const result = checkRestriction(vehicle, r);
+    if (result.breached) return result;
+  }
+  return { breached: false, alertLevel: 'GREEN' };
 }
