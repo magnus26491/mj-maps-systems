@@ -101,7 +101,7 @@ export async function resolvePostcode(
   try {
     const pcRes = await fetch(`${POSTCODE_IO_BASE}/postcodes/${encodeURIComponent(normalised)}`);
     if (pcRes.ok) {
-      const pcData = await pcRes.json();
+      const pcData = await pcRes.json() as { result?: { latitude: number; longitude: number } };
       centroidLat = pcData.result?.latitude ?? 0;
       centroidLng = pcData.result?.longitude ?? 0;
     }
@@ -119,7 +119,7 @@ export async function resolvePostcode(
 
     const geoRes = await fetch(geoUrl.toString());
     if (geoRes.ok) {
-      const geoData = await geoRes.json();
+      const geoData = await geoRes.json() as { results?: Array<{ place_id?: string; formatted?: string; address_line1?: string; street?: string; lat: number; lon: number; rank?: { confidence?: number } }> };
       for (const r of geoData.results ?? []) {
         candidates.push({
           id:         r.place_id ?? `geo-${candidates.length}`,

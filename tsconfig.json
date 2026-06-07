@@ -19,6 +19,15 @@
     "noImplicitAny": false,
     "strictNullChecks": false
   },
-  "include": ["api/**/*", "services/**/*", "packages/**/*"],
-  "exclude": ["node_modules", "dist", "**/__tests__/**", "apps/**/*"]
+  "include": ["api/**/*", "services/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/__tests__/**",
+    "apps/**/*",
+    "packages/offline-cache/**/*",
+    "packages/sync-queue/**/*",
+    "packages/driver-app/**/*",
+    "services/sync-queue/**/*"
+  ]
 }
