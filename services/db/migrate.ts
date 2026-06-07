@@ -21,7 +21,8 @@
  */
 
 import { readdir, readFile } from 'fs/promises';
-import { join, dirname } from 'path';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { pool } from './index.js';
 
 // ── Env guard ────────────────────────────────────────────────────────────────
@@ -34,15 +35,18 @@ if (!CONNECTION_STRING) {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-// MIGRATIONS_DIR uses process.cwd() (the repo root) so the path is always:
-//   <repo>/services/db/migrations
-// This works in both execution contexts:
-//   ts-node services/db/migrate.ts  →  cwd = repo root  ✅
-//   node dist/services/db/migrate.js  →  cwd = repo root (/app on Railway)  ✅
+// MIGRATIONS_DIR resolves to where the .sql migration files live.
+// The build step (npm run build) copies services/db/migrations/ into dist/,
+// so the dist path always exists in production.  In local dev (ts-node without
+// a prior build) dist/ may not exist, so we fall back to the source path.
 //
-// NOT __dirname — that resolves to <repo>/dist/services/db at runtime, and
-// '../..' from there only reaches <repo>/dist, not the repo root.
-const MIGRATIONS_DIR = join(process.cwd(), 'services', 'db', 'migrations');
+// Production (Nixpacks, after npm run build):  distPath → dist/services/db/migrations ✅
+// Local ts-node (no build run):                srcPath  → services/db/migrations     ✅
+const MIGRATIONS_DIR = (() => {
+  const distPath = join(process.cwd(), 'dist', 'services', 'db', 'migrations');
+  const srcPath  = join(process.cwd(), 'services', 'db', 'migrations');
+  return existsSync(distPath) ? distPath : srcPath;
+})();
 
 const CREATE_TRACKING_TABLE = `
 CREATE TABLE IF NOT EXISTS _migrations (
