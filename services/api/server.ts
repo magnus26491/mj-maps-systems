@@ -4,8 +4,8 @@
  * POST /api/v1/routes/optimise
  * GET  /api/v1/routes/:routeId/intel
  * POST /api/v1/routes/:routeId/replan
- * GET  /api/v1/routes/:routeId/alerts        ← NEW: full pre-departure alert list
- * GET  /api/v1/routes/:routeId/alerts/red    ← NEW: DO_NOT_ENTER stops only
+ * GET  /api/v1/routes/:routeId/alerts
+ * GET  /api/v1/routes/:routeId/alerts/red
  * POST /api/v1/driver/event
  * GET  /api/v1/turn-score
  * POST /api/v1/auth/token
@@ -117,8 +117,10 @@ const RouteConfigSchema = z.object({
   shiftStartEpoch: z.number().optional(),
 });
 
-// routeId must be a non-empty string — no slashes (prevents path traversal in logs)
-const RouteIdSchema = z.string().min(1).max(128).regex(/^[\w-]+$/, 'routeId must be alphanumeric/hyphen/underscore only');
+const RouteIdSchema = z.string().min(1).max(128).regex(
+  /^[\w-]+$/,
+  'routeId must be alphanumeric/hyphen/underscore only',
+);
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 
@@ -146,13 +148,15 @@ server.post('/api/v1/auth/token', async (request, reply) => {
   return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
 });
 
-/** Optimise a new route */
+/** Optimise + auto-enrich a new route */
 server.post(
   '/api/v1/routes/optimise',
   { preHandler: [(server as any).authenticate] },
   async (request, reply) => {
-    const body = z.object({ stops: z.array(StopSchema).min(1), config: RouteConfigSchema })
-      .safeParse(request.body);
+    const body = z.object({
+      stops:  z.array(StopSchema).min(1),
+      config: RouteConfigSchema,
+    }).safeParse(request.body);
     if (!body.success) return reply.code(400).send({ ok: false, error: body.error.message });
     return handleOptimiseRoute(request as any, reply as any);
   },
@@ -164,8 +168,9 @@ server.get(
   { preHandler: [(server as any).authenticate] },
   async (request, reply) => {
     const { routeId } = request.params as { routeId: string };
-    const parsed = RouteIdSchema.safeParse(routeId);
-    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    if (!RouteIdSchema.safeParse(routeId).success) {
+      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    }
     return handleRouteIntelligence(request as any, reply as any);
   },
 );
@@ -176,16 +181,16 @@ server.post(
   { preHandler: [(server as any).authenticate] },
   async (request, reply) => {
     const { routeId } = request.params as { routeId: string };
-    const parsed = RouteIdSchema.safeParse(routeId);
-    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    if (!RouteIdSchema.safeParse(routeId).success) {
+      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    }
     return handleManualReplan(request as any, reply as any);
   },
 );
 
 /**
  * GET /api/v1/routes/:routeId/alerts
- * Full pre-departure alert list — all BLUE, AMBER, RED events.
- * Rate-limited tighter than global (20 req/min) — enrichment is expensive.
+ * Full pre-departure alert list. Rate-limited tighter (20/min).
  */
 server.get(
   '/api/v1/routes/:routeId/alerts',
@@ -195,16 +200,16 @@ server.get(
   },
   async (request, reply) => {
     const { routeId } = request.params as { routeId: string };
-    const parsed = RouteIdSchema.safeParse(routeId);
-    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    if (!RouteIdSchema.safeParse(routeId).success) {
+      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    }
     return handleRouteAlerts(request as any, reply as any);
   },
 );
 
 /**
  * GET /api/v1/routes/:routeId/alerts/red
- * Dispatcher-facing endpoint — only DO_NOT_ENTER stops.
- * Called before the driver departs to surface vehicle-impassable addresses.
+ * Dispatcher: impassable stops only.
  */
 server.get(
   '/api/v1/routes/:routeId/alerts/red',
@@ -214,13 +219,14 @@ server.get(
   },
   async (request, reply) => {
     const { routeId } = request.params as { routeId: string };
-    const parsed = RouteIdSchema.safeParse(routeId);
-    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    if (!RouteIdSchema.safeParse(routeId).success) {
+      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    }
     return handleRouteAlertsRed(request as any, reply as any);
   },
 );
 
-/** HTTP fallback for driver events when WebSocket drops */
+/** HTTP fallback for driver events */
 server.post(
   '/api/v1/driver/event',
   { preHandler: [(server as any).authenticate] },
@@ -228,8 +234,8 @@ server.post(
 );
 
 /**
- * Live turn feasibility check — called as driver approaches a stop.
- * Target: < 200ms p99. Redis-first, Overpass fallback.
+ * Live turn feasibility check.
+ * FIXED: now passes { lat, lng, vehicleId } object to resolveTurnScore.
  */
 server.get(
   '/api/v1/turn-score',
@@ -247,16 +253,16 @@ server.get(
     }
 
     const { lat, lng, vehicleId } = parsed.data;
-    const vehicle = VEHICLE_PROFILES[vehicleId];
 
-    if (!vehicle) {
+    if (!VEHICLE_PROFILES[vehicleId]) {
       return reply.code(400).send({
         ok: false,
         error: `Unknown vehicleId: ${vehicleId}. Valid: ${Object.keys(VEHICLE_PROFILES).join(', ')}`,
       });
     }
 
-    const result = await resolveTurnScore(lat, lng, vehicle);
+    // Correct signature: { lat, lng, vehicleId } not (lat, lng, vehicleObject)
+    const result = await resolveTurnScore({ lat, lng, vehicleId });
     return reply.send({ ok: true, data: result, durationMs: Date.now() - t0 });
   },
 );

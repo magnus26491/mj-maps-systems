@@ -4,7 +4,7 @@
  * REST + WebSocket endpoints consumed by the driver mobile app.
  *
  * REST endpoints:
- *  POST /api/v1/routes/optimise              — optimise a new route
+ *  POST /api/v1/routes/optimise              — optimise + auto-enrich a new route
  *  GET  /api/v1/routes/:routeId/intel        — stop intelligence for route
  *  POST /api/v1/routes/:routeId/replan       — manual replan request
  *  GET  /api/v1/routes/:routeId/alerts       — pre-departure alert list (all)
@@ -18,31 +18,35 @@
 
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { optimiseRoute, type Stop, type RouteConfig } from '../route-engine/route-engine';
-import { buildRouteIntelligence, buildStopIntelligence, type StopIntelligenceInput } from '../property-engine/stop-intelligence';
+import { buildRouteIntelligence, type StopIntelligenceInput } from '../property-engine/stop-intelligence';
 import { processDriverEvent, createSession, getSession, type DriverEvent } from '../route-engine/dynamic-replan';
 import {
   buildAlertEvents,
   getRedEvents,
   summariseAlerts,
-  type EnrichedStop,
-} from '../alert-dispatcher/alert-dispatcher';
+  type EnrichedStopInput,
+} from '../turn-engine/src/alert-dispatcher';
+import {
+  enrichRouteBackground,
+  generateRouteId,
+} from '../turn-engine/src/enrichment-pipeline';
 
 // ─── IN-MEMORY ENRICHED ROUTE STORE ──────────────────────────────────────────
-// Holds the most recent EnrichedStop[] per routeId.
-// In production this would be a Redis hash keyed by routeId with a TTL matching
-// the shift length (~12h). For the initial Railway deployment, in-memory is
-// sufficient for single-instance operation and avoids a Redis dep on day one.
+// Holds the most recent EnrichedStopInput[] per routeId.
+// In production this would be a Redis hash keyed by routeId with a TTL
+// matching the shift length (~12h). For the initial Railway deployment,
+// in-memory is sufficient for single-instance operation.
 
-const enrichedRouteStore = new Map<string, { stops: EnrichedStop[]; storedAt: number }>();
+const enrichedRouteStore = new Map<string, { stops: EnrichedStopInput[]; storedAt: number }>();
 
-export function setEnrichedRoute(routeId: string, stops: EnrichedStop[]): void {
+export function setEnrichedRoute(routeId: string, stops: EnrichedStopInput[]): void {
   enrichedRouteStore.set(routeId, { stops, storedAt: Date.now() });
 }
 
-export function getEnrichedRoute(routeId: string): EnrichedStop[] | null {
+export function getEnrichedRoute(routeId: string): EnrichedStopInput[] | null {
   const entry = enrichedRouteStore.get(routeId);
   if (!entry) return null;
-  // Evict if older than 14 hours (shift + margin)
+  // Evict if older than 14 hours (shift + 2h margin)
   if (Date.now() - entry.storedAt > 14 * 60 * 60 * 1000) {
     enrichedRouteStore.delete(routeId);
     return null;
@@ -72,6 +76,15 @@ function fail(error: string, t0: number): ApiResponse<never> {
 /**
  * POST /api/v1/routes/optimise
  * Body: { stops: Stop[], config: RouteConfig }
+ *
+ * Flow:
+ *  1. optimiseRoute()             — order stops, check time windows (sync)
+ *  2. reply.send()                — return result to client immediately (~10ms)
+ *  3. enrichRouteBackground()     — enrich in background (OSM calls, ~2-8s)
+ *
+ * The client receives routeId in the response and can poll
+ * GET /routes/:routeId/alerts once enrichment completes (~3-10s later).
+ * A future enhancement will push enrichment-complete via WebSocket.
  */
 export async function handleOptimiseRoute(
   request: FastifyRequest,
@@ -80,13 +93,30 @@ export async function handleOptimiseRoute(
   const t0 = Date.now();
   try {
     const { stops, config } = request.body as { stops: Stop[]; config: RouteConfig };
+
     if (!Array.isArray(stops) || stops.length === 0 || !config) {
       reply.code(400).send(fail('Missing or empty stops, or missing config', t0));
       return;
     }
+
+    // 1. Optimise stop order
     const result = await optimiseRoute(stops, config);
-    createSession(config.vehicleId + '-route-' + t0, 'driver', stops, config);
-    reply.send(ok(result, t0));
+
+    // 2. Generate a stable routeId for this run
+    const routeId = generateRouteId(
+      config.vehicleId,
+      config.depotLat,
+      config.depotLng,
+    );
+
+    // 3. Create live session for dynamic replanning
+    createSession(routeId, 'driver', stops, config);
+
+    // 4. Return result to client immediately — don’t wait for enrichment
+    reply.send(ok({ routeId, ...result }, t0));
+
+    // 5. Enrich in background (fire-and-forget, never throws to HTTP layer)
+    enrichRouteBackground(result.orderedStops, config.vehicleId, routeId);
   } catch (err) {
     reply.code(500).send(fail((err as Error).message, t0));
   }
@@ -112,15 +142,15 @@ export async function handleRouteIntelligence(
     }
 
     const inputs: StopIntelligenceInput[] = stops.map(s => ({
-      stopId:   s.id,
-      lat:      s.lat,
-      lng:      s.lng,
-      rawAddress: (s as any).notes ?? '',
+      stopId:      s.id,
+      lat:         s.lat,
+      lng:         s.lng,
+      rawAddress:  (s as any).notes ?? '',
       vehicleId,
       parcel: { count: 1, totalWeightKg: 2, isOversize: false, requiresSignature: false },
       roadApproach: null,
-      isApartment: ((s as any).notes ?? '').toLowerCase().includes('flat') ||
-                   ((s as any).notes ?? '').toLowerCase().includes('apt'),
+      isApartment:  ((s as any).notes ?? '').toLowerCase().includes('flat') ||
+                    ((s as any).notes ?? '').toLowerCase().includes('apt'),
     }));
 
     const intel = await buildRouteIntelligence(inputs);
@@ -166,7 +196,6 @@ export async function handleManualReplan(
 
 /**
  * POST /api/v1/driver/event
- * Body: DriverEvent
  * HTTP fallback when WebSocket is unavailable (e.g. tunnel / poor signal).
  */
 export async function handleDriverEvent(
@@ -192,20 +221,9 @@ export async function handleDriverEvent(
 /**
  * GET /api/v1/routes/:routeId/alerts
  *
- * Returns the full pre-departure alert list for a route.
- * The driver app calls this once after optimisation to build its nav overlay.
- *
- * Response shape:
- * {
- *   ok: true,
- *   data: {
- *     routeId: string,
- *     summary: { blue: number, amber: number, red: number, impassable: string[] },
- *     events:  AlertEvent[],
- *     enrichedAt: number,   // epoch ms of when enrichment ran
- *   },
- *   durationMs: number
- * }
+ * Full pre-departure alert list. Driver app calls this once after optimisation
+ * to build its nav overlay. Background enrichment will have completed by then
+ * in the normal 3-10s window between optimise and driver departure.
  */
 export async function handleRouteAlerts(
   request: FastifyRequest,
@@ -218,19 +236,28 @@ export async function handleRouteAlerts(
   if (!stops) {
     reply.code(404).send(fail(
       `No enriched route found for routeId: ${routeId}. ` +
-      'Run POST /api/v1/routes/optimise first, then enrich via the turn-engine.',
+      'Enrichment may still be running — retry in a few seconds.',
       t0,
     ));
     return;
   }
 
   try {
-    const events   = buildAlertEvents(stops);
-    const summary  = summariseAlerts(stops);
-    // Surface the enrichedAt from the first stop (all stops share same enrichment pass)
-    const enrichedAt = stops[0]?.enrichedAt ?? Date.now();
+    const events    = buildAlertEvents(stops);
+    const summary   = summariseAlerts(stops);
+    const enrichedAt = stops[0]?.osmContext?.fetchedAt ?? new Date().toISOString();
 
-    reply.send(ok({ routeId, summary, events, enrichedAt }, t0));
+    reply.send(ok({
+      routeId,
+      summary: {
+        blue:       summary.blue,
+        amber:      summary.amber,
+        red:        summary.red,
+        impassable: summary.doNotEnterStops,
+      },
+      events,
+      enrichedAt,
+    }, t0));
   } catch (err) {
     reply.code(500).send(fail((err as Error).message, t0));
   }
@@ -239,20 +266,7 @@ export async function handleRouteAlerts(
 /**
  * GET /api/v1/routes/:routeId/alerts/red
  *
- * Returns only DO_NOT_ENTER stops — used by the dispatcher console to
- * flag routes that contain vehicle-impassable stops before the driver departs.
- *
- * Response shape:
- * {
- *   ok: true,
- *   data: {
- *     routeId:    string,
- *     redCount:   number,
- *     impassable: string[],   // human-readable addresses
- *     events:     AlertEvent[],
- *   },
- *   durationMs: number
- * }
+ * Dispatcher-facing: only DO_NOT_ENTER stops before driver departs.
  */
 export async function handleRouteAlertsRed(
   request: FastifyRequest,
@@ -273,7 +287,7 @@ export async function handleRouteAlertsRed(
   try {
     const events     = getRedEvents(stops);
     const summary    = summariseAlerts(stops);
-    const impassable = summary.impassable;
+    const impassable = summary.doNotEnterStops;
 
     reply.send(ok({ routeId, redCount: events.length, impassable, events }, t0));
   } catch (err) {
