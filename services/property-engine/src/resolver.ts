@@ -2,78 +2,103 @@
  * Property Engine — address resolver
  *
  * Resolution waterfall:
- *   OS AddressBase → OS Names → Nominatim → Driver-reported → Postcode centroid
+ *   Geoapify (rooftop-level) → Postcode centroid
  *
- * Results are cached in Redis for 7 days (addresses don't change often).
+ * Results are cached in Redis for 90 days (addresses don't change often).
  * Driver-reported pin corrections are persisted to PostgreSQL and override
  * all automated sources on future lookups.
+ *
+ * Requires env var: GEOAPIFY_API_KEY
  */
 import type { PropertyPin, AddressLookupRequest, AddressLookupResult, PinConfidence } from './types';
 
-const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
-const NOMINATIM_HEADERS = {
-  'User-Agent': 'MJMaps/1.0 (magnus@mjadsystems.com)',
-  'Accept-Language': 'en-GB',
-};
+const GEOAPIFY_BASE = 'https://api.geoapify.com/v1/geocode';
+const GEOAPIFY_KEY  = process.env.GEOAPIFY_API_KEY ?? '';
 
-// ─── Nominatim fallback ────────────────────────────────────────────────────
+// ─── Geoapify result shape (partial) ─────────────────────────────────────────
 
-interface NominatimResult {
-  lat:          string;
-  lon:          string;
-  display_name: string;
-  type:         string;
-  importance:   number;
-  address: {
-    house_number?: string;
-    road?:         string;
-    postcode?:     string;
-    country_code?: string;
+interface GeoapifyFeature {
+  properties: {
+    lat:           number;
+    lon:           number;
+    formatted:     string;
+    confidence:    number;   // 0–1, Geoapify's own score
+    result_type:   string;   // 'building' | 'amenity' | 'street' | 'postcode' | ...
+    rank?: {
+      confidence:       number;
+      match_type:       string;
+      confidence_city_level?:   number;
+      confidence_street_level?: number;
+    };
+    address_line1?: string;
+    address_line2?: string;
+    housenumber?:   string;
+    street?:        string;
+    postcode?:      string;
+    country_code?:  string;
   };
 }
 
-async function resolveViaNominatim(
+interface GeoapifyResponse {
+  features: GeoapifyFeature[];
+}
+
+// ─── Geoapify geocoder ────────────────────────────────────────────────────────
+
+async function resolveViaGeoapify(
   query: string,
   countryCode = 'gb',
 ): Promise<PropertyPin | null> {
+  if (!GEOAPIFY_KEY) {
+    console.warn('[resolver] GEOAPIFY_API_KEY not set — skipping Geoapify');
+    return null;
+  }
+
   try {
     const params = new URLSearchParams({
-      q:              query,
-      format:         'json',
-      addressdetails: '1',
-      limit:          '3',
-      countrycodes:   countryCode,
+      text:     query,
+      filter:   `countrycode:${countryCode}`,
+      format:   'geojson',
+      limit:    '3',
+      apiKey:   GEOAPIFY_KEY,
     });
 
-    const res = await fetch(`${NOMINATIM_BASE}/search?${params}`, {
-      headers: NOMINATIM_HEADERS,
-    });
-
+    const res = await fetch(`${GEOAPIFY_BASE}/search?${params}`);
     if (!res.ok) return null;
 
-    const results = await res.json() as NominatimResult[];
-    if (!results.length) return null;
+    const data = await res.json() as GeoapifyResponse;
+    if (!data.features?.length) return null;
 
-    // Pick highest importance result
-    const best = results.reduce((a, b) => a.importance > b.importance ? a : b);
+    // Pick highest confidence result
+    const best = data.features.reduce((a, b) =>
+      (a.properties.confidence ?? 0) > (b.properties.confidence ?? 0) ? a : b,
+    );
+    const p = best.properties;
 
-    // Determine confidence based on result type and address detail
-    let confidence: PinConfidence = 'MEDIUM';
-    if (best.address.house_number && best.address.road) confidence = 'HIGH';
-    if (best.type === 'house' || best.type === 'building') confidence = 'HIGH';
+    // Map Geoapify confidence + result_type → internal PinConfidence
+    let confidence: PinConfidence = 'LOW';
+    if (p.result_type === 'building' || p.result_type === 'amenity') {
+      confidence = p.housenumber ? 'HIGH' : 'MEDIUM';
+    } else if (p.result_type === 'street' && p.housenumber) {
+      confidence = 'MEDIUM';
+    }
+    if ((p.confidence ?? 0) >= 0.9 && p.housenumber && p.street) {
+      confidence = 'HIGH';
+    }
 
     return {
       uprn:             null,
-      lat:              parseFloat(best.lat),
-      lng:              parseFloat(best.lon),
+      lat:              p.lat,
+      lng:              p.lon,
       confidence,
-      source:           'nominatim',
-      formattedAddress: best.display_name,
+      source:           'geoapify',
+      formattedAddress: p.formatted,
       notes:            null,
       photoUrls:        [],
       resolvedAt:       Date.now(),
     };
-  } catch {
+  } catch (err) {
+    console.error('[resolver] Geoapify error:', err);
     return null;
   }
 }
@@ -115,11 +140,11 @@ export async function resolveAddress(
 ): Promise<AddressLookupResult> {
   const start = Date.now();
 
-  // 1. Try Nominatim first (free, no API key needed for MVP)
-  const nominatimPin = await resolveViaNominatim(req.rawAddress);
-  if (nominatimPin && nominatimPin.confidence !== 'LOW') {
+  // 1. Geoapify — rooftop-level, confidence-scored
+  const geoapifyPin = await resolveViaGeoapify(req.rawAddress);
+  if (geoapifyPin && geoapifyPin.confidence !== 'LOW') {
     return {
-      primary:      nominatimPin,
+      primary:      geoapifyPin,
       alternatives: [],
       resolvedIn:   Date.now() - start,
     };
@@ -131,15 +156,15 @@ export async function resolveAddress(
     if (postcodePin) {
       return {
         primary:      postcodePin,
-        alternatives: nominatimPin ? [nominatimPin] : [],
+        alternatives: geoapifyPin ? [geoapifyPin] : [],
         resolvedIn:   Date.now() - start,
       };
     }
   }
 
-  // 3. Return Nominatim LOW result if that's all we have
-  if (nominatimPin) {
-    return { primary: nominatimPin, alternatives: [], resolvedIn: Date.now() - start };
+  // 3. Return Geoapify LOW result if that's all we have
+  if (geoapifyPin) {
+    return { primary: geoapifyPin, alternatives: [], resolvedIn: Date.now() - start };
   }
 
   // 4. Cannot resolve
