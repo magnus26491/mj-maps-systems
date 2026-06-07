@@ -32,6 +32,7 @@ import {
 } from '../turn-engine/src/enrichment-pipeline';
 import { triggerEtaNotifications } from '../notifications/eta-notifier.js';
 import { getAccessBrief } from '../db/failed-store.js';
+import { scoreShiftWorkload, type WorkloadInput } from '../workload/shift-load-scorer.js';
 
 // ─── IN-MEMORY ENRICHED ROUTE STORE ──────────────────────────────────────────
 // Holds the most recent EnrichedStopInput[] per routeId.
@@ -116,6 +117,54 @@ export async function handleOptimiseRoute(
 
     // 4. Return result to client immediately — don’t wait for enrichment
     reply.send(ok({ routeId, ...result }, t0));
+
+    // 4b. Workload guard (fire-and-forget, runs after reply is sent)
+    (async () => {
+      try {
+        // Build WorkloadInput from the ordered stops.
+        // Use available fields; unknown fields default to base WUC of 1.0.
+        const workloadInputs: WorkloadInput[] = result.orderedStops.map(s => ({
+          stopId:            s.id,
+          flightsOfStairs:  (s as any).flightsOfStairs ?? 0,
+          isOversize:        (s as any).isOversize ?? false,
+          requiresSignature: (s as any).requiresSignature ?? false,
+          walkDistanceM:     (s as any).walkDistanceM ?? 30,
+          parcelCount:       (s as any).parcelCount ?? 1,
+          weight_kg:         (s as any).weight_kg ?? 0,
+        }));
+
+        const workload = scoreShiftWorkload(workloadInputs);
+
+        // Classify severity
+        const severity =
+          workload.totalWuc >= 180 ? 'overload' :
+          workload.totalWuc >= 150 ? 'critical' :
+          workload.totalWuc >= 120 ? 'high' : 'ok';
+
+        if (severity === 'ok') return; // no action needed
+
+        // HIGH/CRITICAL/OVERLOAD — log workload alert
+        console.warn(
+          `[workload] Route ${routeId} severity=${severity} ` +
+          `wuc=${workload.totalWuc} safeStops=${workload.safeStopCount}/${workloadInputs.length}`
+        );
+
+        // OVERLOAD only — fire Telegram alert to dispatcher
+        if (severity === 'overload') {
+          const { sendWorkloadOverloadAlert } = await import('../notifications/telegram-alerts.js');
+          sendWorkloadOverloadAlert({
+            routeId,
+            vehicleId:     config.vehicleId,
+            totalWuc:      workload.totalWuc,
+            totalStops:    workloadInputs.length,
+            safeStopCount: workload.safeStopCount,
+            recommendations: workload.recommendations,
+          }).catch(err => console.warn('[workload] Telegram alert failed:', err));
+        }
+      } catch (err) {
+        console.warn('[workload] scoreShiftWorkload failed (non-fatal):', err);
+      }
+    })();
 
     // 5. Enrich in background (fire-and-forget, never throws to HTTP layer)
     enrichRouteBackground(result.orderedStops, config.vehicleId, routeId);

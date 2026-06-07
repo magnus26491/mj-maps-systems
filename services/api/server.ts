@@ -105,7 +105,7 @@ const start = async () => {
     origin: NODE_ENV === 'production'
       ? ['https://mjmaps.app', 'https://app.mjmaps.app']
       : true,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   await server.register(fastifyCompress, {
@@ -315,13 +315,24 @@ const start = async () => {
   );
 
   // ── WebSocket ──────────────────────────────────────────────────────────────────────
-  // TODO: gate LIVE_TRACKING_WS — requires plan check before socket upgrade
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
-      { websocket: true },
+      {
+        websocket: true,
+        preHandler: [requireAuth, requireFeature('LIVE_TRACKING_WS')],
+      },
       (socket: any, req: any) => {
-        const { driverId, routeId } = req.params;
+        const { driverId, routeId } = req.params as { driverId: string; routeId: string };
+
+        // Security: ensure the authenticated driver can only open their own socket.
+        // JWT sub is set to driverId at login (see authRoutes).
+        const jwtDriverId = (req as any).authUser?.sub ?? (req as any).user?.sub;
+        if (jwtDriverId && jwtDriverId !== driverId) {
+          socket.close(4003, 'Forbidden — token does not match driverId');
+          return;
+        }
+
         handleDriverWebSocket(socket, driverId, routeId);
       },
     );

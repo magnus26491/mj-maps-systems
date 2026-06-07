@@ -195,3 +195,40 @@ export async function sendAlertBatch(
     await new Promise(r => setTimeout(r, 200));
   }
 }
+
+
+// ─── WORKLOAD OVERLOAD ALERT ─────────────────────────────────────────────────
+
+export interface WorkloadAlertPayload {
+  routeId: string;
+  vehicleId: string;
+  totalWuc: number;
+  totalStops: number;
+  safeStopCount: number;
+  recommendations: string[];
+}
+
+
+/**
+ * Fires a Telegram message to the dispatcher when a route exceeds safe workload.
+ * Only called when totalWuc >= 180 (OVERLOAD threshold).
+ * Non-fatal — callers must .catch() this.
+ */
+export async function sendWorkloadOverloadAlert(payload: WorkloadAlertPayload): Promise<void> {
+  // Reuse the global config from sendAlert if available, otherwise use TELEGRAM_BOT_TOKEN env
+  const botToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
+  const dispatcherChatId = process.env.TELEGRAM_DISPATCHER_CHAT_ID ?? '';
+  if (!botToken || !dispatcherChatId) return;
+
+  const recs = payload.recommendations.map(r => `• ${r}`).join('\n');
+  const message =
+    `🔴 OVERLOAD ALERT — Route exceeds safe workload\n\n` +
+    `Route ID: ${payload.routeId}\n` +
+    `Vehicle: ${payload.vehicleId}\n` +
+    `Total WUC: ${payload.totalWuc.toFixed(0)} / 180 max\n` +
+    `Stops: ${payload.totalStops} total, ${payload.safeStopCount} safe\n\n` +
+    `Action required: reduce route or reassign stops.\n\n` +
+    (recs ? `Recommendations:\n${recs}` : '');
+
+  await sendTelegramMessage(botToken, dispatcherChatId, message);
+}
