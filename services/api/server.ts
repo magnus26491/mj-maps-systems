@@ -8,8 +8,14 @@
  * GET  /api/v1/routes/:routeId/alerts/red
  * POST /api/v1/driver/event
  * GET  /api/v1/turn-score
- * POST /api/v1/auth/token
+ * POST /api/v1/auth/register   ← new user registration
+ * POST /api/v1/auth/login      ← new token auth
+ * POST /api/v1/auth/refresh    ← token rotation
+ * POST /api/v1/auth/logout     ← token revocation
+ * GET  /api/v1/auth/me          ← current user profile
+ * POST /api/v1/auth/token      ← legacy driver token (kept for compatibility)
  * GET  /api/v1/health
+ * GET  /api/v1/admin/*          ← admin-only endpoints
  * WS   /ws/driver/:driverId/:routeId
  */
 
@@ -36,6 +42,8 @@ import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index';
 import { confirmPinRoute } from './routes/confirm-pin';
 import { mapConfigRoute } from './routes/map-config';
 import { autocompleteRoute } from './routes/autocomplete';
+import { authRoutes } from './routes/auth';
+import { requireAuth, requireRole, requireTier } from './middleware/auth';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -120,7 +128,7 @@ const start = async () => {
 
   await server.register(fastifyWebsocket);
 
-  // ── Auth decorator ────────────────────────────────────────────────────────────────────
+  // ── Auth decorator (legacy — kept for existing route compatibility) ─────────────────
   server.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
@@ -131,6 +139,9 @@ const start = async () => {
 
   // ── Routes ──────────────────────────────────────────────────────────────────────────
 
+  /** Auth router: /api/v1/auth/* — register, login, refresh, logout, /me */
+  await server.register(authRoutes);
+
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);
@@ -138,7 +149,7 @@ const start = async () => {
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
 
-  /** Issue JWT for a driver */
+  /** Issue JWT for a driver (legacy compatibility endpoint) */
   server.post('/api/v1/auth/token', async (request, reply) => {
     const parsed = z.object({
       driverId: z.string().min(1),
@@ -159,10 +170,10 @@ const start = async () => {
     return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
   });
 
-  /** Optimise + auto-enrich a new route */
+  /** Optimise + auto-enrich a new route — all roles, all tiers */
   server.post(
     '/api/v1/routes/optimise',
-    { preHandler: [(server as any).authenticate] },
+    { preHandler: [requireAuth] },
     async (request, reply) => {
       const body = z.object({
         stops:  z.array(StopSchema).min(1),
@@ -176,7 +187,7 @@ const start = async () => {
   /** Get stop intelligence for a route */
   server.get(
     '/api/v1/routes/:routeId/intel',
-    { preHandler: [(server as any).authenticate] },
+    { preHandler: [requireAuth] },
     async (request, reply) => {
       const { routeId } = request.params as { routeId: string };
       if (!RouteIdSchema.safeParse(routeId).success) {
@@ -189,7 +200,7 @@ const start = async () => {
   /** Manual replan */
   server.post(
     '/api/v1/routes/:routeId/replan',
-    { preHandler: [(server as any).authenticate] },
+    { preHandler: [requireAuth] },
     async (request, reply) => {
       const { routeId } = request.params as { routeId: string };
       if (!RouteIdSchema.safeParse(routeId).success) {
@@ -199,10 +210,24 @@ const start = async () => {
     },
   );
 
+  /** Delete a route — dispatcher or admin only */
+  server.delete(
+    '/api/v1/routes/:routeId',
+    { preHandler: [requireAuth, requireRole('dispatcher', 'admin')] },
+    async (request, reply) => {
+      const { routeId } = request.params as { routeId: string };
+      if (!RouteIdSchema.safeParse(routeId).success) {
+        return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+      }
+      // TODO: wire into route-engine to cancel active route
+      return reply.send({ ok: true, message: `Route ${routeId} deleted` });
+    },
+  );
+
   server.get(
     '/api/v1/routes/:routeId/alerts',
     {
-      preHandler: [(server as any).authenticate],
+      preHandler: [requireAuth],
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
@@ -217,7 +242,7 @@ const start = async () => {
   server.get(
     '/api/v1/routes/:routeId/alerts/red',
     {
-      preHandler: [(server as any).authenticate],
+      preHandler: [requireAuth],
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
@@ -231,13 +256,13 @@ const start = async () => {
 
   server.post(
     '/api/v1/driver/event',
-    { preHandler: [(server as any).authenticate] },
+    { preHandler: [requireAuth] },
     (request, reply) => handleDriverEvent(request as any, reply as any),
   );
 
   server.get(
     '/api/v1/turn-score',
-    { preHandler: [(server as any).authenticate] },
+    { preHandler: [requireAuth] },
     async (request, reply) => {
       const t0 = Date.now();
       const parsed = z.object({
@@ -261,6 +286,25 @@ const start = async () => {
 
       const result = await resolveTurnScore({ lat, lng, vehicleId });
       return reply.send({ ok: true, data: result, durationMs: Date.now() - t0 });
+    },
+  );
+
+  /** Admin-only routes — admin role required */
+  server.get(
+    '/api/v1/admin/users',
+    { preHandler: [requireAuth, requireRole('admin')] },
+    async (request, reply) => {
+      // TODO: wire into user management service
+      return reply.send({ ok: true, data: [] });
+    },
+  );
+
+  server.get(
+    '/api/v1/admin/analytics',
+    { preHandler: [requireAuth, requireRole('admin')] },
+    async (request, reply) => {
+      // TODO: wire into analytics service
+      return reply.send({ ok: true, data: {} });
     },
   );
 

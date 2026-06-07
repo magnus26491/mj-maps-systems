@@ -2,7 +2,6 @@
  * authenticateDriver middleware
  * -----------------------------
  * Verifies the Bearer JWT in the Authorization header.
- * Checks the refresh token hash exists in driver_sessions (server-side revocation).
  * Attaches req.driver to the request for downstream handlers.
  *
  * Usage:
@@ -10,8 +9,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, hashToken, JwtPayload } from '../../services/auth';
-import { getSessionByTokenHash, getDriverById } from '../../services/db/auth-helpers';
+import { verifyAccessToken, type AccessPayload } from '../../services/auth';
+import { getDriverById } from '../../services/db/auth-helpers';
 
 // Extend Express Request type
 declare global {
@@ -41,15 +40,10 @@ export async function authenticateDriver(
   }
 
   const token = authHeader.slice(7);
+  const payload: AccessPayload | null = verifyAccessToken(token);
 
-  let payload: JwtPayload;
-  try {
-    payload = verifyAccessToken(token);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Invalid token';
-    // Distinguish expired from invalid so client can refresh
-    const code = msg.includes('expired') ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID';
-    res.status(401).json({ success: false, error: msg, code });
+  if (!payload) {
+    res.status(401).json({ success: false, error: 'Invalid or expired token.', code: 'TOKEN_INVALID' });
     return;
   }
 

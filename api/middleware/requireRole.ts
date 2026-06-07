@@ -9,17 +9,17 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { DriverRole } from '../../services/auth';
+import { type UserRole } from '../../services/auth';
 
-const ROLE_HIERARCHY: Record<DriverRole, number> = {
+const ROLE_HIERARCHY: Record<UserRole, number> = {
   driver: 1,
   dispatcher: 2,
   admin: 3,
 };
 
-export function requireRole(minimumRole: DriverRole) {
+export function requireRole(minimumRole: UserRole) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const driverRole = req.driver?.role as DriverRole | undefined;
+    const driverRole = req.driver?.role as UserRole | undefined;
 
     if (!driverRole) {
       res.status(401).json({ success: false, error: 'Not authenticated.' });

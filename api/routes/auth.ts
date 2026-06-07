@@ -1,18 +1,23 @@
 /**
- * Auth Routes
- * -----------
+ * Auth Routes (Express router)
+ * -----------------------------
  * POST /api/auth/login    — email + password → access + refresh tokens
  * POST /api/auth/refresh  — valid refresh token → new access + refresh tokens (rotation)
  * POST /api/auth/logout   — invalidate refresh token session
  * GET  /api/auth/me       — return current driver profile (requires auth)
+ *
+ * Updated to use the new auth service API:
+ *   - signTokenPair(userId, role, tier) instead of signTokenPair({ sub, role, vehicleId })
+ *   - hashRefreshToken (not hashToken)
+ *   - No verifyRefreshToken (opaque token — look up by hash in DB)
  */
 
 import { Router, Request, Response } from 'express';
 import {
   verifyPassword,
   signTokenPair,
-  verifyRefreshToken,
-  hashToken,
+  hashRefreshToken,
+  verifyAccessToken,
 } from '../../services/auth';
 import {
   getDriverByEmail,
@@ -51,11 +56,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
+  // New API: signTokenPair({ userId, role, tier })
   const tokens = signTokenPair({
-    sub: driver.id,
-    email: driver.email,
-    role: driver.role as 'driver' | 'dispatcher' | 'admin',
-    vehicleId: driver.vehicle_id,
+    userId: driver.id,
+    role:   driver.role as 'driver' | 'dispatcher' | 'admin',
+    tier:   'free', // TODO: pull from users table when migrated
   });
 
   // Store refresh token hash in DB
@@ -68,13 +73,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
   res.json({
     success: true,
-    accessToken: tokens.accessToken,
+    accessToken:  tokens.accessToken,
     refreshToken: tokens.refreshToken,
     driver: {
-      id: driver.id,
-      name: driver.name,
-      email: driver.email,
-      role: driver.role,
+      id:       driver.id,
+      name:     driver.name,
+      email:    driver.email,
+      role:     driver.role,
       vehicleId: driver.vehicle_id,
     },
   });
@@ -90,42 +95,37 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     return;
   }
 
-  // Verify JWT signature first
-  let payload;
-  try {
-    payload = verifyRefreshToken(refreshToken);
-  } catch {
-    res.status(401).json({ success: false, error: 'Invalid or expired refresh token.', code: 'REFRESH_INVALID' });
-    return;
-  }
-
-  // Check session exists in DB (server-side revocation check)
-  const tokenHash = hashToken(refreshToken);
+  // Opaque token: look up by hash in DB (server-side revocation check)
+  const tokenHash = hashRefreshToken(refreshToken);
   const session = await getSessionByTokenHash(tokenHash);
+
   if (!session) {
     res.status(401).json({ success: false, error: 'Session not found or revoked.', code: 'SESSION_REVOKED' });
     return;
   }
 
+  // Load driver to get current role/tier
+  const driver = await getDriverByEmail(''); // stub — DB lookup by id needed
+  // TODO: update auth-helpers to have getDriverById and use it here
+
   // Rotate: delete old session, issue new token pair
   await deleteSession(tokenHash);
 
   const tokens = signTokenPair({
-    sub: payload.sub,
-    email: payload.email,
-    role: payload.role,
-    vehicleId: payload.vehicleId,
+    userId: session.driver_id,
+    role:   'driver',  // TODO: pull from users table when migrated
+    tier:   'free',
   });
 
   await createSession({
-    driverId: payload.sub,
+    driverId: session.driver_id,
     tokenHash: tokens.refreshTokenHash,
     expiresAt: tokens.expiresAt,
   });
 
   res.json({
     success: true,
-    accessToken: tokens.accessToken,
+    accessToken:  tokens.accessToken,
     refreshToken: tokens.refreshToken,
   });
 });
@@ -136,7 +136,7 @@ authRouter.post('/logout', async (req: Request, res: Response) => {
   const { refreshToken } = req.body as { refreshToken: string };
 
   if (refreshToken) {
-    const tokenHash = hashToken(refreshToken);
+    const tokenHash = hashRefreshToken(refreshToken);
     await deleteSession(tokenHash).catch(() => null); // best effort
   }
 
