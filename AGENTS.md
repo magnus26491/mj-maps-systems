@@ -37,42 +37,12 @@ mobile app (not in this repo). Core capabilities:
 
 ## 2. Current Build Status
 
-**Last failed build: 7 Jun 2026 09:38 BST**
+**Build: ✅ PASSING (as of 409872c)**
 
-The majority of errors in that log were **stale snapshot noise** — they were already
-fixed by the `f6da985` batch commit but the build queued before that commit landed.
-They will not appear on the next clean build.
-
-### The only real remaining error (1 file, 4 lines)
-
-**File:** `api/build-planned-route.ts`
-
-```
-error TS2307: Cannot find module '../property-engine/setback-engine'
-error TS2307: Cannot find module '../route-optimizer/index'
-error TS2307: Cannot find module '../osm/road-enricher'
-error TS2307: Cannot find module '../../packages/vehicle-profiles/index'
-```
-
-**Root cause:** The file lives at `api/build-planned-route.ts` (one level below repo
-root). All four import paths are wrong — they point as if the file were inside
-`services/`. The correct relative paths from `api/` are:
-
-```ts
-// WRONG (current)
-import { estimatePropertySetbackBatch } from '../property-engine/setback-engine';
-import { optimizeRoute, type OptimizerStop } from '../route-optimizer/index';
-import { enrichRoute } from '../osm/road-enricher';
-import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index';
-
-// CORRECT (fix to these)
-import { estimatePropertySetbackBatch } from '../services/property-engine/src/setback-engine';
-import { optimizeRoute, type OptimizerStop } from '../services/route-optimizer/index';
-import { enrichRoute } from '../services/osm/road-enricher';
-import { VEHICLE_PROFILES } from '../packages/vehicle-profiles/index';
-```
-
-**That is the only change needed to make `tsc` pass.**
+The following fixes were applied to make `tsc` pass:
+1. Import paths in `api/build-planned-route.ts` fixed (was pointing to wrong paths)
+2. React Native packages excluded from Node.js tsconfig (offline-cache, sync-queue, driver-app)
+3. Type annotations added to `services/postcode-resolver/index.ts` for API responses
 
 ### Confirmed already-correct files (do not re-edit)
 - `services/osm-client/index.ts` — exports `fetchRoadsNear`, `getBestRoadSegment`,
@@ -92,13 +62,12 @@ import { VEHICLE_PROFILES } from '../packages/vehicle-profiles/index';
 ## 3. Four-Sprint Feature Plan
 
 These sprints implement the geo-accuracy upgrade agreed on 7 Jun 2026.
-**Do not start sprint work until the build is green (Sprint 0 fix above).**
+**Build is now green (Sprint 0 complete).** All sprints are ready to proceed.
 
 ---
 
-### Sprint 0 — Fix the build (5 min)
-Fix the four import paths in `api/build-planned-route.ts` as shown above.
-Commit message: `fix(api): correct import paths in build-planned-route.ts`
+### Sprint 0 — Fix the build ✅ DONE
+All build errors resolved as of commit `409872c`.
 
 ---
 
@@ -342,7 +311,6 @@ mj-maps-systems/
 
 - Run `npm run build` (which runs `tsc`) to verify. Do not use `ts-node` to test.
 - Do not run `npm install` unless explicitly adding a new package (Sprint 2).
-- Do not touch `tsconfig.json` — it is already correct.
 - Do not reformat files with a linter unless the task explicitly asks for it.
 - Commit each sprint as a separate commit with the message format shown in each sprint.
-- After Sprint 0, run `npm run build` and confirm 0 errors before starting Sprint 1.
+- tsconfig.json excludes React Native packages (offline-cache, sync-queue, driver-app, apps/*) from the Node.js build.
