@@ -12,8 +12,8 @@ import {
   type TurnScoreResult,
   type BridgeScoreResult,
   type TurnAlertLevel,
-} from '../../packages/vehicle-profiles/index';
-import type { StopPoint } from '../route-engine/src/types';
+} from '../../packages/vehicle-profiles/index.js';
+import type { StopPoint } from '../route-engine/src/types.js';
 
 export interface EdgeConstraintScore {
   turnScore: number;
@@ -22,6 +22,25 @@ export interface EdgeConstraintScore {
   alertLevel: TurnAlertLevel;
   blocked: boolean;
 }
+
+// ── Types used by graph.ts ────────────────────────────────────────────────────
+
+export interface EdgeHazards {
+  roadWidthM: number;
+  hasTurningHead: boolean;
+  deadEndLengthM?: number;
+  bridgeClearanceM?: number;
+  communityScore?: number;
+}
+
+export interface EdgeCostResult {
+  costMultiplier: number;
+  isHardBlock: boolean;
+  alertLevel: TurnAlertLevel;
+  blocked: boolean;
+}
+
+// ── aggregateConstraints ──────────────────────────────────────────────────────
 
 /**
  * Compute combined constraint penalty for a stop given road geometry.
@@ -82,5 +101,47 @@ export function aggregateConstraints(
     combinedPenalty,
     alertLevel,
     blocked: alertLevel === 'red',
+  };
+}
+
+// ── aggregateEdgeCost — used by graph.ts ──────────────────────────────────────
+
+/**
+ * Higher-level edge cost function used by RouteGraph.buildCostMatrix.
+ * Returns a cost multiplier and hard-block flag for a road segment.
+ */
+export function aggregateEdgeCost(params: {
+  hazards: EdgeHazards;
+  vehicle: VehicleProfile;
+  arrivalHourFloat?: number;
+  handedness?: string;
+}): EdgeCostResult {
+  const { hazards, vehicle } = params;
+
+  const turnResult = computeTurnScore(vehicle, hazards.roadWidthM, {
+    hasTurningHead: hazards.hasTurningHead,
+    deadEndLengthM: hazards.deadEndLengthM,
+    communityScore: hazards.communityScore,
+  });
+
+  const bridgeClear = hazards.bridgeClearanceM;
+  const bridgeResult = computeBridgeScore(
+    vehicle,
+    bridgeClear ?? (vehicle.heightM + 2.0),
+    bridgeClear ? 'estimated' : 'unknown',
+  );
+
+  let alertLevel: TurnAlertLevel = turnResult.alertLevel;
+  if (bridgeResult.alertLevel === 'red') alertLevel = 'red';
+  else if (bridgeResult.alertLevel === 'amber' && alertLevel === 'green') alertLevel = 'amber';
+
+  const combinedPenalty = (1 - turnResult.score) * 0.7 + (1 - bridgeResult.score) * 0.3;
+  const isHardBlock = alertLevel === 'red';
+
+  return {
+    costMultiplier: 1 + combinedPenalty * 2,
+    isHardBlock,
+    alertLevel,
+    blocked: isHardBlock,
   };
 }

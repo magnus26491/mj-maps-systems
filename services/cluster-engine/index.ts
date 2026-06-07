@@ -17,9 +17,9 @@
  * No other delivery routing app currently implements this decision logic.
  */
 
-import type { StopPoint } from '../route-optimizer/index';
-import { computeTurnScore, getTurnAlert } from '../../packages/vehicle-profiles/index';
-import type { VehicleProfile } from '../../packages/vehicle-profiles/index';
+import type { StopPoint } from '../route-optimizer/index.js';
+import { computeTurnScore, getTurnAlert } from '../../packages/vehicle-profiles/index.js';
+import type { VehicleProfile, TurnAlertLevel } from '../../packages/vehicle-profiles/index.js';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────
 
@@ -113,7 +113,8 @@ export interface ClusterResult {
     turnaroundPenaltyMin: number;
     cutThroughUsed: boolean;
     cutThroughPath?: PedestrianPath;
-    nextRoadTurnAlert: string;
+    /** Alert level of the next road after cluster (lowercase) */
+    nextRoadTurnAlert: TurnAlertLevel;
   };
   /** Whether any stops should be skipped in the walk (heavy/oversize) */
   driveStops: ClusterStop[];   // stops that must still be driven to
@@ -214,21 +215,29 @@ export function scoreCluster(ctx: ClusterContext): ClusterResult {
   const walkTimeMin  = outboundMin + doorsMin + returnMin;
 
   // ── Drive time ─────────────────────────────────────────────────────────
-  // Average drive distance is longer than walk (can't cut through)
   const driveDistM      = walkDistM * 1.5;
   const driveTravelMin  = driveDistM / DRIVE_APPROACH_MPM;
 
-  // Turn-around penalty on current road
-  const turnScore  = computeTurnScore({ ...ctx.clusterRoadTurn, vehicleProfile: vehicle });
-  const turnAlert  = getTurnAlert(turnScore);
-  const turnPenMin = turnAlert === 'RED' ? 6.0 : turnAlert === 'AMBER' ? 2.5 : 0.5;
+  // Turn-around penalty on current road — correct call signature
+  const turnResult  = computeTurnScore(vehicle, ctx.clusterRoadTurn.roadWidthM, {
+    hasTurningHead: ctx.clusterRoadTurn.hasTurningHead,
+    deadEndLengthM: ctx.clusterRoadTurn.roadLengthToEndM,
+    communityScore: ctx.clusterRoadTurn.communityScore,
+  });
+  const turnAlertObj = getTurnAlert(turnResult, vehicle.label);
+  const turnPenMin   = turnAlertObj.level === 'red' ? 6.0 : turnAlertObj.level === 'amber' ? 2.5 : 0.5;
 
-  // Next-road turn penalty (if driver would continue past cluster)
-  let nextTurnPenMin = 0;
+  // Next-road turn penalty
+  let nextTurnPenMin   = 0;
+  let nextRoadAlert: TurnAlertLevel = 'green';
   if (ctx.nextRoadTurn) {
-    const nextScore = computeTurnScore({ ...ctx.nextRoadTurn, vehicleProfile: vehicle });
-    const nextAlert = getTurnAlert(nextScore);
-    nextTurnPenMin  = nextAlert === 'RED' ? 5.0 : nextAlert === 'AMBER' ? 2.0 : 0;
+    const nextResult = computeTurnScore(vehicle, ctx.nextRoadTurn.roadWidthM, {
+      hasTurningHead: ctx.nextRoadTurn.hasTurningHead,
+      deadEndLengthM: ctx.nextRoadTurn.roadLengthToEndM,
+    });
+    const nextAlertObj = getTurnAlert(nextResult, vehicle.label);
+    nextRoadAlert  = nextAlertObj.level;
+    nextTurnPenMin = nextAlertObj.level === 'red' ? 5.0 : nextAlertObj.level === 'amber' ? 2.0 : 0;
   }
 
   const driveTimeMin = driveTravelMin + doorsMin + turnPenMin + nextTurnPenMin;
@@ -251,10 +260,9 @@ export function scoreCluster(ctx: ClusterContext): ClusterResult {
   const notification = buildNotification({
     decision, stops, walkStops, driveStops,
     walkTimeMin, driveTimeMin, timeSavedMin,
-    cutThrough, turnAlert,
-    nextRoadTurnAlert: ctx.nextRoadTurn
-      ? getTurnAlert(computeTurnScore({ ...ctx.nextRoadTurn, vehicleProfile: vehicle }))
-      : 'GREEN',
+    cutThrough,
+    turnAlert: turnAlertObj.level,
+    nextRoadTurnAlert: nextRoadAlert,
   });
 
   return {
@@ -270,9 +278,7 @@ export function scoreCluster(ctx: ClusterContext): ClusterResult {
       turnaroundPenaltyMin: turnPenMin + nextTurnPenMin,
       cutThroughUsed: !!cutThrough,
       cutThroughPath: cutThrough,
-      nextRoadTurnAlert: ctx.nextRoadTurn
-        ? getTurnAlert(computeTurnScore({ ...ctx.nextRoadTurn, vehicleProfile: vehicle }))
-        : 'GREEN',
+      nextRoadTurnAlert: nextRoadAlert,
     },
     driveStops,
     walkStops,
@@ -290,8 +296,8 @@ function buildNotification(p: {
   driveTimeMin: number;
   timeSavedMin: number;
   cutThrough?: PedestrianPath;
-  turnAlert: string;
-  nextRoadTurnAlert: string;
+  turnAlert: TurnAlertLevel;
+  nextRoadTurnAlert: TurnAlertLevel;
 }): string {
   const n = p.stops.length;
   const saved = Math.round(p.timeSavedMin);
@@ -303,7 +309,7 @@ function buildNotification(p: {
       return [
         `🚶 ${n} deliveries ahead on this road.`,
         `Park here — walking saves ~${saved} min (${walkMin} min walk vs ${driveMin} min driving).`,
-        p.turnAlert === 'RED' ? `⚠️ Dead end — your vehicle cannot turn at the end.` : '',
+        p.turnAlert === 'red' ? `⚠️ Dead end — your vehicle cannot turn at the end.` : '',
       ].filter(Boolean).join(' ');
 
     case 'WALK_VIA_CUTTHROUGH':
@@ -348,7 +354,7 @@ function buildDriveResult(
       doorTimeMin: stops.length * SERVICE_TIME_MIN,
       turnaroundPenaltyMin: 0,
       cutThroughUsed: false,
-      nextRoadTurnAlert: 'GREEN',
+      nextRoadTurnAlert: 'green',
     },
     driveStops,
     walkStops,

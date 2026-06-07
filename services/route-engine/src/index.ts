@@ -2,7 +2,8 @@
  * Route Engine — public API
  */
 export { planRoute } from './route-planner';
-export { sequenceStops, buildSweepZones } from './sequencer';
+export { runSequencer as sequenceStops } from './sequencer';
+export { buildSweepZones } from './sweep-zones';
 export { planStopApproach, planAllApproaches } from './approach-planner';
 export type {
   StopPoint,

@@ -19,10 +19,17 @@
  *  - Action flags: needsTurnAround, liftConfirmed, intercomePresent, etc.
  */
 
-import { analyseApartment, type ApartmentAddress, type ApartmentResult } from './apartment-engine';
-import { computeTurnScore, getTurnAlert, VEHICLE_PROFILES, type TurnAlertLevel } from '../../packages/vehicle-profiles/index';
-import { getBuildingContext } from '../osm/building-query';
-import { CacheKey, type MJMapsCache } from '../cache/redis-cache';
+import { analyseApartment, type ApartmentAddress, type ApartmentResult } from './apartment-engine.js';
+import {
+  computeTurnScore,
+  getTurnAlert,
+  VEHICLE_PROFILES,
+  type TurnAlertLevel,
+  type VehicleProfile,
+  type VehicleId,
+} from '../../packages/vehicle-profiles/index.js';
+import { getBuildingContext } from '../osm/building-query.js';
+import { CacheKey, type MJMapsCache } from '../cache/redis-cache.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -143,10 +150,10 @@ function buildAlerts(p: {
 }): string[] {
   const alerts: string[] = [];
 
-  // Turn / road alerts
-  if (p.turnAlertLevel === 'RED') {
+  // Turn / road alerts — use lowercase TurnAlertLevel values
+  if (p.turnAlertLevel === 'red') {
     alerts.push('🔴 Do NOT enter — vehicle cannot turn around. Approach from opposite end or park before.');
-  } else if (p.turnAlertLevel === 'AMBER') {
+  } else if (p.turnAlertLevel === 'amber') {
     alerts.push('🟡 Tight turning space ahead — consider reversing in.');
   }
   if (p.isDeadEnd && !p.hasTurningHead) {
@@ -184,9 +191,9 @@ function buildPrimaryNotification(p: {
 }): string {
   const parts: string[] = [];
 
-  if (p.turnAlertLevel === 'RED') {
+  if (p.turnAlertLevel === 'red') {
     parts.push('🔴 Turn-around not possible with this vehicle.');
-  } else if (p.turnAlertLevel === 'AMBER') {
+  } else if (p.turnAlertLevel === 'amber') {
     parts.push('🟡 Tight turn ahead.');
   }
 
@@ -212,42 +219,18 @@ function checkVehicleRestrictions(
   vehicleId: string,
   road: RoadApproach | null,
 ): { weightOk: boolean; heightOk: boolean } {
-  const profile = VEHICLE_PROFILES[vehicleId];
+  const profile: VehicleProfile | undefined = (VEHICLE_PROFILES as Record<string, VehicleProfile>)[vehicleId];
   if (!profile || !road) return { weightOk: true, heightOk: true };
 
-  const weightOk = road.maxWeightT == null || profile.maxGrossWeightT <= road.maxWeightT;
+  // Use gvwT (canonical field); maxGrossWeightT is the optional alias
+  const gvw = profile.maxGrossWeightT ?? profile.gvwT;
+  const weightOk = road.maxWeightT == null || gvw <= road.maxWeightT;
   const heightOk = road.maxHeightM == null || profile.heightM <= road.maxHeightM;
   return { weightOk, heightOk };
 }
 
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 
-/**
- * Build a complete StopIntelligence object for a single stop.
- * Fetches building context, computes turn score, merges all signals.
- *
- * Results are cached 24h if a cache instance is provided.
- *
- * @example
- * const intel = await buildStopIntelligence({
- *   stopId: 'stop-42',
- *   lat: 51.5074, lng: -0.1278,
- *   rawAddress: 'Flat 305, Tower House, High Street, London',
- *   vehicleId: 'lwb-van',
- *   parcel: { count: 1, totalWeightKg: 4, isOversize: false, requiresSignature: false },
- *   roadApproach: { roadWidthM: 5.5, isDeadEnd: true, hasTurningHead: false, ... },
- *   isApartment: true,
- *   cache,
- * });
- *
- * intel.primaryNotification
- * // "🟡 Tight turn ahead. 🏢 3rd floor — 🛗 lift confirmed. ⏱️ +2.4 min service time."
- *
- * intel.alerts
- * // [ "🟡 Tight turning space — consider reversing in.",
- * //   "🔚 Dead-end road with no turning head — reverse exit required.",
- * //   "🔔 Intercom at entrance — buzz before attempting delivery." ]
- */
 export async function buildStopIntelligence(
   input: StopIntelligenceInput,
 ): Promise<StopIntelligence> {
@@ -273,17 +256,23 @@ export async function buildStopIntelligence(
     aptResult = await analyseApartment(aptInput);
   }
 
-  // ── Turn score ────────────────────────────────────────────
+  // ── Turn score — correct 2-arg signature ─────────────────
   const road = input.roadApproach;
-  const turnScore = computeTurnScore(
-    road?.roadWidthM ?? null,
-    input.vehicleId,
-    road?.hasTurningHead ?? false,
-    road?.isDeadEnd ?? false,
-    null, // community report — injected separately if available
-  );
-  const turnAlertLevel = getTurnAlert(turnScore);
-  const canTurnAround = turnScore >= 0.75;
+  const profile: VehicleProfile | undefined = (VEHICLE_PROFILES as Record<string, VehicleProfile>)[input.vehicleId];
+
+  let turnAlertLevel: TurnAlertLevel = 'green';
+  let rawTurnScore = 1.0;
+  let canTurnAround = true;
+
+  if (profile && road?.roadWidthM != null) {
+    const turnResult = computeTurnScore(profile, road.roadWidthM, {
+      hasTurningHead: road.hasTurningHead ?? false,
+      deadEndLengthM: road.isDeadEnd ? 15 : undefined,
+    });
+    turnAlertLevel = turnResult.alertLevel;
+    rawTurnScore   = turnResult.score;
+    canTurnAround  = turnResult.score >= 0.75;
+  }
 
   // ── Vehicle restriction check ─────────────────────────────
   const { weightOk, heightOk } = checkVehicleRestrictions(input.vehicleId, road);
@@ -296,7 +285,7 @@ export async function buildStopIntelligence(
 
   // ── Difficulty (combined apartment + road) ────────────────
   const aptDifficulty = aptResult?.difficultyScore ?? 1;
-  const roadPenalty = turnAlertLevel === 'RED' ? 2 : turnAlertLevel === 'AMBER' ? 1 : 0;
+  const roadPenalty = turnAlertLevel === 'red' ? 2 : turnAlertLevel === 'amber' ? 1 : 0;
   const difficultyScore = Math.min(5, Math.round((aptDifficulty + roadPenalty) * 10) / 10);
 
   // ── Alerts ────────────────────────────────────────────────
@@ -335,7 +324,7 @@ export async function buildStopIntelligence(
     hasIntercom: aptResult?.hasIntercom ?? false,
     allEntrances: aptResult?.allEntrances ?? [],
     turnAlertLevel,
-    turnScore: Math.round(turnScore * 100) / 100,
+    turnScore: Math.round(rawTurnScore * 100) / 100,
     canTurnAround,
     roadWidthM: road?.roadWidthM ?? null,
     roadClass: road?.roadClass ?? null,
