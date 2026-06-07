@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+dist/
+*/dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Google Play / Firebase — never commit these
+google-services.json
+google-play-service-account.json
+*.p12
+*.keystore
+
+# macOS
+.DS_Store
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Expo / EAS
+.eas/
+.expo/

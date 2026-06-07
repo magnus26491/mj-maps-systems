@@ -1,13 +1,17 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import * as Notifications from 'expo-notifications';
 import { apiGetVehicles, apiSetVehicle, apiRegisterFcmToken } from '../../lib/api';
 import { useAuthStore } from '../../lib/auth';
+import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import type { Vehicle } from '../../lib/types';
 
 export default function SettingsScreen() {
-  const user   = useAuthStore(s => s.user);
-  const logout = useAuthStore(s => s.logout);
+  const user    = useAuthStore(s => s.user);
+  const logout  = useAuthStore(s => s.logout);
+  const router  = useRouter();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const { data } = useQuery({
     queryKey: ['vehicles'],
@@ -34,6 +38,11 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
+      <DeleteAccountModal
+        visible={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+      />
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <Text style={styles.infoRow}>
@@ -45,6 +54,14 @@ export default function SettingsScreen() {
         <Text style={styles.infoRow}>
           Plan: <Text style={styles.value}>{user?.planId?.toUpperCase() ?? '—'}</Text>
         </Text>
+
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => router.push('/(app)/privacy')}
+        >
+          <Text style={styles.linkText}>Privacy Policy</Text>
+          <Text style={styles.linkArrow}>›</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Select Vehicle</Text>
@@ -64,6 +81,10 @@ export default function SettingsScreen() {
         )}
       />
 
+      <TouchableOpacity style={styles.deleteBtn} onPress={() => setShowDeleteModal(true)}>
+        <Text style={styles.deleteText}>Delete Account</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>Sign Out</Text>
       </TouchableOpacity>
@@ -77,11 +98,16 @@ const styles = StyleSheet.create({
   sectionTitle: { color: '#9ca3af', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 10 },
   infoRow:      { color: '#9ca3af', fontSize: 14, marginBottom: 4 },
   value:        { color: '#f9fafb', fontWeight: '500' },
+  linkRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 1, borderColor: '#1f2937', marginTop: 8 },
+  linkText:     { color: '#3b82f6', fontSize: 14, fontWeight: '500' },
+  linkArrow:    { color: '#3b82f6', fontSize: 18 },
   vehicleRow:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderBottomWidth: 1, borderColor: '#1f2937', padding: 14, justifyContent: 'space-between' },
   vehicleInfo:  { flex: 1 },
   vehicleName:  { color: '#f9fafb', fontWeight: '600', fontSize: 14 },
   vehicleSpec:  { color: '#9ca3af', fontSize: 12, marginTop: 2 },
   vehicleId:    { color: '#374151', fontSize: 11 },
-  logoutBtn:    { backgroundColor: '#1f2937', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, borderWidth: 1, borderColor: '#374151' },
-  logoutText:   { color: '#ef4444', fontWeight: '700', fontSize: 15 },
+  deleteBtn:    { backgroundColor: '#1f2937', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, borderWidth: 1, borderColor: '#374151' },
+  deleteText:   { color: '#ef4444', fontWeight: '700', fontSize: 15 },
+  logoutBtn:    { backgroundColor: '#1f2937', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: '#374151' },
+  logoutText:   { color: '#9ca3af', fontWeight: '700', fontSize: 15 },
 });

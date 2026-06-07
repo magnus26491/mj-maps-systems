@@ -8,17 +8,24 @@
     "scheme": "mjmaps-driver",
     "userInterfaceStyle": "dark",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#030712"
+    },
+    "extra": {
+      "privacyPolicyUrl": "https://mjmaps.co.uk/privacy",
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "uk.co.mjmaps.driver",
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "MJ Maps needs your location to update your delivery route in real time.",
-        "NSLocationWhenInUseUsageDescription": "MJ Maps needs your location for delivery navigation.",
-        "NSCameraUsageDescription": "MJ Maps needs the camera for proof-of-delivery photos and barcode scanning.",
-        "NSPhotoLibraryUsageDescription": "MJ Maps needs photo access to attach delivery proof images.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MJ Maps uses your location continuously during active delivery shifts to track route progress, calculate turn-by-turn navigation, and send real-time ETA updates to customers. Location is collected in the background while a delivery shift is active.",
+        "NSLocationWhenInUseUsageDescription": "MJ Maps uses your location to show your position on the delivery route map and calculate navigation to each stop.",
+        "NSCameraUsageDescription": "MJ Maps uses the camera to capture proof-of-delivery photos at each stop and to scan delivery barcodes.",
+        "NSPhotoLibraryUsageDescription": "MJ Maps saves proof-of-delivery photos to your photo library so you retain a local copy of each delivery confirmation.",
         "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
@@ -28,16 +35,16 @@
         "backgroundColor": "#030712"
       },
       "package": "uk.co.mjmaps.driver",
+      "targetSdkVersion": 34,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "FOREGROUND_SERVICE"
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -47,7 +54,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "MJ Maps needs your location to update your delivery route in real time."
+          "locationAlwaysAndWhenInUsePermission": "MJ Maps uses your location continuously during active delivery shifts to track route progress, calculate navigation, and send real-time ETA updates to customers. Location is collected in the background while a shift is active."
         }
       ],
       [
@@ -60,6 +67,12 @@
       [
         "expo-background-fetch",
         { "statusBarColor": "#030712" }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MJ Maps uses the camera to capture proof-of-delivery photos and scan barcodes."
+        }
       ]
     ],
     "experiments": {

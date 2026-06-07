@@ -22,6 +22,7 @@ import {
   verifyAccessToken,
   type UserRole,
 } from '../../auth/index';
+import { requireAuth } from '../middleware/auth.js';
 
 // ── Request body schemas ─────────────────────────────────────────────────────
 
@@ -330,7 +331,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     '/me',
     {
-      onRequest: [(fastify as any).authenticate],
+      onRequest: [requireAuth],
     },
     async (request, reply) => {
       const payload = verifyAccessToken(
@@ -394,6 +395,63 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         vehiclePayloadKg:user.vehicle_payload_kg ?? null,
         vehicleLengthM:  user.vehicle_length_m  ?? null,
       });
+    },
+  );
+
+  // ── DELETE /account ─────────────────────────────────────────────────────────
+  // Apple App Store mandate: in-app account deletion must be available.
+  // Delivery audit records are anonymised (driver_id → NULL) rather than deleted
+  // to satisfy 7-year UK Companies Act 2006 record retention requirements.
+  fastify.delete(
+    '/account',
+    {
+      onRequest: [requireAuth],
+    },
+    async (request, reply) => {
+      const authUser = (request as unknown as { authUser?: { id: string } }).authUser;
+      if (!authUser) {
+        return reply.code(401).send({ message: 'Unauthorized' });
+      }
+      const userId = authUser.id;
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        // Anonymise failed delivery audit records (legal retention — 7 years)
+        await client.query(
+          `UPDATE failed_delivery_audit SET driver_id = NULL WHERE driver_id = $1`,
+          [userId],
+        );
+
+        // Anonymise POD upload audit records
+        // Migration 011 drops NOT NULL from uploaded_by_user_id so this is safe
+        await client.query(
+          `UPDATE pod_uploads SET uploaded_by_user_id = NULL WHERE uploaded_by_user_id = $1`,
+          [userId],
+        );
+
+        // Revoke all refresh tokens
+        await client.query(
+          `DELETE FROM refresh_tokens WHERE user_id = $1`,
+          [userId],
+        );
+
+        // Delete the user
+        await client.query(
+          `DELETE FROM users WHERE id = $1`,
+          [userId],
+        );
+
+        await client.query('COMMIT');
+        return reply.code(200).send({ message: 'Account deleted successfully.' });
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => { /* swallow */ });
+        fastify.log.error(err);
+        return reply.code(500).send({ message: 'Failed to delete account.' });
+      } finally {
+        client.release();
+      }
     },
   );
 };
