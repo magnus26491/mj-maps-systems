@@ -5,6 +5,8 @@ export { planRoute } from './route-planner';
 export { runSequencer as sequenceStops } from './sequencer';
 export { buildSweepZones } from './sweep-zones';
 export { planStopApproach, planAllApproaches } from './approach-planner';
+export { getDwellMinutes } from './time-aware-solver';
+export { validateVehicleForJurisdiction, getJurisdiction, type JurisdictionRules, type DriveSide } from './jurisdiction-rules';
 export type {
   StopPoint,
   Stop,

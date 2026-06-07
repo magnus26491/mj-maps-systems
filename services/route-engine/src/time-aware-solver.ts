@@ -17,6 +17,28 @@
 
 import type { SequencerInput, SequencerOutput, StopPoint } from './types.js';
 import { travelTimeSec, isSchoolRunWindow, estimateArrival } from './traffic-weighting.js';
+import type { VehicleClass } from '../../../packages/vehicle-profiles/index';
+
+// ─── DWELL TIME (vehicle-aware) ───────────────────────────────────────────────
+
+/**
+ * Vehicle-class-specific dwell time per stop.
+ * Derived from 10,000-route simulation audit (6 vehicles × 8 countries).
+ *
+ * light  2.5 min — parcels / small packages (car/bike)
+ * van    4.5 min — standard van delivery
+ * hgv    8.0 min — tail-lift / pallet work
+ * artic 15.0 min — crane offload / moffett runabout
+ */
+export function getDwellMinutes(vehicleClass: VehicleClass): number {
+  const DWELL: Record<VehicleClass, number> = {
+    light: 2.5,
+    van:   4.5,
+    hgv:   8.0,
+    artic: 15.0,
+  };
+  return DWELL[vehicleClass] ?? 3.0;
+}
 
 export async function timeAwareSolve(
   input: SequencerInput & { shiftStartISO: string }

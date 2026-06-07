@@ -154,6 +154,10 @@ export interface ApproachedStop extends StopPoint {
   hasAlternateApproach: boolean;
   alternateApproachWaypoint: LatLng | null;
   alertDistanceM: number;
+  /** Set true when a bridge/height restriction blocks the stop */
+  bridgeWarning?: boolean;
+  /** Set false when bridgeWarning is true; true otherwise */
+  canProceed?: boolean;
 }
 
 // ─── Planned route ────────────────────────────────────────────────────────────
@@ -169,6 +173,10 @@ export interface PlannedRoute {
   redStopsRerouted: number;
   stopsResequenced: number;
   constraints?: RouteConstraints;
+  /** Count of stops with bridge/height restrictions */
+  bridgeWarnings?: number;
+  /** HGV routing flag passed to routing engine */
+  hgvRouting?: boolean;
 }
 
 // ─── Legacy aliases ───────────────────────────────────────────────────────────
