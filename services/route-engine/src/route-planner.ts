@@ -67,7 +67,7 @@ export async function planRoute(
     shiftStartISO:      new Date().toISOString(),
   };
 
-  const seqOutput = sequenceStops(sequencerInput);
+  const seqOutput = await sequenceStops(sequencerInput);
   const orderedStops = seqOutput.ordered;
   const resequencedIndexes = seqOutput.resequencedIndexes ?? [];
   const estimatedSavingM   = seqOutput.estimatedSavingM   ?? 0;

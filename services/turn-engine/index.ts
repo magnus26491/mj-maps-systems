@@ -67,9 +67,9 @@ export function computeTurnScore(
   let score = road.widthM / minWidth;
 
   if (road.hasTurningHead) score += 0.30;
-  if (road.deadEnd && !road.hasTurningHead) score -= 0.50;
-  if (road.hasLayby) score += 0.15;
-  if (road.privateAccess) score -= 0.20;
+  if (road.isDeadEnd && !road.hasTurningHead) score -= 0.50;
+  // Note: hasLayby and privateAccess are not yet in OsmRoadSegment;
+  // those bonuses/penalties will be re-enabled once the OSM fetcher surfaces them.
 
   // Clamp to 0-1 before blending
   score = Math.max(0, Math.min(1, score));
@@ -103,7 +103,7 @@ function buildInstruction(
     return `Narrow road ahead (${road.widthM.toFixed(1)}m). ${vehicle.label} may need to reverse out. Proceed with caution.`;
   }
   // RED
-  if (road.deadEnd) {
+  if (road.isDeadEnd) {
     return `DO NOT ENTER — dead end. Road too narrow (${road.widthM.toFixed(1)}m) for ${vehicle.label} to turn (needs ${minRoadWidthForTurn(vehicle).toFixed(1)}m). Turn around now.`;
   }
   return `Road unsuitable for ${vehicle.label}. Width ${road.widthM.toFixed(1)}m — needs ${minRoadWidthForTurn(vehicle).toFixed(1)}m to turn. Find alternate route.`;

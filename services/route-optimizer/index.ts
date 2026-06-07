@@ -12,6 +12,31 @@ export interface GeoPoint {
   lng: number;
 }
 
+/** Stop shape expected by optimizeRoute() and build-planned-route.ts */
+export interface OptimizerStop {
+  id: string;
+  lat: number;
+  lng: number;
+  address: string;
+  parcelCount?: number;
+  totalWeightKg?: number;
+  requiresSignature?: boolean;
+  isOversize?: boolean;
+  dwellTimeS?: number;
+  timeWindowStart?: string;
+  timeWindowEnd?: string;
+}
+
+export interface OptimizerInput {
+  depot: GeoPoint;
+  stops: OptimizerStop[];
+}
+
+export interface OptimizerOutput {
+  orderedStops: OptimizerStop[];
+  totalDistanceKm: number;
+}
+
 /** Simple Haversine distance in km */
 export function haversineKm(a: GeoPoint, b: GeoPoint): number {
   const R = 6371;
@@ -49,4 +74,22 @@ export function optimiseNearestNeighbour(
   }
 
   return ordered;
+}
+
+/**
+ * optimizeRoute — synchronous nearest-neighbour route optimizer.
+ * Used by api/build-planned-route.ts and other consumers.
+ */
+export function optimizeRoute(input: OptimizerInput): OptimizerOutput {
+  const ordered = optimiseNearestNeighbour(input.stops, input.depot) as OptimizerStop[];
+
+  // Compute approximate total distance
+  let totalDistanceKm = 0;
+  let prev: GeoPoint = input.depot;
+  for (const stop of ordered) {
+    totalDistanceKm += haversineKm(prev, stop);
+    prev = stop;
+  }
+
+  return { orderedStops: ordered, totalDistanceKm };
 }
