@@ -50,6 +50,9 @@ export interface TurnScoreResult {
   alertDistanceM: number;     // how far in advance to warn the driver
   canEnter: boolean;
   communityBlend: boolean;    // true if community data was used
+  // Index signature required so TurnScoreResult satisfies TurnScoreInput
+  // (which uses [key: string]: unknown for extensibility in turn-engine).
+  [key: string]: unknown;
 }
 
 export interface TurnAlert {
@@ -219,7 +222,7 @@ export const VEHICLE_PROFILES: Record<VehicleId, VehicleProfile> = {
 
 export const ALL_VEHICLE_IDS = Object.keys(VEHICLE_PROFILES) as VehicleId[];
 
-// ── Turn scoring ─────────────────────────────────────────────────────────────────────
+// ── Turn scoring ───────────────────────────────────────────────────────────────────────────────────
 
 export const TURN_ALERT_DISTANCES: Record<TurnAlertLevel, number> = {
   green: 0,
@@ -295,7 +298,7 @@ export function getTurnAlert(result: TurnScoreResult, vehicleLabel: string): Tur
   };
 }
 
-// ── Bridge scoring ───────────────────────────────────────────────────────────────────
+// ── Bridge scoring ────────────────────────────────────────────────────────────────────────────────────
 
 export function computeBridgeScore(
   vehicle: VehicleProfile,
