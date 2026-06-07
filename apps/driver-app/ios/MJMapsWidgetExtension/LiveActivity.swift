@@ -2,6 +2,8 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+private let appGroupIdentifier = "group.uk.co.mjmaps.driver.widget"
+
 // ─── Activity Attributes ─────────────────────────────────────────────────────
 
 struct ShiftActivityAttributes: ActivityAttributes {

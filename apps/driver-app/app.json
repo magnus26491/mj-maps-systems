@@ -15,12 +15,31 @@
     "extra": {
       "privacyPolicyUrl": "https://mjmaps.co.uk/privacy",
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "MJMapsWidgetExtension",
+                  "bundleIdentifier": "uk.co.mjmaps.driver.widget-extension",
+                  "buildConfiguration": "Release"
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "uk.co.mjmaps.driver",
+      "entitlements": {
+        "com.apple.developer.live-activities": true,
+        "com.apple.security.application-groups": [
+          "group.uk.co.mjmaps.driver.widget"
+        ]
+      },
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "MJ Maps uses your location continuously during active delivery shifts to track route progress, calculate turn-by-turn navigation, and send real-time ETA updates to customers. Location is collected in the background while a delivery shift is active.",
         "NSLocationWhenInUseUsageDescription": "MJ Maps uses your location to show your position on the delivery route map and calculate navigation to each stop.",

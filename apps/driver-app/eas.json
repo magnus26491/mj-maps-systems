@@ -1,25 +1,46 @@
 {
   "cli": {
-    "version": ">= 10.0.0"
+    "version": ">= 10.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
+      "ios": {
+        "resourceClass": "medium"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:3000"
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000",
+        "EXPO_PUBLIC_ENABLE_POD": "false"
       }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "ios": {
+        "resourceClass": "medium",
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_RAILWAY_URL.up.railway.app"
+        "EXPO_PUBLIC_ENABLE_POD": "false"
       }
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
+      "ios": {
+        "resourceClass": "large"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.mjmaps.co.uk"
+        "EXPO_PUBLIC_ENABLE_POD": "true"
       }
     }
   },
