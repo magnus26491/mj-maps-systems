@@ -11,6 +11,8 @@
  * Requires env var: GEOAPIFY_API_KEY
  */
 import type { PropertyPin, AddressLookupRequest, AddressLookupResult, PinConfidence } from './types';
+import { getCachedPin, setCachedPin } from '../../cache/index';
+import type { StopPin } from '../../stop-precision';
 
 const GEOAPIFY_BASE = 'https://api.geoapify.com/v1/geocode';
 const GEOAPIFY_KEY  = process.env.GEOAPIFY_API_KEY ?? '';
@@ -140,31 +142,37 @@ export async function resolveAddress(
 ): Promise<AddressLookupResult> {
   const start = Date.now();
 
+  const normalised = req.rawAddress.toLowerCase().replace(/\s+/g, ' ').trim();
+  const cached = await getCachedPin(normalised);
+  if (cached) return { primary: cached as unknown as PropertyPin, alternatives: [], resolvedIn: 0 };
+
   // 1. Geoapify — rooftop-level, confidence-scored
   const geoapifyPin = await resolveViaGeoapify(req.rawAddress);
   if (geoapifyPin && geoapifyPin.confidence !== 'LOW') {
-    return {
-      primary:      geoapifyPin,
-      alternatives: [],
-      resolvedIn:   Date.now() - start,
-    };
+    const result = { primary: geoapifyPin, alternatives: [], resolvedIn: Date.now() - start };
+    await setCachedPin(normalised, result.primary as unknown as StopPin);
+    return result;
   }
 
   // 2. Postcode centroid fallback
   if (req.postcode) {
     const postcodePin = await resolveViaPostcode(req.postcode, req.rawAddress);
     if (postcodePin) {
-      return {
+      const result = {
         primary:      postcodePin,
         alternatives: geoapifyPin ? [geoapifyPin] : [],
         resolvedIn:   Date.now() - start,
       };
+      await setCachedPin(normalised, result.primary as unknown as StopPin);
+      return result;
     }
   }
 
   // 3. Return Geoapify LOW result if that's all we have
   if (geoapifyPin) {
-    return { primary: geoapifyPin, alternatives: [], resolvedIn: Date.now() - start };
+    const result = { primary: geoapifyPin, alternatives: [], resolvedIn: Date.now() - start };
+    await setCachedPin(normalised, result.primary as unknown as StopPin);
+    return result;
   }
 
   // 4. Cannot resolve
