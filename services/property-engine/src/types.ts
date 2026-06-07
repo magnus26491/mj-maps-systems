@@ -22,7 +22,7 @@ export interface PropertyPin {
   lng:           number;
   confidence:    PinConfidence;
   /** Source that provided this pin */
-  source:        'os_addressbase' | 'os_names' | 'nominatim' | 'w3w' | 'driver_reported' | 'postcode_centroid';
+  source:        'os_addressbase' | 'os_names' | 'nominatim' | 'w3w' | 'driver_reported' | 'postcode_centroid' | 'geoapify';
   /** Full formatted address as resolved */
   formattedAddress: string;
   /** Entrance-specific data if available */
