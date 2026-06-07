@@ -11,6 +11,7 @@
  */
 import { getNextPendingStops, insertEtaNotificationAudit } from '../db/eta-store.js';
 import { redis } from '../cache/index.js';
+import { triggerFcmEtaPush } from './fcm-push.js';
 
 
 // ── Twilio config ──────────────────────────────────────────────────────────────
@@ -159,6 +160,10 @@ async function sendEtaSms(stop: PendingStop, currentStopId: string): Promise<voi
 
     const { markStopNotified } = await import('../db/eta-store.js');
     await markStopNotified(stopId);
+
+    // Fire FCM push in parallel — non-fatal
+    const customerFcmToken = (stop as any).fcmCustomerToken ?? null;
+    triggerFcmEtaPush(stopId, etaMinutes, address, customerFcmToken).catch(() => {});
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     console.error(`[eta-notifier] Failed to send SMS for stop ${stopId}:`, error);

@@ -231,4 +231,14 @@ export async function sendWorkloadOverloadAlert(payload: WorkloadAlertPayload): 
     (recs ? `Recommendations:\n${recs}` : '');
 
   await sendTelegramMessage(botToken, dispatcherChatId, message);
+
+  // Also fire FCM push to dispatcher — fire-and-forget
+  const { triggerFcmWorkloadAlert } = await import('./fcm-push.js');
+  triggerFcmWorkloadAlert(
+    payload.routeId,
+    payload.vehicleId,    // used as driverName fallback
+    payload.totalStops,
+    payload.totalWuc,
+    payload.safeStopCount,
+  ).catch(() => {});
 }

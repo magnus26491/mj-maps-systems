@@ -16,6 +16,7 @@ export interface StopContext {
   scheduledArrivalEpoch: number | null;
   notificationSent: boolean;
   vehicleId: string | null;
+  fcmCustomerToken: string | null; // added for FCM push alongside SMS
 }
 
 
@@ -50,12 +51,14 @@ export async function getNextPendingStops(routeId: string): Promise<StopContext[
     scheduled_arrival_epoch: number | null;
     notification_sent: boolean;
     vehicle_id: string | null;
+    fcm_customer_token: string | null;
   }>(
     `SELECT id, route_id, address,
             customer_phone, customer_name, customer_email,
             scheduled_arrival_epoch,
             notification_sent,
-            vehicle_id
+            vehicle_id,
+            fcm_customer_token
      FROM stops
      WHERE route_id = $1
        AND notification_sent = FALSE
@@ -76,6 +79,7 @@ export async function getNextPendingStops(routeId: string): Promise<StopContext[
     scheduledArrivalEpoch: r.scheduled_arrival_epoch,
     notificationSent:      r.notification_sent,
     vehicleId:             r.vehicle_id,
+    fcmCustomerToken:      r.fcm_customer_token,
   }));
 }
 
@@ -138,12 +142,14 @@ export async function getStopContext(stopId: string): Promise<StopContext | null
     scheduled_arrival_epoch: number | null;
     notification_sent: boolean;
     vehicle_id: string | null;
+    fcm_customer_token: string | null;
   }>(
     `SELECT id, route_id, address,
             customer_phone, customer_name, customer_email,
             scheduled_arrival_epoch,
             notification_sent,
-            vehicle_id
+            vehicle_id,
+            fcm_customer_token
      FROM stops WHERE id = $1 LIMIT 1`,
     [stopId],
   );
@@ -160,5 +166,6 @@ export async function getStopContext(stopId: string): Promise<StopContext | null
     scheduledArrivalEpoch: r.scheduled_arrival_epoch,
     notificationSent:      r.notification_sent,
     vehicleId:             r.vehicle_id,
+    fcmCustomerToken:      r.fcm_customer_token,
   };
 }

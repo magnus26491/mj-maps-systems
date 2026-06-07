@@ -33,6 +33,11 @@ import {
 import { triggerEtaNotifications } from '../notifications/eta-notifier.js';
 import { getAccessBrief } from '../db/failed-store.js';
 import { scoreShiftWorkload, type WorkloadInput } from '../workload/shift-load-scorer.js';
+import {
+  triggerFcmDeliveredPush,
+  triggerFcmFailedPush,
+  triggerFcmDispatcherFailedAlert,
+} from '../notifications/fcm-push.js';
 
 // ─── IN-MEMORY ENRICHED ROUTE STORE ──────────────────────────────────────────
 // Holds the most recent EnrichedStopInput[] per routeId.
@@ -270,6 +275,70 @@ export async function handleDriverEvent(
         request.log.warn({ err }, '[driver-api] triggerEtaNotifications failed');
       });
     }
+
+    // FCM push for STOP_COMPLETED (delivered)
+    if (event.type === 'STOP_COMPLETED' && event.stopId) {
+      (async () => {
+        try {
+          const { pool } = await import('../db/index.js');
+          const { rows } = await pool.query<{
+            address: string;
+            fcm_customer_token: string | null;
+          }>(
+            `SELECT address, fcm_customer_token FROM stops WHERE id = $1`,
+            [event.stopId],
+          );
+          if (rows?.[0]) {
+            await triggerFcmDeliveredPush(
+              event.stopId,
+              rows[0].address,
+              null, // proofUrl — POD photo URL if available; pass null for now
+              rows[0].fcm_customer_token,
+            );
+          }
+        } catch { /* non-fatal */ }
+      })();
+    }
+
+    // FCM push for STOP_FAILED (customer + dispatcher)
+    if (event.type === 'STOP_FAILED' && event.stopId) {
+      (async () => {
+        try {
+          const { pool } = await import('../db/index.js');
+          const { rows } = await pool.query<{
+            address: string;
+            fcm_customer_token: string | null;
+            failure_code: string;
+            access_notes: string | null;
+            driver_name: string | null;
+            stop_ref: string | null;
+          }>(
+            `SELECT s.address, s.fcm_customer_token,
+                    s.failure_code, s.access_notes,
+                    d.name AS driver_name,
+                    s.stop_ref
+             FROM stops s
+             LEFT JOIN drivers d ON d.id = $2
+             WHERE s.id = $1`,
+            [event.stopId, event.driverId ?? null],
+          );
+          if (rows?.[0]) {
+            const { address, fcm_customer_token, failure_code,
+                    access_notes, driver_name, stop_ref } = rows[0];
+            // Customer push
+            await triggerFcmFailedPush(
+              event.stopId, address, failure_code, access_notes, fcm_customer_token,
+            );
+            // Dispatcher push
+            await triggerFcmDispatcherFailedAlert(
+              event.stopId, event.routeId ?? '',
+              driver_name ?? 'Driver', stop_ref ?? event.stopId,
+              failure_code,
+            );
+          }
+        } catch { /* non-fatal */ }
+      })();
+    }
   } catch (err) {
     reply.code(500).send(fail((err as Error).message, t0));
   }
@@ -400,6 +469,68 @@ export function handleDriverWebSocket(
     // Fire-and-forget: send customer ETA SMS after DB write completes
     if (event.stopId) {
       triggerEtaNotifications(routeId, event.stopId).catch(() => {});
+    }
+
+    // FCM push for STOP_COMPLETED (delivered) — WebSocket path
+    if (event.type === 'STOP_COMPLETED' && event.stopId) {
+      (async () => {
+        try {
+          const { pool } = await import('../db/index.js');
+          const { rows } = await pool.query<{
+            address: string;
+            fcm_customer_token: string | null;
+          }>(
+            `SELECT address, fcm_customer_token FROM stops WHERE id = $1`,
+            [event.stopId],
+          );
+          if (rows?.[0]) {
+            await triggerFcmDeliveredPush(
+              event.stopId,
+              rows[0].address,
+              null,
+              rows[0].fcm_customer_token,
+            );
+          }
+        } catch { /* non-fatal */ }
+      })();
+    }
+
+    // FCM push for STOP_FAILED (customer + dispatcher) — WebSocket path
+    if (event.type === 'STOP_FAILED' && event.stopId) {
+      (async () => {
+        try {
+          const { pool } = await import('../db/index.js');
+          const { rows } = await pool.query<{
+            address: string;
+            fcm_customer_token: string | null;
+            failure_code: string;
+            access_notes: string | null;
+            driver_name: string | null;
+            stop_ref: string | null;
+          }>(
+            `SELECT s.address, s.fcm_customer_token,
+                    s.failure_code, s.access_notes,
+                    d.name AS driver_name,
+                    s.stop_ref
+             FROM stops s
+             LEFT JOIN drivers d ON d.id = $2
+             WHERE s.id = $1`,
+            [event.stopId, event.driverId ?? null],
+          );
+          if (rows?.[0]) {
+            const { address, fcm_customer_token, failure_code,
+                    access_notes, driver_name, stop_ref } = rows[0];
+            await triggerFcmFailedPush(
+              event.stopId, address, failure_code, access_notes, fcm_customer_token,
+            );
+            await triggerFcmDispatcherFailedAlert(
+              event.stopId, routeId,
+              driver_name ?? 'Driver', stop_ref ?? event.stopId,
+              failure_code,
+            );
+          }
+        } catch { /* non-fatal */ }
+      })();
     }
 
     // 50m approach brief — push APPROACH_BRIEF when driver is within 50m of next stop.
