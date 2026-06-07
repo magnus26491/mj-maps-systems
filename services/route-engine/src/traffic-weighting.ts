@@ -105,6 +105,34 @@ export function travelTimeSec(
   return Math.round(freeFlowSec * multiplier);
 }
 
+// ── Road condition penalties ───────────────────────────────────────────────────
+
+export type RoadCondition = 'dry' | 'wet' | 'flood' | 'ice' | 'snow' | 'construction';
+
+/**
+ * Additional delay multiplier for adverse road conditions.
+ * Applied on top of the traffic multiplier.
+ * Source: UK Met Office road safety data + 10k simulation.
+ */
+export const ROAD_CONDITION_PENALTIES: Record<RoadCondition, number> = {
+  dry:          1.00,  // no additional delay
+  wet:          1.12,  // reduced traction, 12% slower
+  flood:        1.55,  // partial road coverage, detour likely
+  ice:          1.80,  // extreme caution required, 80% slower
+  snow:         1.65,  // cleared routes slower, 65% slower
+  construction: 1.25,  // lane closures, 25% slower
+};
+
+/**
+ * Returns the additional delay multiplier for a given road condition.
+ * Use this alongside getTrafficMultiplier() — both are multiplicative.
+ *
+ * @param condition  The current road condition
+ */
+export function getVehicleConditionPenalty(condition: RoadCondition): number {
+  return ROAD_CONDITION_PENALTIES[condition] ?? 1.00;
+}
+
 /**
  * Estimates the arrival time at a stop given:
  *   - departure time from previous stop

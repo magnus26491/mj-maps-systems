@@ -6,9 +6,10 @@
  *  2. Validate vehicle against jurisdiction rules (weight/height/width limits)
  *  3. Check requiresAccessPermit gate for artic vehicles
  *  4. Resolve address geocodes — stamp requiresPinConfirm + geocodeConfidence on each stop
- *  5. Optimize route with setback-aware sequencing + HGV routing flag
- *  6. Enrich route with turn warnings, clusters, and crossings
- *  7. Return legalWarnings[], driveSide, and geocode metadata for driver app
+ *  5. Tidal road check with drive-side correction (blocked segments get warnings + reroute time)
+ *  6. Optimize route with setback-aware sequencing + HGV routing flag
+ *  7. Enrich route with turn warnings, clusters, and crossings
+ *  8. Return legalWarnings[], driveSide, geocode metadata, tidal risks, and totalEstimatedMinutes
  */
 
 import { estimatePropertySetbackBatch } from '../services/property-engine/src/setback-engine';
@@ -18,6 +19,12 @@ import { VEHICLE_PROFILES, type VehicleProfile } from '../packages/vehicle-profi
 import { validateVehicleForJurisdiction, getJurisdiction, type DriveSide } from '../services/route-engine/src/jurisdiction-rules';
 import { getDwellMinutes } from '../services/route-engine/src/time-aware-solver';
 import { resolveAddress } from '../services/postcode-resolver/index.js';
+import {
+  checkRouteForTidalRisks,
+  type TidalStatus,
+} from '../services/route-engine/src/tidal-checker.js';
+import { getDepartureDelayMultiplier, getBestDepartureWindow } from '../services/route-engine/src/departure-optimizer.js';
+import { getTrafficMultiplier } from '../services/route-engine/src/traffic-weighting.js';
 
 export interface PlannedRouteResponse {
   optimized: ReturnType<typeof optimizeRoute>;
@@ -39,6 +46,37 @@ export interface PlannedRouteResponse {
     lat: number;
     lng: number;
   }>;
+  /** Tidal road segments that are currently blocked — driver must reroute */
+  tidalWarnings: Array<{
+    segmentId: string;
+    segmentName: string;
+    status: TidalStatus;
+    country: string;
+    driveSide: DriveSide;
+    tidalRangeMetres: number;
+    roadRiskType: string;
+    driverRiskModifier: number;
+    blockedProbability: number;
+    nextClearTime?: string;
+    rerouteMinutes: number;
+  }>;
+  /** Tidal segments in caution (passable but risky) — driver should verify depth */
+  tidalCautions: Array<{
+    segmentName: string;
+    status: 'caution';
+    windowCloseTime?: string;
+    driverRiskNote?: string;
+  }>;
+  /** Sum of reroute times for all blocked tidal segments */
+  tidalRerouteTotalMinutes: number;
+  /** ISO-8601 datetime of earliest next-clear time across all blocked segments */
+  suggestedDepartureAdjustment?: string;
+  /** Best departure window for this route */
+  suggestedDepartureWindow?: string;
+  /** Delay vs best window in minutes */
+  departureDelayMinutes?: number;
+  /** Total estimated minutes for the route (traffic-weighted, includes dwell + tidal reroute) */
+  totalEstimatedMinutes: number;
 }
 
 /**
@@ -67,9 +105,14 @@ export async function buildPlannedRoute(input: {
   stops: OptimizerStop[];
   vehicleProfileKey: keyof typeof VEHICLE_PROFILES;
   geoapifyApiKey?: string;
+  plannedDepartureTime?: string; // ISO-8601, defaults to now
 }): Promise<PlannedRouteResponse> {
   const vehicle: VehicleProfile = VEHICLE_PROFILES[input.vehicleProfileKey];
   const dwellMinutes = getDwellMinutes(vehicle.vehicleClass);
+  const departureTime = input.plannedDepartureTime
+    ? new Date(input.plannedDepartureTime)
+    : new Date();
+  const departureHour = departureTime.getHours() + departureTime.getMinutes() / 60;
 
   // ── 1. Jurisdiction validation ─────────────────────────────────────────────
   const countryCode = await detectCountry(
@@ -115,7 +158,7 @@ export async function buildPlannedRoute(input: {
     }
   }
 
-  // ── 4. Setback ─────────────────────────────────────────────────────────────
+  // ── 5. Setback ─────────────────────────────────────────────────────────────
   const setbackMap = await estimatePropertySetbackBatch(
     input.stops.map(s => ({ id: s.id, lat: s.lat, lng: s.lng, address: s.address })),
   );
@@ -126,13 +169,63 @@ export async function buildPlannedRoute(input: {
     dwell_minutes:     dwellMinutes,
   }));
 
-  // ── 5. Optimize ────────────────────────────────────────────────────────────
+  // ── 6. Optimize ────────────────────────────────────────────────────────────
   const optimized = optimizeRoute({
     depot: input.depot,
     stops: setbackAwareStops,
   });
 
-  // ── 6. Enrich ─────────────────────────────────────────────────────────────
+  // ── 7. Tidal road check ───────────────────────────────────────────────────
+  const routeCoords = [
+    { lat: input.depot.lat, lng: input.depot.lng },
+    ...optimized.orderedStops.map(s => ({ lat: s.lat, lng: s.lng })),
+  ];
+  const tidalRisks = checkRouteForTidalRisks(
+    routeCoords,
+    departureTime,
+    vehicle.vehicleClass,
+  );
+
+  const blockedSegments = tidalRisks.filter(r => r.status === 'blocked');
+  const cautionSegments = tidalRisks.filter(r => r.status === 'caution');
+  const totalTidalRerouteMin = blockedSegments.reduce((s, r) => s + r.rerouteMinutes, 0);
+
+  const tidalWarnings: PlannedRouteResponse['tidalWarnings'] = blockedSegments.map(r => ({
+    segmentId:           r.segment.segmentId,
+    segmentName:         r.segment.name,
+    status:              r.status,
+    country:             r.segment.regionProfile.country,
+    driveSide:           r.segment.regionProfile.driveSide,
+    tidalRangeMetres:    r.segment.regionProfile.tidalRangeMetres,
+    roadRiskType:        r.segment.regionProfile.roadRiskType,
+    driverRiskModifier:  r.driverRiskModifier,
+    blockedProbability:   r.blockedProbability,
+    nextClearTime:       r.nextClearTime?.toISOString(),
+    rerouteMinutes:      r.rerouteMinutes,
+  }));
+
+  const tidalCautions: PlannedRouteResponse['tidalCautions'] = cautionSegments.map(r => ({
+    segmentName:   r.segment.name,
+    status:        'caution' as const,
+    windowCloseTime: r.windowCloseTime?.toISOString(),
+    driverRiskNote: r.driverRiskModifier > 1.0
+      ? 'Right-drive road: sea approaches passenger side — verify road depth before crossing'
+      : undefined,
+  }));
+
+  // Earliest next-clear time across all blocked segments
+  const nextClearTimes = blockedSegments
+    .map(r => r.nextClearTime)
+    .filter((t): t is Date => t !== undefined)
+    .sort((a, b) => a.getTime() - b.getTime());
+  const suggestedDepartureAdjustment = nextClearTimes[0]?.toISOString();
+
+  // ── 8. Departure window advice ─────────────────────────────────────────────
+  const bestWindow = getBestDepartureWindow(departureHour);
+  const trafficMultiplier = getTrafficMultiplier(departureTime);
+  const delayMultiplier = getDepartureDelayMultiplier(departureHour);
+
+  // ── 9. Enrich ─────────────────────────────────────────────────────────────
   const enriched = await enrichRoute({
     stops: optimized.orderedStops.map((s, idx) => ({
       id: s.id,
@@ -150,6 +243,17 @@ export async function buildPlannedRoute(input: {
 
   const driveSide = getJurisdiction(countryCode).driveSide;
 
+  // ── 10. Total time estimate ────────────────────────────────────────────────
+  // base route time from optimized result (km / avg speed)
+  const baseRouteMinutes = optimized.totalDistanceKm
+    ? (optimized.totalDistanceKm / 40) * 60
+    : 0;
+  const dwellTotalMinutes = input.stops.length * dwellMinutes;
+  const trafficWeightedMinutes = baseRouteMinutes * delayMultiplier;
+  const totalEstimatedMinutes = Math.round(
+    trafficWeightedMinutes + dwellTotalMinutes + totalTidalRerouteMin,
+  );
+
   return {
     optimized,
     setbacks: Array.from(setbackMap.values()),
@@ -159,5 +263,12 @@ export async function buildPlannedRoute(input: {
     countryCode,
     stopWarnings,
     stopGeocodes,
+    tidalWarnings,
+    tidalCautions,
+    tidalRerouteTotalMinutes: totalTidalRerouteMin,
+    suggestedDepartureAdjustment,
+    suggestedDepartureWindow: bestWindow.label,
+    departureDelayMinutes: bestWindow.delayMinutes,
+    totalEstimatedMinutes,
   };
 }
