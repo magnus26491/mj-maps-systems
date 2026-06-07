@@ -24,6 +24,7 @@
  */
 
 import { optimiseRoute, replanFromPosition, type Stop, type RouteConfig, type RouteResult, type LatLng } from './route-engine';
+import type { ReslotDecision } from '../db/failed-store.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,9 @@ export interface DriverEvent {
   speedKmh?: number;
   // STOP_COMPLETED / STOP_FAILED
   stopId?: string;
+  failureCode?: string;
   failureReason?: string;
+  attemptNumber?: number;
   // STOP_INSERTED
   newStop?: Stop;
   // TRAFFIC_DELAY
@@ -331,9 +334,18 @@ async function handleVehicleSwap(
  * const result = await processDriverEvent(event);
  * // Push result to the driver's WebSocket connection
  */
+export interface ProcessResult {
+  eta?: ETAUpdate;
+  replan?: ReplanResult;
+  error?: string;
+  decision?: ReslotDecision;
+  reslotAction?: string;
+  attemptCardRequired?: boolean;
+}
+
 export async function processDriverEvent(
   event: DriverEvent,
-): Promise<{ eta?: ETAUpdate; replan?: ReplanResult; error?: string }> {
+): Promise<ProcessResult> {
   const session = getSession(event.driverId, event.routeId);
   if (!session) {
     return { error: `No active session for driver ${event.driverId} / route ${event.routeId}` };
@@ -345,11 +357,52 @@ export async function processDriverEvent(
         const { eta, replan } = await handleGpsUpdate(session, event);
         return replan ? { eta, replan } : { eta };
       }
-      case 'STOP_COMPLETED':
-      case 'STOP_FAILED': {
+      case 'STOP_COMPLETED': {
         const replan = await handleStopEvent(session, event);
         const eta = calcETAUpdate(session, event.timestampEpoch);
         return { eta, replan };
+      }
+      case 'STOP_FAILED': {
+        const { markStopFailed, reslotStopToEnd, insertFailedAudit, FAILURE_CODES } =
+          await import('../db/failed-store.js');
+
+        const code = event.failureCode as (typeof FAILURE_CODES)[number];
+        if (!FAILURE_CODES.includes(code as typeof FAILURE_CODES[number])) {
+          return { error: `Invalid failure_code: ${event.failureCode}` };
+        }
+
+        const decision = await markStopFailed({
+          stopId:        event.stopId!,
+          routeId:       event.routeId,
+          driverId:      event.driverId,
+          failureCode:   code as typeof FAILURE_CODES[number],
+          failureReason: event.failureReason ?? '',
+          attemptNumber: event.attemptNumber ?? 1,
+        });
+
+        if (decision.action === 'end_of_route' && decision.newSeq !== null) {
+          await reslotStopToEnd({ stopId: event.stopId!, newSeq: decision.newSeq });
+        }
+
+        // Audit — non-fatal
+        insertFailedAudit({
+          stopId: event.stopId!, routeId: event.routeId,
+          driverId: event.driverId, failureCode: code as typeof FAILURE_CODES[number],
+          failureReason: event.failureReason ?? '',
+          attemptNumber: event.attemptNumber ?? 1,
+          decision,
+        }).catch(err => console.warn('[replan] Failed audit insert:', err));
+
+        // Update in-memory session and trigger route replan
+        const replan = await handleStopEvent(session, event);
+        const eta = calcETAUpdate(session, event.timestampEpoch);
+        return {
+          eta,
+          replan,
+          decision,
+          reslotAction: decision.action,
+          attemptCardRequired: decision.attemptCardRequired,
+        };
       }
       case 'STOP_INSERTED': {
         const replan = await handleStopInserted(session, event);

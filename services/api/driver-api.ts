@@ -31,6 +31,7 @@ import {
   generateRouteId,
 } from '../turn-engine/src/enrichment-pipeline';
 import { triggerEtaNotifications } from '../notifications/eta-notifier.js';
+import { getAccessBrief } from '../db/failed-store.js';
 
 // ─── IN-MEMORY ENRICHED ROUTE STORE ──────────────────────────────────────────
 // Holds the most recent EnrichedStopInput[] per routeId.
@@ -350,6 +351,53 @@ export function handleDriverWebSocket(
     // Fire-and-forget: send customer ETA SMS after DB write completes
     if (event.stopId) {
       triggerEtaNotifications(routeId, event.stopId).catch(() => {});
+    }
+
+    // 50m approach brief — push APPROACH_BRIEF when driver is within 50m of next stop.
+    // Triggered by LOCATION_UPDATE events that carry lat/lng.
+    // Uses Redis to ensure each stop's brief is pushed only once.
+    if (event.lat != null && event.lng != null) {
+      (async () => {
+        try {
+          const { pool } = await import('../db/index.js');
+          const { rows } = await pool.query<{
+            id: string; pin_lat: number; pin_lon: number;
+          }>(
+            `SELECT id, pin_lat, pin_lon FROM stops
+             WHERE route_id = $1 AND status = 'pending'
+             ORDER BY sequence ASC LIMIT 1`,
+            [routeId],
+          );
+          if (!rows.length || rows[0].pin_lat == null || rows[0].pin_lon == null) return;
+
+          const nextStop = rows[0];
+          // Haversine distance in metres
+          const R = 6371000;
+          const toRad = (d: number) => (d * Math.PI) / 180;
+          const dLat = toRad(nextStop.pin_lat - event.lat!);
+          const dLon = toRad(nextStop.pin_lon - event.lng!);
+          const a = Math.sin(dLat / 2) ** 2 +
+                    Math.cos(toRad(event.lat!)) * Math.cos(toRad(nextStop.pin_lat)) *
+                    Math.sin(dLon / 2) ** 2;
+          const distM = 2 * R * Math.asin(Math.sqrt(a));
+
+          if (distM > 50) return;
+
+          // Dedup via Redis — only send once per stop
+          const { redis } = await import('../cache/index.js');
+          const key = `approach_brief_sent:${nextStop.id}`;
+          const already = await redis.get(key).catch(() => null);
+          if (already) return;
+
+          const brief = await getAccessBrief(nextStop.id);
+          if (!brief) return;
+
+          socket.send(JSON.stringify({ type: 'APPROACH_BRIEF', payload: brief }));
+          await redis.set(key, '1', 'EX', 86400).catch(() => {});
+        } catch (err) {
+          console.warn('[ws] approach brief error:', err);
+        }
+      })();
     }
   });
 

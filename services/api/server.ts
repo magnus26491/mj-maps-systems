@@ -44,6 +44,7 @@ import { mapConfigRoute } from './routes/map-config';
 import { autocompleteRoute } from './routes/autocomplete';
 import { authRoutes } from './routes/auth';
 import { podRoute } from './routes/pod.js';
+import { stopsRoutes } from './routes/stops.js';
 import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
@@ -147,6 +148,7 @@ const start = async () => {
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);
   await server.register(podRoute);
+  await server.register(stopsRoutes);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
