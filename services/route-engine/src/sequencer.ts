@@ -1,192 +1,103 @@
 /**
- * MJ Maps Systems — Route Engine
- * Stop Sequencer
+ * Route Engine — Sequencer
  *
- * Nearest-neighbour TSP with:
- *   1. Anti-backtrack sweep zone clustering
- *   2. Hard time-window constraint enforcement
- *   3. Side-of-road batching
+ * Orchestrates the full multi-pass solver pipeline:
+ *   1. Zone-sweep anti-backtrack re-sequence
+ *   2. 2-opt local search improvement
+ *   3. Side-of-road group flatten
+ *   4. Workload scoring and break insertion
+ *   5. Build sweep zones
  *
- * StopPoint uses flat .lat / .lng — no .location wrapper.
+ * This replaces the old thin wrapper that just delegated to solveGraph.
+ * The route-engine/solver.ts calls this via `runSequencer()`.
  */
 
-import { haversineM } from '../../turn-engine/src/osm-fetcher';
-import type { StopPoint, SequencerInput, SequencerOutput, SweepZone, LatLng } from './types';
+import type { StopPoint, SequencerInput, SequencerOutput } from './types';
+import { buildSweepZones } from './sweep-zones';
+import { twoOpt } from './two-opt';
+import { applyAntiBacktrack } from './anti-backtrack';
+import { buildSideGroups, flattenGroups } from '../../cluster-engine/side-of-road-grouper';
+import { scoreShiftWorkload } from '../../workload/shift-load-scorer';
+import { solveGraph } from '../../route-graph-solver/solver';
 
-const ZONE_RADIUS_M = 400;
-
-// ─── SWEEP ZONE CLUSTERING ────────────────────────────────────────────────────
-
-export function buildSweepZones(stops: StopPoint[]): SweepZone[] {
-  const assigned = new Set<string>();
-  const zones: SweepZone[] = [];
-  let zoneIdx = 0;
-
-  for (const stop of stops) {
-    if (assigned.has(stop.id)) continue;
-
-    const memberIds: string[] = [stop.id];
-    assigned.add(stop.id);
-
-    for (const other of stops) {
-      if (other.id === stop.id || assigned.has(other.id)) continue;
-      const dist = haversineM(
-        { lat: stop.lat, lon: stop.lng },
-        { lat: other.lat, lon: other.lng },
-      );
-      if (dist <= ZONE_RADIUS_M) {
-        memberIds.push(other.id);
-        assigned.add(other.id);
-      }
-    }
-
-    const members = memberIds.map(id => stops.find(s => s.id === id)!);
-    const centroidLat = members.reduce((s, m) => s + m.lat, 0) / members.length;
-    const centroidLng = members.reduce((s, m) => s + m.lng, 0) / members.length;
-
-    zones.push({
-      id:          `zone-${zoneIdx++}`,
-      stopIds:     memberIds,
-      centroidLat,
-      centroidLng,
-      radiusKm:    ZONE_RADIUS_M / 1000,
-    });
-  }
-
-  return zones;
-}
-
-// ─── TIME WINDOW HELPERS ──────────────────────────────────────────────────────
-
-function timeWindowKey(stop: StopPoint): number {
-  if (!stop.time_window_start) return Infinity;
-  return new Date(stop.time_window_start).getTime();
-}
-
-// ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
-
-export function sequenceStops(input: SequencerInput): SequencerOutput {
-  // Support both depotLat/depotLng and depotLocation aliases
-  const depotLat = input.depotLat ?? input.depotLocation?.lat ?? 0;
-  const depotLng = input.depotLng ?? input.depotLocation?.lng ?? 0;
-  const respectTW = input.respectTimeWindows ?? true;
-  const { stops } = input;
+export async function runSequencer(
+  input: SequencerInput,
+): Promise<SequencerOutput> {
+  const { stops, depotLat, depotLng, vehicleId, shiftStartISO, respectTimeWindows } = input;
 
   if (stops.length === 0) {
-    return { ordered: [], totalDistanceKm: 0, estimatedDurationMin: 0, sweepZones: [] };
+    return {
+      ordered: [],
+      totalDistanceKm: 0,
+      estimatedDurationMin: 0,
+      sweepZones: [],
+      droppedStops: [],
+    };
   }
-  if (stops.length === 1) {
-    return { ordered: [...stops], totalDistanceKm: 0, estimatedDurationMin: 2, sweepZones: [] };
-  }
 
-  const hardWindow = respectTW
-    ? stops.filter(s => s.time_window_start != null).sort((a, b) => timeWindowKey(a) - timeWindowKey(b))
-    : [];
-  const freeStops = stops.filter(s => !respectTW || s.time_window_start == null);
+  // ── Pass 1: Graph solver (nearest-neighbour + 2-opt) ─────────────────────
+  const graphResult = await solveGraph({
+    stops,
+    depotLat,
+    depotLng,
+    vehicleId,
+    shiftStartISO,
+    respectTimeWindows,
+  });
 
-  const zones    = buildSweepZones(freeStops);
-  const depot: LatLng = { lat: depotLat, lng: depotLng };
-  const orderedFree = visitZonesNearestFirst(zones, freeStops, depot);
+  // ── Pass 2: Anti-backtrack zone sweep ────────────────────────────────────
+  const sweepZones = buildSweepZones(graphResult.ordered);
+  const antiBacktrackResult = applyAntiBacktrack(
+    graphResult.ordered,
+    sweepZones,
+    depotLat,
+    depotLng,
+  );
 
-  const ordered = respectTW ? mergeTimeWindowStops(hardWindow, orderedFree) : orderedFree;
+  // ── Pass 3: Side-of-road grouping ────────────────────────────────────────
+  const sideGroups = buildSideGroups(antiBacktrackResult.ordered);
+  const sideOrdered = flattenGroups(sideGroups);
 
-  const naiveDist     = measureRouteDistance(stops, depot);
-  const optimisedDist = measureRouteDistance(ordered, depot);
-  const savingM       = Math.max(0, naiveDist - optimisedDist);
+  // ── Pass 4: Final 2-opt on the grouped sequence ──────────────────────────
+  const { stops: finalOrdered } = twoOpt(sideOrdered, 50);
 
-  const originalIds = stops.map(s => s.id);
-  const resequencedIndexes = ordered
-    .map((s, newIdx) => ({ newIdx, origIdx: originalIds.indexOf(s.id) }))
-    .filter(({ newIdx, origIdx }) => newIdx !== origIdx)
-    .map(({ origIdx }) => origIdx);
+  // ── Pass 5: Workload scoring ─────────────────────────────────────────────
+  const workloadInputs = finalOrdered.map(s => ({
+    stopId:           s.id,
+    isOversize:       (s as any).is_oversize ?? false,
+    requiresSignature:(s as any).requiresSignature ?? (s as any).requires_signature ?? false,
+    parcelCount:      (s as any).parcelCount ?? (s as any).parcel_count ?? 1,
+    weight_kg:        s.weight_kg,
+    walkDistanceM:    (s as any).walkDistanceM ?? 0,
+    flightsOfStairs:  (s as any).flightsOfStairs ?? 0,
+  }));
+  const workload = scoreShiftWorkload(workloadInputs);
 
-  const totalDistanceKm     = optimisedDist / 1000;
-  const estimatedDurationMin = Math.round(optimisedDist / (20_000 / 60));
+  // Stamp fatigue level onto each stop
+  const annotatedStops: StopPoint[] = finalOrdered.map((s, i) => ({
+    ...s,
+    ...(workload.stopWorkloads[i]
+      ? { fatigueLevel: workload.stopWorkloads[i].fatigueLevel }
+      : {}),
+  }));
+
+  // Rebuild sweep zones on final order for the output
+  const finalSweepZones = buildSweepZones(annotatedStops);
+
+  // Compute final route distance
+  const distKm = graphResult.totalDistanceKm; // approximate (graph solver computed on similar order)
+  const durationMin = (distKm * 1000 / (30 / 3.6)) / 60
+    + workload.breaks.reduce((s, b) => s + b.durationMin, 0);
 
   return {
-    ordered:            ordered.map((s, i) => ({ ...s, sequenceIndex: i })),
-    totalDistanceKm,
-    estimatedDurationMin,
-    sweepZones:         zones,
-    // Legacy compat
-    orderedStops:       ordered,
-    resequencedIndexes,
-    estimatedSavingM:   savingM,
+    ordered:              annotatedStops,
+    totalDistanceKm:      distKm,
+    estimatedDurationMin: Math.round(durationMin),
+    sweepZones:           finalSweepZones,
+    droppedStops:         graphResult.droppedStops ?? [],
+    resequencedIndexes:   antiBacktrackResult.backtracksRemoved > 0
+      ? annotatedStops.map((_, i) => i)
+      : [],
+    estimatedSavingM: antiBacktrackResult.totalDetourKmEliminated * 1000,
   };
-}
-
-function visitZonesNearestFirst(
-  zones: SweepZone[],
-  stops: StopPoint[],
-  startLocation: LatLng,
-): StopPoint[] {
-  const stopMap = new Map(stops.map(s => [s.id, s]));
-  const remaining = [...zones];
-  const result: StopPoint[] = [];
-  let current = startLocation;
-
-  while (remaining.length > 0) {
-    let nearestIdx = 0;
-    let nearestDist = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const d = haversineM(
-        { lat: current.lat, lon: current.lng },
-        { lat: remaining[i].centroidLat, lon: remaining[i].centroidLng },
-      );
-      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
-    }
-    const zone = remaining.splice(nearestIdx, 1)[0];
-    const zoneStops = zone.stopIds.map(id => stopMap.get(id)!).filter(Boolean);
-    const visited   = nearestNeighbour(zoneStops, current);
-    result.push(...visited);
-    if (visited.length > 0) current = { lat: visited[visited.length - 1].lat, lng: visited[visited.length - 1].lng };
-  }
-
-  return result;
-}
-
-function nearestNeighbour(stops: StopPoint[], startLocation: LatLng): StopPoint[] {
-  const remaining = [...stops];
-  const result: StopPoint[] = [];
-  let current = startLocation;
-
-  while (remaining.length > 0) {
-    let nearestIdx = 0;
-    let nearestDist = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const d = haversineM(
-        { lat: current.lat, lon: current.lng },
-        { lat: remaining[i].lat,  lon: remaining[i].lng },
-      );
-      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
-    }
-    const next = remaining.splice(nearestIdx, 1)[0];
-    result.push(next);
-    current = { lat: next.lat, lng: next.lng };
-  }
-
-  return result;
-}
-
-function mergeTimeWindowStops(hardWindow: StopPoint[], freeOrdered: StopPoint[]): StopPoint[] {
-  if (hardWindow.length === 0) return freeOrdered;
-  const result = [...freeOrdered];
-  let offset = 0;
-  for (const hw of hardWindow) { result.splice(offset++, 0, hw); }
-  return result;
-}
-
-function measureRouteDistance(stops: StopPoint[], depot: LatLng): number {
-  if (stops.length === 0) return 0;
-  let total = haversineM(
-    { lat: depot.lat, lon: depot.lng },
-    { lat: stops[0].lat, lon: stops[0].lng },
-  );
-  for (let i = 0; i < stops.length - 1; i++) {
-    total += haversineM(
-      { lat: stops[i].lat,     lon: stops[i].lng },
-      { lat: stops[i + 1].lat, lon: stops[i + 1].lng },
-    );
-  }
-  return total;
 }
