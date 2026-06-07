@@ -5,9 +5,10 @@
  *  1. Compute setback for all stops
  *  2. Validate vehicle against jurisdiction rules (weight/height/width limits)
  *  3. Check requiresAccessPermit gate for artic vehicles
- *  4. Optimize route with setback-aware sequencing + HGV routing flag
- *  5. Enrich route with turn warnings, clusters, and crossings
- *  6. Return legalWarnings[] and driveSide for driver app
+ *  4. Resolve address geocodes — stamp requiresPinConfirm + geocodeConfidence on each stop
+ *  5. Optimize route with setback-aware sequencing + HGV routing flag
+ *  6. Enrich route with turn warnings, clusters, and crossings
+ *  7. Return legalWarnings[], driveSide, and geocode metadata for driver app
  */
 
 import { estimatePropertySetbackBatch } from '../services/property-engine/src/setback-engine';
@@ -16,6 +17,7 @@ import { enrichRoute } from '../services/osm/road-enricher';
 import { VEHICLE_PROFILES, type VehicleProfile } from '../packages/vehicle-profiles/index';
 import { validateVehicleForJurisdiction, getJurisdiction, type DriveSide } from '../services/route-engine/src/jurisdiction-rules';
 import { getDwellMinutes } from '../services/route-engine/src/time-aware-solver';
+import { resolveAddress } from '../services/postcode-resolver/index.js';
 
 export interface PlannedRouteResponse {
   optimized: ReturnType<typeof optimizeRoute>;
@@ -29,6 +31,14 @@ export interface PlannedRouteResponse {
   countryCode: string;
   /** Stops with permit warnings (artic vehicles on access-restricted roads) */
   stopWarnings: Array<{ stopId: string; permitWarning: string }>;
+  /** Stops where geocode confidence is low — driver should confirm the pin */
+  stopGeocodes: Array<{
+    stopId: string;
+    requiresPinConfirm: boolean;
+    geocodeConfidence: 'high' | 'low' | 'verified';
+    lat: number;
+    lng: number;
+  }>;
 }
 
 /**
@@ -85,7 +95,27 @@ export async function buildPlannedRoute(input: {
     }
   }
 
-  // ── 3. Setback ─────────────────────────────────────────────────────────────
+  // ── 3. Geocode resolution — stamp requiresPinConfirm + geocodeConfidence ──
+  const stopGeocodes: PlannedRouteResponse['stopGeocodes'] = [];
+  if (input.geoapifyApiKey) {
+    const geocodeResults = await Promise.all(
+      input.stops.map(async (stop) => {
+        const result = await resolveAddress(stop.address, input.geoapifyApiKey!);
+        return { stopId: stop.id, ...result };
+      }),
+    );
+    for (const geo of geocodeResults) {
+      stopGeocodes.push({
+        stopId:             geo.stopId,
+        requiresPinConfirm: geo.requiresPinConfirm,
+        geocodeConfidence:  geo.source === 'verified' ? 'verified' : geo.confidence,
+        lat:                geo.lat,
+        lng:                geo.lng,
+      });
+    }
+  }
+
+  // ── 4. Setback ─────────────────────────────────────────────────────────────
   const setbackMap = await estimatePropertySetbackBatch(
     input.stops.map(s => ({ id: s.id, lat: s.lat, lng: s.lng, address: s.address })),
   );
@@ -96,13 +126,13 @@ export async function buildPlannedRoute(input: {
     dwell_minutes:     dwellMinutes,
   }));
 
-  // ── 4. Optimize ────────────────────────────────────────────────────────────
+  // ── 5. Optimize ────────────────────────────────────────────────────────────
   const optimized = optimizeRoute({
     depot: input.depot,
     stops: setbackAwareStops,
   });
 
-  // ── 5. Enrich ─────────────────────────────────────────────────────────────
+  // ── 6. Enrich ─────────────────────────────────────────────────────────────
   const enriched = await enrichRoute({
     stops: optimized.orderedStops.map((s, idx) => ({
       id: s.id,
@@ -128,5 +158,6 @@ export async function buildPlannedRoute(input: {
     driveSide,
     countryCode,
     stopWarnings,
+    stopGeocodes,
   };
 }

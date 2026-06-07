@@ -17,6 +17,7 @@ import { ArrivingScreen } from './ArrivingScreen';
 import { AtStopScreen, FailureSheet, PinCorrectionScreen } from './AtStopScreen';
 import { VehiclePicker, SettingsSheet } from './VehiclePicker';
 import { COLORS, TextStyles } from './components';
+import { PinConfirmMap } from '../../src/components/PinConfirmMap';
 
 interface DeliveryScreenProps {
   // Route data will be loaded from the store
@@ -39,6 +40,7 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   const vehiclePickerRef = useRef<BottomSheetModal>(null);
   const settingsSheetRef = useRef<BottomSheetModal>(null);
   const failureSheetRef = useRef<BottomSheetModal>(null);
+  const pinConfirmSheetRef = useRef<BottomSheetModal>(null);
 
   // UI state
   const [showPinCorrection, setShowPinCorrection] = useState(false);
@@ -48,6 +50,17 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   useEffect(() => {
     loadVehicleProfile();
   }, []);
+
+  // Auto-present pin confirm sheet when currentStop requires it
+  useEffect(() => {
+    if (currentStop?.requiresPinConfirm && phase === 'EN_ROUTE') {
+      // Brief delay so the map view is fully rendered
+      const timer = setTimeout(() => {
+        pinConfirmSheetRef.current?.present();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStop?.requiresPinConfirm, currentStop?.id, phase]);
 
   // Keep screen awake during active shift
   useEffect(() => {
@@ -117,6 +130,16 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
 
   const handlePinCorrectionCancel = useCallback(() => {
     setShowPinCorrection(false);
+  }, []);
+
+  // ── Pin confirm handlers ───────────────────────────────────────────────────
+
+  const handlePinConfirm = useCallback((lat: number, lng: number) => {
+    useDeliveryStore.getState().savePinCorrection(lat, lng);
+  }, []);
+
+  const handlePinSkip = useCallback(() => {
+    useDeliveryStore.getState().dismissPinConfirm();
   }, []);
 
   // Pin correction screen
@@ -214,6 +237,27 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
           failureSheetRef.current?.dismiss();
         }}
       />
+
+      {/* Pin confirm bottom sheet — auto-presented for low-confidence stops */}
+      {currentStop && (
+        <BottomSheetModal
+          ref={pinConfirmSheetRef}
+          snapPoints={['95%']}
+          backgroundStyle={{ backgroundColor: '#121212' }}
+          handleIndicatorStyle={{ backgroundColor: '#393836' }}
+          enablePanDownToClose={false}
+        >
+          <PinConfirmMap
+            stop={{
+              address: currentStop.address,
+              lat:     currentStop.pin?.lat ?? currentStop.lat,
+              lng:     currentStop.pin?.lng ?? currentStop.lng,
+            }}
+            onConfirm={handlePinConfirm}
+            onSkip={handlePinSkip}
+          />
+        </BottomSheetModal>
+      )}
     </View>
   );
 }

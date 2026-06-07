@@ -43,6 +43,10 @@ export interface StopPoint {
     accessNotes?: string;
     what3wordsAddress?: string;
   };
+  /** True when the address geocode had low confidence — driver should confirm the pin */
+  requiresPinConfirm?: boolean;
+  /** Geocode confidence level */
+  geocodeConfidence?: 'high' | 'low' | 'verified';
   turn?: {
     alertLevel: 'none' | 'amber' | 'red';
     message: string;

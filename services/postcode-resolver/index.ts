@@ -14,6 +14,7 @@
  *      — postcode → address list within that postcode
  *   3. Geoapify autocomplete — fallback for edge cases (3k/day free tier)
  *   4. Local geocache        — always checked first (zero API calls for known addresses)
+ *   5. geocode_pins table    — driver-confirmed coordinates (highest priority)
  *
  * Barcode formats supported:
  *   DHL: JD followed by 18 digits                 e.g. JD014600012345678901
@@ -25,6 +26,17 @@
  * All formats: extract postcode from the manifest/label alongside barcode.
  * The resolver expects postcode as the primary input; barcode is the trigger.
  */
+
+// ── Geocode result types ────────────────────────────────────────────────────────
+
+export interface GeocodeResult {
+  lat:               number;
+  lng:               number;
+  confidence:        'high' | 'low';
+  requiresPinConfirm: boolean;
+  normalisedAddress: string;
+  source:            'verified' | 'geoapify';
+}
 
 export interface AddressCandidate {
   id:          string;   // unique within this lookup
@@ -168,4 +180,134 @@ export async function toPlusCode(lat: number, lng: number): Promise<string> {
     // Fallback: basic string representation
     return `${lat.toFixed(5)},${lng.toFixed(5)}`;
   }
+}
+
+// ── Normalise address ──────────────────────────────────────────────────────────
+
+/**
+ * Normalise an address string for consistent DB lookups.
+ * Lowercase, trim, collapse whitespace, strip punctuation except hyphens.
+ * Example: "  14, Maple Street  " → "14 maple street"
+ */
+export function normaliseAddress(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[,.\/#!$%^&*;:{}=_`"()[\]|~@]/g, '')
+    .replace(/-+/g, '-')         // collapse multiple hyphens to one
+    .replace(/^-|-$/g, '');     // strip leading/trailing hyphens
+}
+
+// ── Resolve address to coordinates ────────────────────────────────────────────
+
+/**
+ * Resolve an address string to { lat, lng, confidence }.
+ *
+ * Resolution order:
+ *   1. Look up in geocode_pins table (driver-confirmed coords) — confidence >= 1
+ *   2. Call Geoapify geocoding — score >= 0.7 → high, else low
+ *   3. Best-effort fallback on failure — low confidence
+ *
+ * @param address  Full or partial address string
+ * @param apiKey   Geoapify API key
+ */
+export async function resolveAddress(
+  address: string,
+  apiKey: string,
+): Promise<GeocodeResult> {
+  const normalised = normaliseAddress(address);
+
+  // Step 1: Check geocode_pins (driver-confirmed coordinates)
+  const db = await import('../db/index.js').then(m => m.pool);
+  try {
+    const { rows } = await db.query<{ lat: number; lng: number }>(
+      `SELECT lat, lng FROM geocode_pins
+       WHERE normalised_address = $1 AND confidence >= 1
+       LIMIT 1`,
+      [normalised],
+    );
+    if (rows.length > 0) {
+      return {
+        lat:               rows[0].lat,
+        lng:               rows[0].lng,
+        confidence:        'high',
+        requiresPinConfirm: false,
+        normalisedAddress: normalised,
+        source:            'verified',
+      };
+    }
+  } catch {
+    // DB error — fall through to Geoapify
+  }
+
+  // Step 2: Geoapify geocoding
+  const geoUrl = new URL(`${GEOAPIFY_BASE}/geocode/search`);
+  geoUrl.searchParams.set('text', address);
+  geoUrl.searchParams.set('format', 'json');
+  geoUrl.searchParams.set('apiKey', apiKey);
+
+  try {
+    const res = await fetch(geoUrl.toString());
+    if (res.ok) {
+      const data = await res.json() as {
+        results?: Array<{
+          lat: number;
+          lon: number;
+          rank?: { confidence?: number };
+        }>;
+      };
+      const result = data.results?.[0];
+      if (result) {
+        const score = result.rank?.confidence ?? 0;
+        return {
+          lat:               result.lat,
+          lng:               result.lon,
+          confidence:        score >= 0.7 ? 'high' : 'low',
+          requiresPinConfirm: score < 0.7,
+          normalisedAddress: normalised,
+          source:            'geoapify',
+        };
+      }
+    }
+  } catch {
+    // Fall through to fallback
+  }
+
+  // Step 3: Best-effort fallback — return centroid of postcode if detectable
+  const postcodeMatch = address.match(/([A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2})/i);
+  if (postcodeMatch) {
+    try {
+      const pcRes = await fetch(
+        `${POSTCODE_IO_BASE}/postcodes/${encodeURIComponent(normalisePostcode(postcodeMatch[1]))}`,
+      );
+      if (pcRes.ok) {
+        const pcData = await pcRes.json() as {
+          result?: { latitude: number; longitude: number };
+        };
+        if (pcData.result) {
+          return {
+            lat:               pcData.result.latitude,
+            lng:               pcData.result.longitude,
+            confidence:        'low',
+            requiresPinConfirm: true,
+            normalisedAddress: normalised,
+            source:            'geoapify',
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Step 4: Total failure — return empty result with low confidence
+  return {
+    lat:               0,
+    lng:               0,
+    confidence:        'low',
+    requiresPinConfirm: true,
+    normalisedAddress: normalised,
+    source:            'geoapify',
+  };
 }

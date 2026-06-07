@@ -15,6 +15,7 @@ import { replanRouter } from './routes/replan';
 import { stopPinRouter } from './routes/stop-pin';
 import { stopFeedbackRouter } from './routes/stop-feedback';
 import { dispatcherRouter } from './routes/dispatcher';
+import { pinsRouter } from './routes/pins';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -65,6 +66,7 @@ app.get('/health', async (_req, res) => {
 
 // ── Public routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter); // login, refresh, logout — no auth required
+app.use('/api/v1/pins', pinsRouter); // GET /lookup is public; POST /confirm requires auth via router
 
 // ── Protected routes (all require valid JWT) ─────────────────────────────────
 app.use('/api/plan',          authenticateDriver, planRouter);
