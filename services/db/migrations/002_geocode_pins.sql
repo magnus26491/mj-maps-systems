@@ -8,7 +8,7 @@
 --   1 = single driver confirmed
 --   2 = multi-driver consensus (>= 3 contributors)
 
-CREATE TABLE geocode_pins (
+CREATE TABLE IF NOT EXISTS geocode_pins (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   normalised_address   TEXT NOT NULL,
   lat                  DOUBLE PRECISION NOT NULL,
@@ -19,5 +19,5 @@ CREATE TABLE geocode_pins (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX idx_geocode_pins_address ON geocode_pins(normalised_address);
-CREATE INDEX idx_geocode_pins_confidence   ON geocode_pins(confidence);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_geocode_pins_address ON geocode_pins(normalised_address);
+CREATE INDEX IF NOT EXISTS idx_geocode_pins_confidence   ON geocode_pins(confidence);

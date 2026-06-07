@@ -45,6 +45,6 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_valid
   ON refresh_tokens(user_id)
-  WHERE revoked = FALSE AND expires_at > NOW();
+  WHERE revoked = FALSE;
 
 COMMIT;
