@@ -85,6 +85,7 @@ export interface EnrichedStop extends StopPoint {
     alertDistanceM: number;
     message: string;
     approach: ApproachDecision;
+    approachBearing: number;
   } | null;
   clusterResult: ClusterResult | null;
   clusterId: number;
@@ -249,6 +250,7 @@ export async function enrichRoute(params: {
         alertDistanceM: approach.alertDistanceM || TURN_ALERT_DISTANCES[scoreResult.alertLevel],
         message:       buildTurnMessage(scoreResult.alertLevel, road, vehicle.label, approach),
         approach,
+        approachBearing: incomingBearing,
       };
     }
 
