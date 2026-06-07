@@ -6,10 +6,9 @@
  * (dispatcher-tier subscribers only).
  *
  * When enabled, this module adds:
- *  · Photo capture at delivery (expo-camera)
- *  · Digital signature pad (react-native-signature-canvas)
- *  · Parcel barcode scan (expo-barcode-scanner)
- *  · POD receipt generation (PDF via expo-print)
+ *  · Photo capture via expo-image-picker (quality 0.75 JPEG)
+ *  · Digital signature pad via @amwebexpert/react-native-sign-here (SVG)
+ *  · Parcel barcode scan via expo-camera CameraView (MLKit)
  *  · All captured assets attached to QueuedEvent before flush
  *
  * Individual driver builds (App Store / Play Store) compile this module
@@ -19,32 +18,28 @@
  * To enable for a B2B customer build:
  *  1. Set EXPO_PUBLIC_ENABLE_POD=true in eas.json build profile
  *  2. POD screens will automatically appear in delivery flow
- *  3. Stop delivery screen gains: [Photo] [Sign] [Scan] actions
+ *  3. AtStopScreen gains: Photo | Sign | Scan actions
  */
 
 export const POD_ENABLED = process.env.EXPO_PUBLIC_ENABLE_POD === 'true';
 
 export interface PodCapture {
-  photoUri?:   string;  // Local file URI — uploaded async post-flush
-  signature?:  string;  // Base64 SVG string
-  parcelId?:   string;  // Barcode scan result
-  capturedAt:  number;  // Unix ms
+  photoUri?:    string;   // Local file URI — uploaded async post-flush
+  signatureSvg?: string;   // SVG string
+  barcodeValue?: string;   // Barcode scan result
+  capturedAt:    number;   // Unix ms
 }
 
 /**
  * Stub capture function for individual driver builds.
  * Returns null — no UI, no permissions, no overhead.
- * B2B build replaces this with the real camera/signature flow.
  */
 export async function capturePod(
   _stopId: string,
-): Promise<PodCapture | null> {
+  _type?: 'photo' | 'signature' | 'barcode',
+): Promise<{ photoUri?: string; signatureSvg?: string; parcelId?: string } | null> {
   if (!POD_ENABLED) return null;
-
-  // B2B implementation injected here via EAS build profile.
-  // This file is the integration point — do not add camera logic here directly.
-  // See: apps/driver-app/features/pod/capture.tsx (built in B2B tier only)
-  throw new Error('POD capture.tsx not bundled in this build. Set EXPO_PUBLIC_ENABLE_POD=true.');
+  throw new Error('POD capture not available in this build. Set EXPO_PUBLIC_ENABLE_POD=true.');
 }
 
 /**
@@ -54,3 +49,11 @@ export async function capturePod(
 export function isPodAvailable(): boolean {
   return POD_ENABLED;
 }
+
+// Re-export individual capture components for use in AtStopScreen
+export { usePodCapture } from './usePodCapture';
+export type { PodCapture as PodCaptureType } from './usePodCapture';
+export { PhotoCapture } from './PhotoCapture';
+export { SignatureCapture } from './SignatureCapture';
+export { BarcodeCapture } from './BarcodeCapture';
+export { PodCaptureSection } from './PodCaptureSection';

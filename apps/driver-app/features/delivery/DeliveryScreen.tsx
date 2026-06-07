@@ -20,6 +20,7 @@ import { TextStyles } from './components';
 import { useTheme } from '../../components/ThemeContext';
 import { PinConfirmMap } from '../../src/components/PinConfirmMap';
 import { ThemeProvider } from '../../components/ThemeContext';
+import { startStopGeofences, stopStopGeofences } from '../../hooks/useDrivingMode';
 
 interface DeliveryScreenProps {
   // Route data will be loaded from the store
@@ -72,6 +73,13 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
     };
   }, [phase]);
 
+  // Start geofencing when shift begins (phase becomes EN_ROUTE with stops)
+  useEffect(() => {
+    if (phase === 'EN_ROUTE' && stops.length > 0) {
+      startStopGeofences(stops).catch(console.warn);
+    }
+  }, [phase, stops.length]);
+
   // If no vehicle selected, show vehicle picker
   if (!vehicleProfile) {
     return (
@@ -109,7 +117,8 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
     markAtStop();
   }, [markAtStop]);
 
-  const handleEndShift = useCallback(() => {
+  const handleEndShift = useCallback(async () => {
+    await stopStopGeofences();
     Alert.alert(
       'End Shift',
       'Are you sure you want to end the shift? Any undelivered stops will be marked incomplete.',

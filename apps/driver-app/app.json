@@ -24,8 +24,9 @@
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "MJ Maps uses your location continuously during active delivery shifts to track route progress, calculate turn-by-turn navigation, and send real-time ETA updates to customers. Location is collected in the background while a delivery shift is active.",
         "NSLocationWhenInUseUsageDescription": "MJ Maps uses your location to show your position on the delivery route map and calculate navigation to each stop.",
-        "NSCameraUsageDescription": "MJ Maps uses the camera to capture proof-of-delivery photos at each stop and to scan delivery barcodes.",
-        "NSPhotoLibraryUsageDescription": "MJ Maps saves proof-of-delivery photos to your photo library so you retain a local copy of each delivery confirmation.",
+        "NSCameraUsageDescription": "MJ Maps needs camera access to capture proof of delivery photos and scan parcel barcodes.",
+        "NSPhotoLibraryUsageDescription": "MJ Maps needs photo library access to attach delivery photos.",
+        "NSSupportsLiveActivities": true,
         "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
@@ -71,7 +72,21 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "MJ Maps uses the camera to capture proof-of-delivery photos and scan barcodes."
+          "cameraPermission": "MJ Maps needs camera access to scan parcel barcodes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MJ Maps needs camera access to capture proof of delivery photos.",
+          "cameraPermission": "MJ Maps needs camera access to capture proof of delivery photos."
+        }
+      ],
+      [
+        "react-native-widget-extension",
+        {
+          "frequentUpdates": true,
+          "widgetsFolder": "ios/MJMapsWidgetExtension"
         }
       ]
     ],

@@ -25,6 +25,7 @@ import { TurnWarningOverlay } from './turn-warning';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useTurnScore } from '../hooks/useTurnScore';
 import { apiRegisterFcmToken } from '../lib/api';
+import { setupShiftNotificationChannel } from '../modules/shiftNotification';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -125,6 +126,7 @@ function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   useEffect(() => {
     KeepAwake.activateKeepAwakeAsync();
+    setupShiftNotificationChannel().catch(() => {});
     return () => { KeepAwake.deactivateKeepAwake(); };
   }, []);
 

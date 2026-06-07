@@ -295,6 +295,14 @@ export default function ShiftStartScreen() {
                 <Text style={styles.importBtnText}>⚡ Parse</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={[styles.locationBtn, { marginTop: 8 }]}
+              onPress={() => router.push('/route-builder')}
+              accessibilityRole="button"
+              accessibilityLabel="Build route manually by searching addresses"
+            >
+              <Text style={styles.locationBtnText}>🗺️  Build Route Manually</Text>
+            </TouchableOpacity>
             <TextInput
               style={styles.textInput}
               multiline

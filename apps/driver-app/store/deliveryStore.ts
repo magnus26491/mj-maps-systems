@@ -10,6 +10,9 @@
  *   communityPin, driverVerifiedPin
  */
 import { create } from 'zustand';
+import * as Haptics from 'expo-haptics';
+import { startShiftActivity, updateShiftActivity, endShiftActivity } from '../../modules/liveActivity';
+import { showShiftProgressNotification, dismissShiftProgressNotification } from '../../modules/shiftNotification';
 
 export type DeliveryPhase = 'EN_ROUTE' | 'ARRIVING' | 'AT_STOP';
 
@@ -84,6 +87,21 @@ export interface EnrichedRoute {
   };
 }
 
+// ─── POD capture ────────────────────────────────────────────────────────────────
+
+export interface PodCapture {
+  photoUri?:    string | null;
+  signatureSvg?: string | null;
+  barcodeValue?: string | null;
+  capturedAt?:  number | null;
+}
+
+// ─── Helper ──────────────────────────────────────────────────────────────────
+
+function extractStreetName(address: string): string {
+  return address.split(',')[0].trim().slice(0, 30);
+}
+
 // ─── Store state ───────────────────────────────────────────────────────────────
 
 interface DeliveryState {
@@ -93,11 +111,14 @@ interface DeliveryState {
 
   // Phase management
   phase: DeliveryPhase;
-  hasTriggeredArriving: boolean; // prevent re-trigger on same stop
+  hasTriggeredArriving: boolean;
   currentStopIndex: number;
 
   // Current stop (derived from enrichedRoute.stops + currentStopIndex)
   currentStop: StopPoint | null;
+
+  // Pending POD capture for current stop
+  pendingPodCapture: PodCapture | null;
 
   // Outcome tracking
   lastOutcome: DeliveryOutcome | null;
@@ -111,12 +132,13 @@ interface DeliveryState {
   triggerArriving: () => void;
   markArriving: () => void;
   markAtStop: () => void;
-  completeDelivery: () => void;
+  completeDelivery: (podCapture?: PodCapture) => void;
   markRedeliver: () => void;
   markFailed: (reason: FailureReason) => void;
   dismissPinConfirm: () => void;
   savePinCorrection: (lat: number, lng: number) => void;
   endShift: () => void;
+  onApproachingStop: (stopId: string) => void;
 
   // Progress helpers
   getCompletedCount: () => number;
@@ -136,6 +158,7 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   lastFailureReason: null,
   showPinConfirm: false,
   pinConfirmTimeout: null,
+  pendingPodCapture: null,
 
   loadRoute: (route) => {
     const firstStop = route.stops[0] ?? null;
@@ -150,6 +173,18 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       lastFailureReason: null,
       showPinConfirm: false,
     });
+
+    // Start Live Activity + Android notification for first stop
+    if (firstStop) {
+      startShiftActivity({
+        stopNumber: 1,
+        totalStops: route.stops.length,
+        streetName: extractStreetName(firstStop.address),
+        etaMinutes: route.stops.length * 20,
+        progressPct: 0,
+      }).catch(() => {});
+      showShiftProgressNotification(1, route.stops.length, extractStreetName(firstStop.address)).catch(() => {});
+    }
   },
 
   setPhase: (phase) => set({ phase }),
@@ -169,18 +204,49 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     set({ phase: 'AT_STOP' });
   },
 
-  completeDelivery: () => {
-    // Clear any existing timeout
-    const { pinConfirmTimeout } = get();
+  completeDelivery: (podCapture) => {
+    const { enrichedRoute, currentStopIndex, pinConfirmTimeout } = get();
     if (pinConfirmTimeout) clearTimeout(pinConfirmTimeout);
+    if (!enrichedRoute) return;
+
+    const nextIndex = currentStopIndex + 1;
+    const nextStop = enrichedRoute.stops[nextIndex] ?? null;
 
     set({
+      pendingPodCapture: podCapture ?? null,
       lastOutcome: 'delivered',
-      showPinConfirm: true,
-      pinConfirmTimeout: setTimeout(() => {
-        set({ showPinConfirm: false, pinConfirmTimeout: null });
-      }, 5000),
     });
+
+    // Dismiss PinConfirm if showing
+    set({ showPinConfirm: true });
+
+    if (nextStop) {
+      set({
+        currentStopIndex: nextIndex,
+        currentStop: nextStop,
+        phase: 'EN_ROUTE',
+        hasTriggeredArriving: false,
+        showPinConfirm: false,
+      });
+      updateShiftActivity({
+        stopNumber: nextIndex + 1,
+        totalStops: enrichedRoute.stops.length,
+        streetName: extractStreetName(nextStop.address),
+        etaMinutes: (enrichedRoute.stops.length - nextIndex) * 20,
+        progressPct: (nextIndex + 1) / enrichedRoute.stops.length,
+      }).catch(() => {});
+      showShiftProgressNotification(nextIndex + 1, enrichedRoute.stops.length, extractStreetName(nextStop.address)).catch(() => {});
+    } else {
+      // Route complete
+      endShiftActivity().catch(() => {});
+      dismissShiftProgressNotification().catch(() => {});
+      set({
+        enrichedRoute: null, totalStops: 0, currentStopIndex: 0,
+        currentStop: null, phase: 'EN_ROUTE', hasTriggeredArriving: false,
+        lastOutcome: null, lastFailureReason: null, showPinConfirm: false,
+        pendingPodCapture: null,
+      });
+    }
   },
 
   markRedeliver: () => {
@@ -192,18 +258,31 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
 
     set({
       lastOutcome: 'redeliver',
-      currentStopIndex: nextIndex,
-      currentStop: nextStop,
-      phase: 'EN_ROUTE',
-      hasTriggeredArriving: false,
-      showPinConfirm: false,
     });
+
+    if (nextStop) {
+      set({
+        currentStopIndex: nextIndex,
+        currentStop: nextStop,
+        phase: 'EN_ROUTE',
+        hasTriggeredArriving: false,
+        showPinConfirm: false,
+        pendingPodCapture: null,
+      });
+      updateShiftActivity({
+        stopNumber: nextIndex + 1,
+        totalStops: enrichedRoute.stops.length,
+        streetName: extractStreetName(nextStop.address),
+        etaMinutes: (enrichedRoute.stops.length - nextIndex) * 20,
+        progressPct: (nextIndex + 1) / enrichedRoute.stops.length,
+      }).catch(() => {});
+      showShiftProgressNotification(nextIndex + 1, enrichedRoute.stops.length, extractStreetName(nextStop.address)).catch(() => {});
+    }
   },
 
   markFailed: (reason) => {
     const { enrichedRoute, currentStopIndex, pinConfirmTimeout } = get();
     if (pinConfirmTimeout) clearTimeout(pinConfirmTimeout);
-
     if (!enrichedRoute) return;
 
     const nextIndex = currentStopIndex + 1;
@@ -212,12 +291,26 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
     set({
       lastOutcome: 'failed',
       lastFailureReason: reason,
-      currentStopIndex: nextIndex,
-      currentStop: nextStop,
-      phase: 'EN_ROUTE',
-      hasTriggeredArriving: false,
-      showPinConfirm: false,
+      pendingPodCapture: null,
     });
+
+    if (nextStop) {
+      set({
+        currentStopIndex: nextIndex,
+        currentStop: nextStop,
+        phase: 'EN_ROUTE',
+        hasTriggeredArriving: false,
+        showPinConfirm: false,
+      });
+      updateShiftActivity({
+        stopNumber: nextIndex + 1,
+        totalStops: enrichedRoute.stops.length,
+        streetName: extractStreetName(nextStop.address),
+        etaMinutes: (enrichedRoute.stops.length - nextIndex) * 20,
+        progressPct: (nextIndex + 1) / enrichedRoute.stops.length,
+      }).catch(() => {});
+      showShiftProgressNotification(nextIndex + 1, enrichedRoute.stops.length, extractStreetName(nextStop.address)).catch(() => {});
+    }
   },
 
   dismissPinConfirm: () => {
@@ -245,6 +338,8 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   endShift: () => {
     const { pinConfirmTimeout } = get();
     if (pinConfirmTimeout) clearTimeout(pinConfirmTimeout);
+    endShiftActivity().catch(() => {});
+    dismissShiftProgressNotification().catch(() => {});
     set({
       enrichedRoute: null,
       totalStops: 0,
@@ -256,7 +351,16 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
       lastFailureReason: null,
       showPinConfirm: false,
       pinConfirmTimeout: null,
+      pendingPodCapture: null,
     });
+  },
+
+  onApproachingStop: (stopId) => {
+    const { currentStop, phase } = get();
+    if (currentStop?.id === stopId && phase === 'EN_ROUTE') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      set({ phase: 'ARRIVING', hasTriggeredArriving: true });
+    }
   },
 
   getCompletedCount: () => {
