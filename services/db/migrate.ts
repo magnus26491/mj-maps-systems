@@ -34,21 +34,15 @@ if (!CONNECTION_STRING) {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-// Root tsconfig.json compiles to Node16 (CommonJS), so __dirname is available natively.
-// MIGRATIONS_DIR resolves correctly in both execution contexts:
+// MIGRATIONS_DIR uses process.cwd() (the repo root) so the path is always:
+//   <repo>/services/db/migrations
+// This works in both execution contexts:
+//   ts-node services/db/migrate.ts  →  cwd = repo root  ✅
+//   node dist/services/db/migrate.js  →  cwd = repo root (/app on Railway)  ✅
 //
-//   ts-node services/db/migrate.ts:
-//     __dirname = <repo>/services/db
-//     join(__dirname, '..', '..', 'services', 'db', 'migrations')
-//     = <repo>/services/db/../../../services/db/migrations
-//     = <repo>/services/db/migrations  ✅
-//
-//   node dist/services/db/migrate.js (after npm run build):
-//     __dirname = <repo>/dist/services/db
-//     join(__dirname, '..', '..', 'services', 'db', 'migrations')
-//     = <repo>/dist/services/db/../../services/db/migrations
-//     = <repo>/services/db/migrations  ✅
-const MIGRATIONS_DIR = join(__dirname, '..', '..', 'services', 'db', 'migrations');
+// NOT __dirname — that resolves to <repo>/dist/services/db at runtime, and
+// '../..' from there only reaches <repo>/dist, not the repo root.
+const MIGRATIONS_DIR = join(process.cwd(), 'services', 'db', 'migrations');
 
 const CREATE_TRACKING_TABLE = `
 CREATE TABLE IF NOT EXISTS _migrations (
