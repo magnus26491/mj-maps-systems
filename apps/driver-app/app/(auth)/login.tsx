@@ -1,0 +1,87 @@
+import { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../lib/auth';
+import { apiLogin } from '../../lib/api';
+
+export default function LoginScreen() {
+  const router  = useRouter();
+  const setAuth = useAuthStore(s => s.setAuth);
+  const [email,    setEmail]    = useState('');
+  const [password, setPassword] = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState('');
+
+  async function handleLogin() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiLogin(email.trim(), password);
+      await setAuth(res.data.token, res.data.refreshToken, res.data.user);
+      router.replace('/(app)/');
+    } catch (e: any) {
+      setError(e.message ?? 'Login failed. Check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.card}>
+        <Text style={styles.title}>MJ Maps</Text>
+        <Text style={styles.subtitle}>Driver sign in</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Email address"
+          placeholderTextColor="#6b7280"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#6b7280"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.buttonText}>Sign in</Text>
+          }
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container:      { flex: 1, backgroundColor: '#030712', justifyContent: 'center', padding: 24 },
+  card:           { backgroundColor: '#111827', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#1f2937' },
+  title:          { fontSize: 24, fontWeight: '700', color: '#f9fafb', marginBottom: 4 },
+  subtitle:       { fontSize: 14, color: '#9ca3af', marginBottom: 24 },
+  input:          { backgroundColor: '#1f2937', borderRadius: 10, borderWidth: 1, borderColor: '#374151', color: '#f9fafb', paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, marginBottom: 12 },
+  button:         { backgroundColor: '#3b82f6', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  buttonDisabled: { opacity: 0.5 },
+  buttonText:     { color: '#fff', fontWeight: '600', fontSize: 15 },
+  error:          { color: '#f87171', fontSize: 13, marginBottom: 8 },
+});

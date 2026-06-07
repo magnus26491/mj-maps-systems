@@ -4,35 +4,90 @@
  * Responsibilities:
  *  · GestureHandler + SafeArea + React Query providers
  *  · Keep screen awake for entire shift (KeepAwake)
+ *  · Auth guard — redirects to /(auth)/login when unauthenticated
+ *  · FCM token registration after login
  *  · TurnWarningOverlay portal — renders above all navigation
  *    so RED alerts appear regardless of which screen is active
  *  · WebSocket connection lifecycle tied to active shift
  */
 import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as KeepAwake from 'expo-keep-awake';
+import * as Notifications from 'expo-notifications';
 import { StyleSheet } from 'react-native';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import { TurnWarningOverlay } from './turn-warning';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useTurnScore } from '../hooks/useTurnScore';
+import { apiRegisterFcmToken } from '../lib/api';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime:  5 * 60 * 1000,   // 5 min
-      gcTime:    30 * 60 * 1000,   // 30 min offline fallback
+      staleTime:  5 * 60 * 1000,
+      gcTime:    30 * 60 * 1000,
       retry: 2,
       retryDelay: 3000,
     },
   },
 });
 
-// ─── Inner component — needs store access ────────────────────────────────────
+// FCM notification handler — silent pushes only
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: false,
+    shouldPlaySound: false,
+    shouldSetBadge:  false,
+  } as Notifications.NotificationBehavior),
+});
+
+// —— Auth guard component ———————————————————————————————
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const router   = useRouter();
+  const segments = useSegments();
+  const isReady  = useAuthStore(s => s.isReady);
+  const token    = useAuthStore(s => s.token);
+  const loadStored = useAuthStore(s => s.loadStored);
+
+  useEffect(() => { loadStored(); }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+    const inAuth = segments[0] === '(auth)';
+    if (!token && !inAuth) router.replace('/(auth)/login');
+    if (token  && inAuth)  router.replace('/(app)/');
+  }, [isReady, token, segments]);
+
+  return <>{children}</>;
+}
+
+// —— FCM registration ———————————————————————————————
+function FcmRegistrar({ children }: { children: React.ReactNode }) {
+  const isReady = useAuthStore(s => s.isReady);
+  const token   = useAuthStore(s => s.token);
+
+  useEffect(() => {
+    if (!isReady || !token) return;
+    (async () => {
+      try {
+        const perms = await Notifications.requestPermissionsAsync();
+        if (perms.status === 'granted') {
+          const { data } = await Notifications.getExpoPushTokenAsync();
+          await apiRegisterFcmToken(data);
+        }
+      } catch { /* non-fatal */ }
+    })();
+  }, [isReady, token]);
+
+  return <>{children}</>;
+}
+
+// —— Inner component — needs store access ————————————————————
 function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
   const isActive    = useShiftStore(s => s.isActive);
   const shift       = useShiftStore(s => s.shift);
@@ -40,22 +95,15 @@ function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
   const driverId    = useShiftStore(s => s.driverId);
   const vehicleId   = useShiftStore(s => s.vehicleId);
 
-  // Live WebSocket — only active during a shift
   useWebSocket(
     isActive ? (driverId ?? null) : null,
     isActive ? (shift?.routeId ?? null) : null,
   );
 
-  // Turn score — polled at root level so overlay can fire from any screen
   const { alert, score, reason } = useTurnScore(currentStop, vehicleId);
-
-  // Local dismiss state — driver can override a RED and continue
   const [dismissed, setDismissed] = useState(false);
 
-  // Reset dismiss when stop changes or alert clears
-  useEffect(() => {
-    setDismissed(false);
-  }, [currentStop?.id, alert]);
+  useEffect(() => { setDismissed(false); }, [currentStop?.id, alert]);
 
   const showWarning = alert === 'RED' && !dismissed && isActive;
 
@@ -66,14 +114,14 @@ function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
         visible={showWarning}
         reason={reason ?? 'Road too narrow for your vehicle'}
         score={score ?? 0}
-        address={currentStop?.address ?? ''}
+        address={String(currentStop?.address ?? '')}
         onDismiss={() => setDismissed(true)}
       />
     </>
   );
 }
 
-// ─── Root layout ─────────────────────────────────────────────────────────────
+// —— Root layout ———————————————————————————————
 export default function RootLayout() {
   useEffect(() => {
     KeepAwake.activateKeepAwakeAsync();
@@ -85,15 +133,19 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style="light" />
-          <ShiftAwareProviders>
-            <Stack
-              screenOptions={{
-                headerShown:  false,
-                animation:    'slide_from_right',
-                contentStyle: { backgroundColor: '#0f1923' },
-              }}
-            />
-          </ShiftAwareProviders>
+          <AuthGuard>
+            <FcmRegistrar>
+              <ShiftAwareProviders>
+                <Stack
+                  screenOptions={{
+                    headerShown:  false,
+                    animation:    'slide_from_right',
+                    contentStyle: { backgroundColor: '#0f1923' },
+                  }}
+                />
+              </ShiftAwareProviders>
+            </FcmRegistrar>
+          </AuthGuard>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,43 +1,66 @@
 {
   "expo": {
-    "name": "MJ Maps",
+    "name": "MJ Maps Driver",
     "slug": "mj-maps-driver",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "mjmaps",
-    "userInterfaceStyle": "automatic",
+    "scheme": "mjmaps-driver",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f1923"
+      "backgroundColor": "#030712"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.mjmaps.driver",
+      "bundleIdentifier": "uk.co.mjmaps.driver",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "MJ Maps needs your location to guide you to each stop.",
-        "NSLocationAlwaysUsageDescription": "MJ Maps tracks your location in the background so the route updates as you drive.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MJ Maps needs your location to update your delivery route in real time.",
+        "NSLocationWhenInUseUsageDescription": "MJ Maps needs your location for delivery navigation.",
+        "NSCameraUsageDescription": "MJ Maps needs the camera for proof-of-delivery photos and barcode scanning.",
+        "NSPhotoLibraryUsageDescription": "MJ Maps needs photo access to attach delivery proof images.",
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0f1923"
+        "backgroundColor": "#030712"
       },
-      "package": "com.mjmaps.driver",
+      "package": "uk.co.mjmaps.driver",
       "permissions": [
         "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "VIBRATE"
-      ]
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "FOREGROUND_SERVICE"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
-      "expo-location",
-      ["expo-background-fetch", { "statusBarColor": "#0f1923" }]
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MJ Maps needs your location to update your delivery route in real time."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#3b82f6"
+        }
+      ],
+      [
+        "expo-background-fetch",
+        { "statusBarColor": "#030712" }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,0 +1,121 @@
+/**
+ * lib/api.ts
+ * Typed fetch client for the MJ Maps driver app.
+ * All requests include JWT Bearer token.
+ * On 401: attempt one token refresh → retry once.
+ * On second 401: throw 'SESSION_EXPIRED' — caller redirects to login.
+ */
+import * as SecureStore from 'expo-secure-store';
+import { refreshAccessToken } from './auth';
+import type {
+  AuthResponse, RouteDetail, Vehicle, Alert, AccessBrief, User,
+} from './types';
+
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+  retry = true,
+): Promise<T> {
+  const token = await SecureStore.getItemAsync('mj_jwt');
+  const res   = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (res.status === 401 && retry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) return apiFetch<T>(path, init, false);
+    throw new Error('SESSION_EXPIRED');
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+export const apiLogin = (email: string, password: string) =>
+  apiFetch<AuthResponse>('/api/v1/auth/login', {
+    method:  'POST',
+    body:    JSON.stringify({ email, password }),
+  });
+
+export const apiMe = () =>
+  apiFetch<{ ok: boolean; data: User }>('/api/v1/auth/me');
+
+// ── Driver ───────────────────────────────────────────────────────────────────
+export const apiSetVehicle = (vehicleId: string) =>
+  apiFetch<{ ok: boolean }>('/api/v1/drivers/me/vehicle', {
+    method: 'PATCH',
+    body:   JSON.stringify({ vehicleId }),
+  });
+
+export const apiRegisterFcmToken = (fcmToken: string) =>
+  apiFetch<{ ok: boolean }>('/api/v1/drivers/me/fcm-token', {
+    method: 'POST',
+    body:   JSON.stringify({ fcmToken }),
+  });
+
+// ── Vehicles ──────────────────────────────────────────────────────────────────
+export const apiGetVehicles = () =>
+  apiFetch<{ ok: boolean; data: Vehicle[] }>('/api/v1/vehicles');
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+export const apiGetRouteDetail = (routeId: string) =>
+  apiFetch<{ ok: boolean; data: RouteDetail }>(`/api/v1/dispatcher/routes/${routeId}`);
+
+export const apiGetAlerts = (routeId: string) =>
+  apiFetch<{ ok: boolean; data: { events: Alert[]; summary: Record<string, number> } }>(
+    `/api/v1/routes/${routeId}/alerts`,
+  );
+
+export const apiAcceptPlan = (routeId: string) =>
+  apiFetch<{ ok: boolean }>(`/api/v1/routes/${routeId}/plan/accept`, { method: 'POST' });
+
+// ── Stops ─────────────────────────────────────────────────────────────────────
+export const apiGetApproach = (stopId: string) =>
+  apiFetch<{ ok: boolean; data: AccessBrief }>(`/api/v1/stops/${stopId}/approach`);
+
+// ── Driver Events ─────────────────────────────────────────────────────────────
+export const apiDriverEvent = (payload: Record<string, unknown>) =>
+  apiFetch<{ ok: boolean }>('/api/v1/driver/event', {
+    method: 'POST',
+    body:   JSON.stringify(payload),
+  });
+
+// ── POD Photo ─────────────────────────────────────────────────────────────────
+/**
+ * Upload POD photo as multipart/form-data.
+ * Uses fetch directly — no Content-Type header, browser sets boundary.
+ */
+export async function apiUploadPod(
+  stopId:   string,
+  photoUri: string,
+): Promise<{ podPhotoUrl: string }> {
+  const token   = await SecureStore.getItemAsync('mj_jwt');
+  const formData = new FormData();
+  formData.append('photo', {
+    uri:  photoUri,
+    name: `pod-${stopId}.jpg`,
+    type: 'image/jpeg',
+  } as any);
+
+  const res = await fetch(`${BASE}/api/v1/stops/${stopId}/pod`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body:    formData,
+  });
+
+  if (!res.ok) throw new Error(`POD upload failed: ${res.status}`);
+  const data = await res.json() as { ok: boolean; data: { podPhotoUrl: string } };
+  return data.data;
+}
