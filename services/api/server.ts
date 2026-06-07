@@ -4,6 +4,8 @@
  * POST /api/v1/routes/optimise
  * GET  /api/v1/routes/:routeId/intel
  * POST /api/v1/routes/:routeId/replan
+ * GET  /api/v1/routes/:routeId/alerts        ← NEW: full pre-departure alert list
+ * GET  /api/v1/routes/:routeId/alerts/red    ← NEW: DO_NOT_ENTER stops only
  * POST /api/v1/driver/event
  * GET  /api/v1/turn-score
  * POST /api/v1/auth/token
@@ -26,15 +28,17 @@ import {
   handleDriverEvent,
   handleDriverWebSocket,
   handleHealth,
+  handleRouteAlerts,
+  handleRouteAlertsRed,
 } from './driver-api';
 import { resolveTurnScore } from '../turn-engine/src/resolver';
 import { VEHICLE_PROFILES } from '../vehicle-profiles/index';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────
-const PORT      = Number(process.env.PORT ?? 3000);
-const HOST      = process.env.HOST ?? '0.0.0.0';
+const PORT       = Number(process.env.PORT ?? 3000);
+const HOST       = process.env.HOST ?? '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
-const NODE_ENV  = process.env.NODE_ENV ?? 'development';
+const NODE_ENV   = process.env.NODE_ENV ?? 'development';
 
 if (NODE_ENV === 'production' && JWT_SECRET === 'dev-secret-change-in-production') {
   console.error('[FATAL] JWT_SECRET must be set in production');
@@ -49,7 +53,6 @@ export const server = Fastify({
       ? { target: 'pino-pretty', options: { colorize: true } }
       : undefined,
   },
-  // Trust Railway reverse proxy for real client IPs
   trustProxy: true,
 });
 
@@ -64,13 +67,13 @@ await server.register(fastifyCors, {
 });
 
 await server.register(fastifyCompress, {
-  threshold: 1024, // compress > 1KB — important for route payloads on 3G
+  threshold: 1024,
   encodings: ['gzip', 'deflate'],
 });
 
 await server.register(fastifyJwt, {
   secret: JWT_SECRET,
-  sign: { expiresIn: '12h' }, // one shift + buffer
+  sign: { expiresIn: '12h' },
 });
 
 await server.register(fastifyRateLimit, {
@@ -114,6 +117,9 @@ const RouteConfigSchema = z.object({
   shiftStartEpoch: z.number().optional(),
 });
 
+// routeId must be a non-empty string — no slashes (prevents path traversal in logs)
+const RouteIdSchema = z.string().min(1).max(128).regex(/^[\w-]+$/, 'routeId must be alphanumeric/hyphen/underscore only');
+
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 
 /** Health — no auth, used by Railway health checks */
@@ -145,7 +151,7 @@ server.post(
   '/api/v1/routes/optimise',
   { preHandler: [(server as any).authenticate] },
   async (request, reply) => {
-    const body = z.object({ stops: z.array(StopSchema), config: RouteConfigSchema })
+    const body = z.object({ stops: z.array(StopSchema).min(1), config: RouteConfigSchema })
       .safeParse(request.body);
     if (!body.success) return reply.code(400).send({ ok: false, error: body.error.message });
     return handleOptimiseRoute(request as any, reply as any);
@@ -156,14 +162,62 @@ server.post(
 server.get(
   '/api/v1/routes/:routeId/intel',
   { preHandler: [(server as any).authenticate] },
-  (request, reply) => handleRouteIntelligence(request as any, reply as any),
+  async (request, reply) => {
+    const { routeId } = request.params as { routeId: string };
+    const parsed = RouteIdSchema.safeParse(routeId);
+    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    return handleRouteIntelligence(request as any, reply as any);
+  },
 );
 
 /** Manual replan */
 server.post(
   '/api/v1/routes/:routeId/replan',
   { preHandler: [(server as any).authenticate] },
-  (request, reply) => handleManualReplan(request as any, reply as any),
+  async (request, reply) => {
+    const { routeId } = request.params as { routeId: string };
+    const parsed = RouteIdSchema.safeParse(routeId);
+    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    return handleManualReplan(request as any, reply as any);
+  },
+);
+
+/**
+ * GET /api/v1/routes/:routeId/alerts
+ * Full pre-departure alert list — all BLUE, AMBER, RED events.
+ * Rate-limited tighter than global (20 req/min) — enrichment is expensive.
+ */
+server.get(
+  '/api/v1/routes/:routeId/alerts',
+  {
+    preHandler: [(server as any).authenticate],
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+  },
+  async (request, reply) => {
+    const { routeId } = request.params as { routeId: string };
+    const parsed = RouteIdSchema.safeParse(routeId);
+    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    return handleRouteAlerts(request as any, reply as any);
+  },
+);
+
+/**
+ * GET /api/v1/routes/:routeId/alerts/red
+ * Dispatcher-facing endpoint — only DO_NOT_ENTER stops.
+ * Called before the driver departs to surface vehicle-impassable addresses.
+ */
+server.get(
+  '/api/v1/routes/:routeId/alerts/red',
+  {
+    preHandler: [(server as any).authenticate],
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+  },
+  async (request, reply) => {
+    const { routeId } = request.params as { routeId: string };
+    const parsed = RouteIdSchema.safeParse(routeId);
+    if (!parsed.success) return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+    return handleRouteAlertsRed(request as any, reply as any);
+  },
 );
 
 /** HTTP fallback for driver events when WebSocket drops */
