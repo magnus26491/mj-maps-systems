@@ -22,8 +22,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
+import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
+import { BackgroundLocationDisclosure } from '../components/BackgroundLocationDisclosure';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface RawStop {
@@ -66,11 +68,12 @@ export default function ShiftStartScreen() {
   const vehicle      = useShiftStore(s => s.vehicleId);
   const startShift   = useShiftStore(s => s.startShift);
 
-  const [rawInput, setRawInput]   = useState('');
-  const [stops, setStops]         = useState<RawStop[]>([]);
-  const [loading, setLoading]     = useState(false);
+  const [rawInput, setRawInput]     = useState('');
+  const [stops, setStops]           = useState<RawStop[]>([]);
+  const [loading, setLoading]       = useState(false);
   const [depotLabel, setDepotLabel] = useState('');
   const [depotCoords, setDepotCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [showDisclosure, setShowDisclosure] = useState(false);
 
   // ── Import from clipboard ──────────────────────────────────────────────────
   const handlePasteImport = useCallback(async () => {
@@ -105,17 +108,10 @@ export default function ShiftStartScreen() {
   }, []);
 
   // ── Start shift ───────────────────────────────────────────────────────────
-  const handleStartShift = useCallback(async () => {
-    if (!vehicle) {
-      return Alert.alert('No vehicle selected', 'Please select your vehicle first.');
-    }
-    if (!stops.length) {
-      return Alert.alert('No stops', 'Import or enter at least one stop.');
-    }
-
+  const _executeShiftStart = useCallback(async () => {
     setLoading(true);
     try {
-      const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app';
+      const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
       const token = useShiftStore.getState().token;
 
       const res = await fetch(`${API}/api/v1/routes/optimise`, {
@@ -130,7 +126,6 @@ export default function ShiftStartScreen() {
             address: s.address,
             notes: s.notes,
             parcelCount: s.parcelCount ?? 1,
-            // lat/lng resolved server-side via property-engine geocoder
           })),
           config: {
             vehicleId: vehicle,
@@ -144,7 +139,7 @@ export default function ShiftStartScreen() {
 
       if (res.ok) {
         const { data } = await res.json();
-        startShift(data.orderedStops, vehicle);
+        startShift(data.orderedStops, vehicle!);
       } else {
         // Offline fallback — use input order
         startShift(
@@ -156,7 +151,7 @@ export default function ShiftStartScreen() {
             parcelCount: s.parcelCount ?? 1,
             status: 'pending' as const,
           })),
-          vehicle,
+          vehicle!,
         );
       }
 
@@ -178,10 +173,67 @@ export default function ShiftStartScreen() {
     } finally {
       setLoading(false);
     }
-  }, [vehicle, stops, depotCoords]);
+  }, [vehicle, stops, depotCoords, startShift]);
+
+  const handleStartShift = useCallback(async () => {
+    if (!vehicle) {
+      return Alert.alert('No vehicle selected', 'Please select your vehicle first.');
+    }
+    if (!stops.length) {
+      return Alert.alert('No stops', 'Import or enter at least one stop.');
+    }
+
+    // Google Play requires prominent disclosure before requestBackgroundPermissionsAsync.
+    // Persist acceptance so the modal only shows once across all shifts.
+    const alreadyConsented = await SecureStore.getItemAsync('bg_location_consented');
+    if (!alreadyConsented) {
+      setShowDisclosure(true);
+      return; // handleDisclosureAccept will re-trigger after consent is stored
+    }
+
+    // Already consented — request background permission (may already be granted)
+    const bgStatus = await Location.requestBackgroundPermissionsAsync();
+    if (bgStatus.status !== 'granted') {
+      Alert.alert(
+        'Background Location Required',
+        'MJ Maps needs background location access to track your route during deliveries. Please enable it in Settings.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    await _executeShiftStart();
+  }, [vehicle, stops, _executeShiftStart]);
+
+  const handleDisclosureAccept = useCallback(async () => {
+    setShowDisclosure(false);
+    await SecureStore.setItemAsync('bg_location_consented', 'true');
+    const bgStatus = await Location.requestBackgroundPermissionsAsync();
+    if (bgStatus.status !== 'granted') {
+      Alert.alert(
+        'Background Location Required',
+        'MJ Maps needs background location access to track your route during deliveries. Please enable it in Settings.',
+      );
+      return;
+    }
+    await _executeShiftStart();
+  }, [_executeShiftStart]);
+
+  const handleDisclosureDecline = useCallback(() => {
+    setShowDisclosure(false);
+    Alert.alert(
+      'Location Required',
+      'Background location is required to run a delivery shift. You can enable it later in Settings.',
+    );
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BackgroundLocationDisclosure
+        visible={showDisclosure}
+        onAccept={handleDisclosureAccept}
+        onDecline={handleDisclosureDecline}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
