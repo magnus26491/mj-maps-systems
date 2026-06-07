@@ -6,9 +6,13 @@
 //   - Hard time windows (open/close)
 //   - Vehicle capacity constraints
 //   - Turn-feasibility pre-filtering (marks RED segments before routing)
+//   - Time-aware edge costs (congestion, road surface, tidal, roadworks, incidents)
+//   - Vehicle-class-appropriate speed and dwell profiles
 // ─────────────────────────────────────────────────────────────────────────────
 import Fastify from 'fastify';
 import type { VehicleClass } from '../../../packages/vehicle-profiles/index';
+import { VEHICLE_SPEED_PROFILES } from './vehicle-profiles.js';
+import { computeEdgeCost, scoreDepartureWindows } from './time-aware-cost.js';
 
 const app = Fastify({ logger: true });
 
@@ -45,8 +49,26 @@ export interface OptimiseRequest {
   maxCapacityL?: number;
   maxCapacityKg?: number;
   shiftStartMs?: number;
-  avgSpeedKph?: number;
-  dwellTimePerStopMs?: number;
+  avgSpeedKph?: number;        // kept for backwards compat; overridden by vehicleClass profile
+  dwellTimePerStopMs?: number; // kept for backwards compat; overridden by vehicleClass profile
+
+  // ── NEW FIELDS ──────────────────────────────────────────────────────────────
+  /** Departure window start (decimal hour, default 6.0) */
+  earliestDepartureHour?: number;
+  /** Departure window end (decimal hour, default 9.5) */
+  latestDepartureHour?: number;
+  /**
+   * Per-stop road condition hints — keyed by StopPoint.id.
+   * Pass in from bridge-engine / road-closure-engine outputs.
+   */
+  roadConditions?: Record<string, {
+    surface?: 'paved' | 'unpaved' | 'gravel';
+    isTidal?: boolean;
+    tidalCorrectWindow?: [number, number];
+    hasRoadworks?: boolean;
+    hasIncident?: boolean;
+    hasToll?: boolean;
+  }>;
 }
 
 export interface OptimiseResult {
@@ -54,6 +76,14 @@ export interface OptimiseResult {
   totalDistanceKm: number;
   estimatedDurationMs: number;
   warnings: string[];
+
+  // ── NEW FIELDS ──────────────────────────────────────────────────────────────
+  /** Recommended departure time in HH:MM format */
+  recommendedDeparture?: string;
+  /** Congestion score 0.0–1.0 at recommended departure (lower = better) */
+  congestionScore?: number;
+  /** Stops that were hard-blocked by road conditions (not removed, just flagged) */
+  blockedEdges?: Array<{ fromStopId: string; toStopId: string; reason: string }>;
 }
 
 // ── Haversine Distance ────────────────────────────────────────────────────────
@@ -211,9 +241,10 @@ function clusterCentroid(stops: StopPoint[]): { lat: number; lon: number } {
 // ── Main Optimise Function ────────────────────────────────────────────────────
 export function optimiseRoute(req: OptimiseRequest): OptimiseResult {
   const warnings: string[] = [];
+  const blockedEdges: OptimiseResult['blockedEdges'] = [];
   let stops = [...req.stops];
 
-  // Warn about RED turn alerts
+  // ── 0. RED turn alert warnings (existing logic — keep as-is) ──────────────
   const redStops = stops.filter((s) => s.turnAlert === 'RED');
   if (redStops.length > 0) {
     warnings.push(
@@ -221,7 +252,7 @@ export function optimiseRoute(req: OptimiseRequest): OptimiseResult {
     );
   }
 
-  // Validate time windows
+  // ── 0b. Time window warnings (existing logic — keep as-is) ────────────────
   if (req.shiftStartMs) {
     stops.forEach((s) => {
       if (s.windowCloseMs && s.windowCloseMs < req.shiftStartMs!) {
@@ -230,23 +261,82 @@ export function optimiseRoute(req: OptimiseRequest): OptimiseResult {
     });
   }
 
-  // Step 1: Nearest-neighbour seed
+  // ── 1. Score departure windows ────────────────────────────────────────────
+  const profile = VEHICLE_SPEED_PROFILES[req.vehicleClass];
+  const estDurationH =
+    (stops.length * 3.0 / 60) +
+    (stops.length * 2.5 / (profile.baseCruiseKph));
+  const depResult = scoreDepartureWindows({
+    earliestDeparture:  req.earliestDepartureHour ?? 6.0,
+    latestDeparture:    req.latestDepartureHour   ?? 9.5,
+    routeDurationHours: estDurationH,
+  });
+  const departureHour = depResult.optimalHour;
+
+  // ── 2. Nearest-neighbour seed (existing — keep as-is) ────────────────────
   let ordered = nearestNeighbour(stops, req.depotLat, req.depotLon);
 
-  // Step 2: 2-opt improvement
+  // ── 3. 2-opt improvement (existing — keep as-is) ──────────────────────────
   ordered = twoOpt(ordered, req.depotLat, req.depotLon);
 
-  // Step 3: Anti-backtrack sweep zones
+  // ── 4. Anti-backtrack sweep zones (existing — keep as-is) ───────────────
   ordered = applySweepZones(ordered, req.depotLat, req.depotLon);
 
-  // Compute metrics
-  const totalDistanceKm = totalRouteDistance(ordered, req.depotLat, req.depotLon);
-  const avgSpeed = req.avgSpeedKph ?? 40;
-  const dwellMs = req.dwellTimePerStopMs ?? 3 * 60 * 1000; // 3 min default
-  const driveMs = (totalDistanceKm / avgSpeed) * 3_600_000;
-  const estimatedDurationMs = driveMs + stops.length * dwellMs;
+  // ── 5. Compute time-aware metrics ─────────────────────────────────────────
+  let totalDistanceKm = 0;
+  let totalTimeSec = 0;
+  let currentHour = departureHour;
 
-  return { orderedStops: ordered, totalDistanceKm, estimatedDurationMs, warnings };
+  const allStops = [
+    { id: '_depot', lat: req.depotLat, lon: req.depotLon },
+    ...ordered,
+    ...(req.returnToDepot
+      ? [{ id: '_depot_return', lat: req.depotLat, lon: req.depotLon }]
+      : []),
+  ];
+
+  for (let i = 0; i < allStops.length - 1; i++) {
+    const from = allStops[i];
+    const to   = allStops[i + 1];
+    const distKm = haversineKm(from.lat, from.lon, to.lat, to.lon);
+    totalDistanceKm += distKm;
+
+    const cond = req.roadConditions?.[to.id] ?? {};
+    const edge = computeEdgeCost({
+      vehicleClass:   req.vehicleClass,
+      distanceKm:     distKm,
+      departureHour:   currentHour,
+      ...cond,
+    });
+
+    if (edge.hardBlock && edge.blockReason) {
+      blockedEdges!.push({ fromStopId: from.id, toStopId: to.id, reason: edge.blockReason });
+      warnings.push(`BLOCKED edge ${from.id}→${to.id}: ${edge.blockReason}`);
+    }
+
+    const legSec = edge.travelTimeSec + edge.penaltySec;
+    totalTimeSec += legSec;
+    currentHour  += legSec / 3600;
+
+    // Add dwell time at each stop (not at depot)
+    if (to.id !== '_depot' && to.id !== '_depot_return') {
+      const isLarge = (to as StopPoint).isCollection ||
+        ((to as StopPoint).volumeL && (to as StopPoint).volumeL! > 100);
+      const dwellS = isLarge ? profile.dwellTimeLargeS : profile.dwellTimeS;
+      totalTimeSec += dwellS;
+      currentHour  += dwellS / 3600;
+    }
+  }
+
+  return {
+    orderedStops: ordered,
+    totalDistanceKm,
+    estimatedDurationMs: totalTimeSec * 1000,
+    warnings,
+    recommendedDeparture: depResult.label,
+    congestionScore:      depResult.congestionScore,
+    blockedEdges: blockedEdges!.length > 0 ? blockedEdges : undefined,
+  };
 }
 
 // ── HTTP Endpoints ────────────────────────────────────────────────────────────

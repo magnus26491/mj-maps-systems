@@ -7,6 +7,19 @@ export type { StopPoint, SequencerInput, SequencerOutput, SweepZone, LatLng } fr
 
 export type DriveHandedness = 'left' | 'right'; // UK = left
 
+// ── New time-aware exports ────────────────────────────────────────────────────
+export type { VehicleSpeedProfile } from './src/vehicle-profiles.js';
+export { VEHICLE_SPEED_PROFILES, effectiveSpeedKph } from './src/vehicle-profiles.js';
+
+export type {
+  EdgeCostParams,
+  EdgeCost,
+} from './src/time-aware-cost.js';
+export { computeEdgeCost, scoreDepartureWindows } from './src/time-aware-cost.js';
+
+export type { DepartureRecommendation } from './src/departure-optimizer.js';
+export { recommendDeparture } from './src/departure-optimizer.js';
+
 export interface GeoPoint {
   lat: number;
   lng: number;
