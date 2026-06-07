@@ -7,17 +7,18 @@
  *  3. Next stop card
  *  4. Bottom button → opens details sheet
  */
-import React, { useCallback } from 'react';
-import { View, ScrollView, StyleSheet, useColorScheme } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useDeliveryStore, StopPoint } from '../../store/deliveryStore';
 import { useDeliveryLocation } from '../../hooks/useDeliveryLocation';
+import { useDrivingMode } from '../../hooks/useDrivingMode';
+import { ShiftProgressBar } from '../../components/ShiftProgressBar';
+import { useTheme } from '../../components/ThemeContext';
 import {
-  COLORS,
   TextStyles,
-  ProgressBar,
   RoadAlertBanner,
   StopCard,
   BottomButton,
@@ -32,35 +33,46 @@ interface EnRouteScreenProps {
 }
 
 export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenProps) {
-  const insets = useSafeAreaInsets();
+  const insets    = useSafeAreaInsets();
+  const { colors } = useTheme();
   const currentStop = useDeliveryStore(s => s.currentStop);
   const currentStopIndex = useDeliveryStore(s => s.currentStopIndex);
   const totalStops = useDeliveryStore(s => s.totalStops);
   const getRemainingTimeEstimate = useDeliveryStore(s => s.getRemainingTimeEstimate);
+  const { isDriving } = useDrivingMode();
 
   useDeliveryLocation();
 
+  const alertLevel = currentStop?.turn?.alertLevel ?? 'none';
+
+  // Haptic on alert level change
+  useEffect(() => {
+    if (!currentStop) return;
+    if (alertLevel === 'red') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } else if (alertLevel === 'amber') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+  }, [alertLevel, currentStop?.id]);
+
   if (!currentStop) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.emptyState}>
-          <TextStyles.address>No stops remaining</TextStyles.address>
-        </View>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <TextStyles.address>No stops remaining</TextStyles.address>
       </View>
     );
   }
 
-  const alertLevel = currentStop.turn?.alertLevel ?? 'none';
   const turnMessage = currentStop.turn?.message ?? '';
   const remainingTime = getRemainingTimeEstimate();
 
   return (
-    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Progress bar */}
-      <ProgressBar
+      <ShiftProgressBar
         current={currentStopIndex}
         total={totalStops}
-        remainingTime={remainingTime}
+        remainingLabel={remainingTime}
       />
 
       <ScrollView
@@ -89,11 +101,20 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
 
       {/* Bottom button */}
       <View style={[styles.buttonWrapper, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <BottomButton
-          title="SEE STOP DETAILS →"
-          onPress={onOpenDetails}
-          variant="secondary"
-        />
+        {isDriving ? (
+          <BottomButton
+            title="ARRIVING SOON"
+            onPress={() => {}}
+            variant="secondary"
+            disabled={true}
+          />
+        ) : (
+          <BottomButton
+            title="SEE STOP DETAILS →"
+            onPress={onOpenDetails}
+            variant="secondary"
+          />
+        )}
       </View>
     </View>
   );
@@ -107,14 +128,15 @@ interface StopDetailsSheetProps {
 }
 
 export function StopDetailsSheet({ stop, bottomSheetRef }: StopDetailsSheetProps) {
+  const { colors } = useTheme();
   const accessNotes = stop.pinMeta?.accessNotes ?? stop.access_notes;
 
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
       snapPoints={['60%', '90%']}
-      backgroundStyle={{ backgroundColor: COLORS.background }}
-      handleIndicatorStyle={{ backgroundColor: COLORS.grayDark }}
+      backgroundStyle={{ backgroundColor: colors.background }}
+      handleIndicatorStyle={{ backgroundColor: colors.gray }}
     >
       <View style={detailsStyles.container}>
         {/* Full address */}

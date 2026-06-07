@@ -3,13 +3,15 @@
  * FlatList with fixed item height for virtualisation performance.
  * Bottom back button stays in thumb zone.
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
+import { useDrivingMode } from '../hooks/useDrivingMode';
 
 const ITEM_HEIGHT = 88;
 
@@ -17,6 +19,11 @@ export default function StopListScreen() {
   const shift      = useShiftStore(s => s.shift);
   const stops      = useShiftStore(s => s.stops);
   const currentIdx = useShiftStore(s => s.currentStop?.index ?? 0);
+  const { isDriving } = useDrivingMode();
+
+  useEffect(() => {
+    if (currentIdx > 0) Haptics.selectionAsync();
+  }, []);
 
   const renderStop = useCallback(({ item, index }: any) => {
     const isDone    = index < currentIdx;
@@ -32,6 +39,7 @@ export default function StopListScreen() {
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={`Stop ${index + 1}: ${item.address}`}
+        onPress={() => router.push({ pathname: '/stop-delivery', params: { stopId: item.id } })}
       >
         <View style={[
           styles.indexBadge,
@@ -68,14 +76,18 @@ export default function StopListScreen() {
             )}
           </View>
         </View>
-
-        <Text style={styles.chevron}>›</Text>
       </TouchableOpacity>
     );
   }, [currentIdx]);
 
   return (
     <SafeAreaView style={styles.safe}>
+      {isDriving && (
+        <View style={styles.drivingBanner}>
+          <Text style={styles.drivingBannerText}>🚗  Stop the vehicle before browsing stops</Text>
+        </View>
+      )}
+
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -108,6 +120,13 @@ export default function StopListScreen() {
 
 const styles = StyleSheet.create({
   safe:               { flex: 1, backgroundColor: '#0f1923' },
+  drivingBanner: {
+    backgroundColor: '#c62828', paddingVertical: 16,
+    alignItems: 'center', paddingHorizontal: 16,
+  },
+  drivingBannerText: {
+    color: '#fff', fontWeight: '800', fontSize: 17, textAlign: 'center',
+  },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
@@ -133,7 +152,7 @@ const styles = StyleSheet.create({
   indexBadgeDone:     { backgroundColor: '#2e7d32' },
   indexText:          { color: '#e0eaf4', fontWeight: '700', fontSize: 14 },
   stopInfo:           { flex: 1 },
-  stopAddr:           { color: '#c8d8e8', fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  stopAddr:           { color: '#c8d8e8', fontSize: 17, fontWeight: '600', lineHeight: 24 },
   stopAddrDone:       { color: '#607080' },
   stopNote:           { color: '#8fa0b0', fontSize: 12, marginTop: 2 },
   stopMeta:           { flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'center' },
@@ -143,7 +162,6 @@ const styles = StyleSheet.create({
   },
   alertPillRed:       { backgroundColor: '#3b0d0d' },
   alertPillAmber:     { backgroundColor: '#3b2a0d' },
-  alertPillText:      { fontSize: 11, fontWeight: '700', color: '#ffe082' },
+  alertPillText:      { fontSize: 13, fontWeight: '700', color: '#ffe082' },
   metaText:           { fontSize: 12, color: '#607080' },
-  chevron:            { color: '#2a3f52', fontSize: 22, marginLeft: 8 },
 });

@@ -11,26 +11,16 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Linking from 'expo-linking';
-import { StopPoint } from '../store/deliveryStore';
+import { useTheme, DARK_THEME } from '../../components/ThemeContext';
+import { SlideToConfirm } from '../../components/SlideToConfirm';
+import { StopPoint } from '../../store/deliveryStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ─── Colours ──────────────────────────────────────────────────────────────────
-
-export const COLORS = {
-  background:   '#0f1923',
-  surface:     '#1a2633',
-  surfaceAlt:   '#243447',
-  amber:       '#f59e0b',
-  red:         '#ef4444',
-  green:       '#22c55e',
-  blue:        '#3b82f6',
-  yellow:      '#fef3c7',
-  yellowText:  '#92400e',
-  white:       '#ffffff',
-  gray:        '#94a3b8',
-  grayDark:    '#475569',
-};
+// ─── Colours — static fallback for StyleSheet.create (runs at module load) ──────
+// Dynamic theme colours used in component bodies via useTheme().
+// COLORS kept for backwards-compat for non-component usages.
+export const COLORS = DARK_THEME;
 
 // ─── Shared text styles ────────────────────────────────────────────────────────
 
@@ -75,22 +65,23 @@ interface RoadAlertBannerProps {
 }
 
 export function RoadAlertBanner({ alertLevel, message, onPress }: RoadAlertBannerProps) {
+  const { colors } = useTheme();
   if (alertLevel === 'none') return null;
 
   const isAmber = alertLevel === 'amber';
-  const bgColor = isAmber ? COLORS.amber : COLORS.red;
-  const icon    = isAmber ? '⚠️' : '🔴';
+  const bgColor = isAmber ? colors.amber : colors.red;
 
   const Content = (
     <View style={[alertStyles.container, { backgroundColor: bgColor }]}>
-      <Text style={alertStyles.icon}>{icon}</Text>
-      <Text style={alertStyles.message} numberOfLines={2}>{message}</Text>
+      <Text style={alertStyles.icon}>{isAmber ? '⚠️' : '🔴'}</Text>
+      <Text style={[alertStyles.message, { color: '#fff' }]} numberOfLines={2}>{message}</Text>
     </View>
   );
 
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}
+        accessibilityRole="button" accessibilityLabel={`Road alert: ${message}`}>
         {Content}
       </TouchableOpacity>
     );
@@ -131,31 +122,37 @@ interface StopCardProps {
 }
 
 export function StopCard({ stop, showClusterBadge = true, onPress }: StopCardProps) {
+  const { colors } = useTheme();
   const isWalkCluster = showClusterBadge &&
     stop.clusterResult?.decision?.startsWith('WALK');
   const timeSaved = stop.clusterResult?.timeSavedMin ?? 0;
 
   const Content = (
-    <View style={cardStyles.container}>
-      <Text style={TextStyles.address} numberOfLines={2}>{stop.address}</Text>
+    <View style={[cardStyles.container, { backgroundColor: colors.surface }]}>
+      <Text
+        style={[TextStyles.address, { color: colors.text }]}
+        numberOfLines={2}
+      >
+        {stop.address}
+      </Text>
 
       <View style={cardStyles.metaRow}>
-        <Text style={cardStyles.metaText}>
+        <Text style={[cardStyles.metaText, { color: colors.subtext }]}>
           {stop.parcelCount} parcel{stop.parcelCount !== 1 ? 's' : ''} · {stop.totalWeightKg.toFixed(1)} kg
         </Text>
       </View>
 
       <View style={cardStyles.badgeRow}>
         {stop.requiresSignature && (
-          <Badge text="📝 Signature required" color={COLORS.blue} />
+          <Badge text="📝 Signature required" color={colors.blue} />
         )}
         {stop.isOversize && (
-          <Badge text="📦 Oversize" color={COLORS.amber} textColor={COLORS.background} />
+          <Badge text="📦 Oversize" color={colors.amber} textColor={colors.background} />
         )}
         {isWalkCluster && (
           <Badge
             text={`🚶 Park here — walk ${timeSaved} stops`}
-            color={COLORS.green}
+            color={colors.green}
           />
         )}
       </View>
@@ -164,7 +161,9 @@ export function StopCard({ stop, showClusterBadge = true, onPress }: StopCardPro
 
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={`Stop at ${stop.address}`}>
         {Content}
       </TouchableOpacity>
     );
@@ -198,9 +197,9 @@ const cardStyles = StyleSheet.create({
 // ─── Bottom Button ─────────────────────────────────────────────────────────────
 
 interface BottomButtonProps {
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  title:    string;
+  onPress:  () => void;
+  variant?: 'primary' | 'secondary' | 'danger' | 'slide';
   disabled?: boolean;
 }
 
@@ -210,11 +209,25 @@ export function BottomButton({
   variant = 'primary',
   disabled = false,
 }: BottomButtonProps) {
+  const { colors } = useTheme();
+
   const bgColors = {
-    primary:   COLORS.green,
-    secondary: COLORS.surfaceAlt,
-    danger:    COLORS.red,
+    primary:   colors.green,
+    secondary: colors.surfaceAlt,
+    danger:    colors.red,
+    slide:     colors.greenBg,
   };
+
+  if (variant === 'slide') {
+    return (
+      <SlideToConfirm
+        label={title}
+        color={colors.green}
+        trackColor={colors.greenBg}
+        onConfirm={onPress}
+      />
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -226,8 +239,10 @@ export function BottomButton({
         { backgroundColor: bgColors[variant] },
         disabled && buttonStyles.disabled,
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={title}
     >
-      <Text style={buttonStyles.text}>{title}</Text>
+      <Text style={[buttonStyles.text, { color: '#fff' }]}>{title}</Text>
     </TouchableOpacity>
   );
 }
@@ -277,6 +292,8 @@ export function MiniMap({ lat, lng, approachBearing = 0, onPress }: MiniMapProps
       onPress={handlePress}
       activeOpacity={0.9}
       style={mapStyles.container}
+      accessibilityRole="button"
+      accessibilityLabel="Open in Maps"
     >
       <MapView
         style={mapStyles.map}
@@ -400,10 +417,12 @@ export function PlusCodeChip({ plusCode, onPress }: PlusCodeChipProps) {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <View style={chipStyles.container}>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`Open Plus Code ${plusCode}`}>
+      <View style={[chipStyles.container, { backgroundColor: COLORS.surfaceAlt }]}>
         <Text style={chipStyles.icon}>📍</Text>
-        <Text style={chipStyles.text}>{plusCode}</Text>
+        <Text style={[chipStyles.text, { color: COLORS.white }]}>{plusCode}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -572,20 +591,24 @@ export function PinConfirmCard({ visible, onConfirm }: PinConfirmCardProps) {
   if (!visible) return null;
 
   return (
-    <View style={pinStyles.container}>
-      <Text style={pinStyles.title}>📍 Was the pin in the right place?</Text>
+    <View style={[pinStyles.container, { backgroundColor: COLORS.surface }]}>
+      <Text style={[pinStyles.title, { color: COLORS.white }]}>📍 Was the pin in the right place?</Text>
       <View style={pinStyles.buttons}>
         <TouchableOpacity
           style={[pinStyles.button, { backgroundColor: COLORS.green }]}
           onPress={() => onConfirm(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Pin location is correct"
         >
-          <Text style={pinStyles.buttonText}>YES ✓</Text>
+          <Text style={[pinStyles.buttonText, { color: COLORS.white }]}>YES ✓</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[pinStyles.button, { backgroundColor: COLORS.red }]}
           onPress={() => onConfirm(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Pin location needs correction"
         >
-          <Text style={pinStyles.buttonText}>NO — fix it</Text>
+          <Text style={[pinStyles.buttonText, { color: COLORS.white }]}>NO — fix it</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -651,8 +674,10 @@ export function FailureReasonSheet({ onSelect, onClose }: FailureReasonSheetProp
             key={reason.key}
             style={reasonStyles.chip}
             onPress={() => onSelect(reason.key)}
+            accessibilityRole="button"
+            accessibilityLabel={reason.label}
           >
-            <Text style={reasonStyles.chipText}>{reason.label}</Text>
+            <Text style={[reasonStyles.chipText, { color: COLORS.white }]}>{reason.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

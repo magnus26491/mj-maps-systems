@@ -22,23 +22,23 @@ import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
 import { useTurnScore } from '../hooks/useTurnScore';
 import { useDriverLocation } from '../hooks/useDriverLocation';
+import { useDrivingMode } from '../hooks/useDrivingMode';
+import { SlideToConfirm } from '../components/SlideToConfirm';
+import { ShiftProgressBar } from '../components/ShiftProgressBar';
+import { ThemeProvider, useTheme } from '../components/ThemeContext';
 
-const ALERT_COLOURS = {
-  GREEN: { bg: '#0d3b0d', banner: '#2e7d32', text: '#a5d6a7', emoji: '✅' },
-  AMBER: { bg: '#3b2a0d', banner: '#f57c00', text: '#ffe082', emoji: '⚠️' },
-  RED:   { bg: '#3b0d0d', banner: '#c62828', text: '#ef9a9a', emoji: '🚨' },
-} as const;
-
-export default function HudScreen() {
+function HudInner() {
+  const { colors } = useTheme();
+  const { isDriving } = useDrivingMode();
   const shift        = useShiftStore(s => s.shift);
-  const currentStop  = useShiftStore(s => s.currentStop);
+  const currentStop = useShiftStore(s => s.currentStop);
   const completeStop = useShiftStore(s => s.completeStop);
   const failStop     = useShiftStore(s => s.failStop);
 
-  useDriverLocation(); // starts background tracking
+  useDriverLocation();
   const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId);
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function HudScreen() {
 
   if (!shift || !currentStop) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No active route.</Text>
           <TouchableOpacity
@@ -80,50 +80,70 @@ export default function HudScreen() {
     );
   }
 
-  const colours = ALERT_COLOURS[alert ?? 'GREEN'];
-
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colours.bg }]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
 
       {/* ── Turn Alert Banner ─────────────────────────────────── */}
-      <Animated.View style={[
-        styles.alertBanner,
-        { backgroundColor: colours.banner, transform: [{ scale: scaleAnim }] },
-      ]}>
-        <Text style={styles.alertEmoji}>{colours.emoji}</Text>
-        <View style={styles.alertTextWrap}>
-          <Text style={[styles.alertLabel, { color: colours.text }]}>
-            {alert === 'GREEN' && 'Clear to enter'}
-            {alert === 'AMBER' && 'Caution — tight ahead'}
-            {alert === 'RED'   && 'DO NOT ENTER'}
+      {alert !== 'GREEN' && (
+        <Animated.View
+          style={[
+            styles.alertBanner,
+            {
+              backgroundColor: alert === 'RED' ? colors.red : colors.amber,
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.alertEmoji}>{alert === 'RED' ? '🚨' : '⚠️'}</Text>
+          <View style={styles.alertTextWrap}>
+            <Text style={[styles.alertLabel, { color: '#fff' }]}>
+              {alert === 'AMBER' ? 'Caution — tight ahead' : 'DO NOT ENTER'}
+            </Text>
+            {reason ? (
+              <Text style={[styles.alertReason, { color: 'rgba(255,255,255,0.85)' }]}>
+                {reason}
+              </Text>
+            ) : null}
+          </View>
+          <Text style={[styles.alertScore, { color: '#fff' }]}>
+            {score !== null ? Math.round(score * 100) : '--'}
           </Text>
-          {reason ? (
-            <Text style={[styles.alertReason, { color: colours.text }]}>{reason}</Text>
-          ) : null}
-        </View>
-        <Text style={[styles.alertScore, { color: colours.text }]}>
-          {score !== null ? Math.round(score * 100) : '--'}
-        </Text>
-      </Animated.View>
+        </Animated.View>
+      )}
+
+      {/* ── Shift Progress ────────────────────────────────────── */}
+      <ShiftProgressBar
+        current={currentStop.index}
+        total={shift.totalStops}
+      />
 
       {/* ── Current Stop ──────────────────────────────────────── */}
-      <View style={styles.stopCard}>
-        <Text style={styles.stopIndex}>
+      <View style={[styles.stopCard, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.stopIndex, { color: colors.subtext }]}>
           Stop {currentStop.index + 1} of {shift.totalStops}
         </Text>
-        <Text style={styles.stopAddress} numberOfLines={3}>
+        <Text
+          style={[styles.stopAddress, { color: colors.text }]}
+          numberOfLines={3}
+        >
           {currentStop.address}
         </Text>
         {currentStop.notes ? (
-          <Text style={styles.stopNotes}>{currentStop.notes}</Text>
+          <Text style={[styles.stopNotes, { color: colors.amber }]}>
+            {currentStop.notes}
+          </Text>
         ) : null}
         <View style={styles.stopMeta}>
-          <Text style={styles.metaItem}>📦 {currentStop.parcelCount} parcels</Text>
+          <Text style={[styles.metaItem, { color: colors.subtext }]}>
+            📦 {currentStop.parcelCount} parcel{currentStop.parcelCount !== 1 ? 's' : ''}
+          </Text>
           {currentStop.etaLabel && (
-            <Text style={styles.metaItem}>🕐 {currentStop.etaLabel}</Text>
+            <Text style={[styles.metaItem, { color: colors.subtext }]}>
+              🕐 {currentStop.etaLabel}
+            </Text>
           )}
           {currentStop.distanceM != null && (
-            <Text style={styles.metaItem}>
+            <Text style={[styles.metaItem, { color: colors.subtext }]}>
               📍 {currentStop.distanceM < 1000
                 ? `${currentStop.distanceM}m`
                 : `${(currentStop.distanceM / 1000).toFixed(1)}km`}
@@ -136,42 +156,64 @@ export default function HudScreen() {
 
       {/* ── Bottom Action Bar — thumb zone ─────────────────────── */}
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.failBtn]}
-          onPress={failStop}
-          accessibilityRole="button"
-          accessibilityLabel="Failed delivery"
-        >
-          <Text style={styles.actionIcon}>✗</Text>
-          <Text style={styles.actionLabel}>Failed</Text>
-        </TouchableOpacity>
+        {/* Failed */}
+        {isDriving ? (
+          <View style={[styles.actionBtn, { backgroundColor: colors.surface, opacity: 0.3 }]}>
+            <Text style={styles.actionIcon}>🔒</Text>
+            <Text style={styles.actionLabel}>Parked only</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.redBg }]}
+            onPress={failStop}
+            accessibilityRole="button"
+            accessibilityLabel="Mark as failed"
+          >
+            <Text style={styles.actionIcon}>✗</Text>
+            <Text style={styles.actionLabel}>Failed</Text>
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.navBtn]}
-          onPress={() => router.push('/stop-list')}
-          accessibilityRole="button"
-          accessibilityLabel="View all stops"
-        >
-          <Text style={styles.actionIcon}>☰</Text>
-          <Text style={styles.actionLabel}>Stops</Text>
-        </TouchableOpacity>
+        {/* Stops */}
+        {isDriving ? (
+          <View style={[styles.actionBtn, { backgroundColor: colors.surface, opacity: 0.4 }]}>
+            <Text style={styles.actionIcon}>🔒</Text>
+            <Text style={styles.actionLabel}>Parked only</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.surface }]}
+            onPress={() => router.push('/stop-list')}
+            accessibilityRole="button"
+            accessibilityLabel="View all stops"
+          >
+            <Text style={styles.actionIcon}>☰</Text>
+            <Text style={styles.actionLabel}>Stops</Text>
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.doneBtn]}
-          onPress={completeStop}
-          accessibilityRole="button"
-          accessibilityLabel="Mark as delivered"
-        >
-          <Text style={styles.actionIcon}>✓</Text>
-          <Text style={styles.actionLabel}>Delivered</Text>
-        </TouchableOpacity>
+        {/* Deliver */}
+        <SlideToConfirm
+          label="Deliver"
+          sublabel={`${currentStop.parcelCount} parcel${currentStop.parcelCount !== 1 ? 's' : ''}`}
+          color={colors.green}
+          trackColor={colors.greenBg}
+          onConfirm={completeStop}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
+export default function HudScreen() {
+  return (
+    <ThemeProvider>
+      <HudInner />
+    </ThemeProvider>
+  );
+}
+
 const styles = StyleSheet.create({
-  safe:          { flex: 1 },
   empty:         { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   emptyText:     { color: '#8fa0b0', fontSize: 17, marginBottom: 16 },
   emptyBtn: {
@@ -188,28 +230,25 @@ const styles = StyleSheet.create({
   alertEmoji:    { fontSize: 28 },
   alertTextWrap: { flex: 1 },
   alertLabel:    { fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
-  alertReason:   { fontSize: 13, marginTop: 2, opacity: 0.85 },
+  alertReason:   { fontSize: 13, marginTop: 2 },
   alertScore:    { fontSize: 26, fontWeight: '900', opacity: 0.9 },
   stopCard: {
     marginHorizontal: 12, marginTop: 16,
-    backgroundColor: '#1c2a37', borderRadius: 16, padding: 18,
+    borderRadius: 16, padding: 18,
   },
-  stopIndex:   { fontSize: 13, color: '#607080', marginBottom: 4, fontWeight: '600' },
-  stopAddress: { fontSize: 22, color: '#e0eaf4', fontWeight: '700', lineHeight: 30 },
-  stopNotes:   { fontSize: 14, color: '#f0c040', marginTop: 8, lineHeight: 20 },
+  stopIndex:   { fontSize: 15, marginBottom: 4, fontWeight: '600' },
+  stopAddress: { fontSize: 24, fontWeight: '800', lineHeight: 32 },
+  stopNotes:   { fontSize: 15, marginTop: 8, lineHeight: 22 },
   stopMeta:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
-  metaItem:    { fontSize: 14, color: '#8fa0b0' },
+  metaItem:    { fontSize: 16 },
   actions: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 12, paddingBottom: 16, paddingTop: 12,
   },
   actionBtn: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 14, minHeight: 64, gap: 4,
+    borderRadius: 14, minHeight: 72, gap: 4,
   },
-  failBtn:     { backgroundColor: '#3b1a1a' },
-  navBtn:      { backgroundColor: '#1c2a37' },
-  doneBtn:     { backgroundColor: '#0d3b1a' },
   actionIcon:  { fontSize: 22, color: '#e0eaf4' },
-  actionLabel: { fontSize: 12, color: '#8fa0b0', fontWeight: '600' },
+  actionLabel: { fontSize: 16, color: '#8fa0b0', fontWeight: '600' },
 });

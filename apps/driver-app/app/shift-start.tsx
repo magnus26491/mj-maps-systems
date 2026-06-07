@@ -23,9 +23,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
 import { BackgroundLocationDisclosure } from '../components/BackgroundLocationDisclosure';
+import { ThemeProvider, useTheme } from '../components/ThemeContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface RawStop {
@@ -65,6 +67,7 @@ function greedyOrder(stops: RawStop[]): RawStop[] {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ShiftStartScreen() {
+  const { colors } = useTheme();
   const vehicle      = useShiftStore(s => s.vehicleId);
   const startShift   = useShiftStore(s => s.startShift);
 
@@ -84,6 +87,7 @@ export default function ShiftStartScreen() {
       if (!parsed.length) return Alert.alert('No stops found', 'Check CSV format: Address, Notes, Parcels');
       setStops(parsed);
       setRawInput(text);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Alert.alert('Paste failed', 'Could not read clipboard.');
     }
@@ -94,6 +98,7 @@ export default function ShiftStartScreen() {
     const parsed = parseStopsCsv(rawInput);
     if (!parsed.length) return Alert.alert('No stops found', 'Enter one address per line, or paste CSV.');
     setStops(parsed);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [rawInput]);
 
   // ── Get current GPS as depot ──────────────────────────────────────────────
@@ -228,7 +233,8 @@ export default function ShiftStartScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <ThemeProvider>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <BackgroundLocationDisclosure
         visible={showDisclosure}
         onAccept={handleDisclosureAccept}
@@ -239,26 +245,26 @@ export default function ShiftStartScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { backgroundColor: colors.background }]}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.heading}>Start Shift</Text>
+          <Text style={[styles.heading, { color: colors.text }]}>Start Shift</Text>
 
           {/* ── Vehicle ──────────────────────────────────────────── */}
           <TouchableOpacity
-            style={[styles.card, !vehicle && styles.cardWarning]}
+            style={[styles.card, { backgroundColor: colors.surface }, !vehicle && { borderColor: colors.amber, borderWidth: 1 }]}
             onPress={() => router.push('/vehicle-select')}
             accessibilityRole="button"
           >
-            <Text style={styles.cardLabel}>Vehicle</Text>
-            <Text style={styles.cardValue}>
+            <Text style={[styles.cardLabel, { color: colors.subtext }]}>Vehicle</Text>
+            <Text style={[styles.cardValue, { color: colors.text }]}>
               {vehicle ? vehicle.replace(/_/g, ' ').toUpperCase() : 'Tap to select ›'}
             </Text>
           </TouchableOpacity>
 
           {/* ── Depot / Start location ────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Start location</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.cardLabel, { color: colors.subtext }]}>Start location</Text>
             <TouchableOpacity
               style={styles.locationBtn}
               onPress={handleUseCurrentLocation}
@@ -271,8 +277,8 @@ export default function ShiftStartScreen() {
           </View>
 
           {/* ── Stop import ──────────────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Stops</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.cardLabel, { color: colors.subtext }]}>Stops</Text>
             <View style={styles.importRow}>
               <TouchableOpacity
                 style={styles.importBtn}
@@ -294,20 +300,25 @@ export default function ShiftStartScreen() {
               multiline
               numberOfLines={6}
               placeholder={'One address per line, or paste CSV:\nAddress, Notes, Parcels'}
-              placeholderTextColor="#4a5568"
+              placeholderTextColor={colors.subtext}
               value={rawInput}
               onChangeText={setRawInput}
+              multiline
+              numberOfLines={6}
+              placeholder={'One address per line, or paste CSV:\nAddress, Notes, Parcels'}
               autoCorrect={false}
               autoCapitalize="none"
+              accessibilityLabel="Stop addresses input"
+              accessibilityHint="Enter one address per line or paste CSV"
             />
             {stops.length > 0 && (
-              <Text style={styles.stopsCount}>✓ {stops.length} stops ready</Text>
+              <Text style={[styles.stopsCount, { color: colors.green }]}>✓ {stops.length} stops ready</Text>
             )}
           </View>
         </ScrollView>
 
         {/* ── Bottom CTA — always in thumb zone ──────────────────── */}
-        <View style={styles.cta}>
+        <View style={[styles.cta, { paddingBottom: 8 }]}>
           <TouchableOpacity
             style={[
               styles.startBtn,
@@ -326,6 +337,7 @@ export default function ShiftStartScreen() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </ThemeProvider>
   );
 }
 
@@ -345,8 +357,8 @@ const styles = StyleSheet.create({
   cardValue:   { fontSize: 17, color: '#e0eaf4', fontWeight: '600' },
   locationBtn: {
     backgroundColor: '#253545', borderRadius: 10,
-    paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center',
-    minHeight: 44,
+    paddingVertical: 14, paddingHorizontal: 14, alignItems: 'center',
+    minHeight: 56,
   },
   locationBtnText: { color: '#4fc3f7', fontSize: 15, fontWeight: '600' },
   importRow:       { flexDirection: 'row', gap: 10 },

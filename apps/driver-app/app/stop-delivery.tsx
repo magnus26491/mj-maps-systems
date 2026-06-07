@@ -2,40 +2,35 @@
  * StopDelivery — delivery confirmation screen.
  *
  * Shown after driver taps a stop in stop-list or arrives at destination.
- * Core actions: Delivered | Failed | Partially Delivered
+ * Core actions: Delivered | Failed
  *
  * POD features (photo, signature, barcode) are gated behind
  * isPodAvailable() — invisible in individual driver builds,
  * seamlessly enabled for B2B dispatcher-tier builds.
  *
  * Mobile constraints:
- *  · All action buttons in bottom thumb zone, min 64px height
- *  · Failure reason picker uses ActionSheet (native feel, no modals)
+ *  · All action buttons in bottom thumb zone, min 72px height
+ *  · Failure reason uses FailureReasonSheet (ENT tier component)
  *  · Offline safe — events enqueued via useOfflineQueue if no signal
  */
 import { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, TextInput, Alert,
+  ScrollView, TextInput, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { isPodAvailable, capturePod } from '../features/pod';
+import { SlideToConfirm } from '../components/SlideToConfirm';
+import { ShiftProgressBar } from '../components/ShiftProgressBar';
+import { ThemeProvider, useTheme } from '../components/ThemeContext';
+import { FailureReasonSheet } from '../features/delivery/components';
 
-const FAIL_REASONS = [
-  'Not in — no safe place',
-  'Not in — left with neighbour',
-  'Access denied / gate locked',
-  'Address not found',
-  'Parcel damaged — refused',
-  'Customer refused delivery',
-  'Incorrect address on label',
-  'Other',
-] as const;
-
-export default function StopDeliveryScreen() {
+function StopDeliveryInner() {
+  const { colors } = useTheme();
   const { stopId } = useLocalSearchParams<{ stopId: string }>();
 
   const shift        = useShiftStore(s => s.shift);
@@ -54,8 +49,10 @@ export default function StopDeliveryScreen() {
   const handleDelivered = useCallback(async () => {
     if (!stop || !shift) return;
 
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
     // Attempt POD capture if B2B tier — silently skips on individual builds
-    let pod = null;
+    let pod: { photoUri?: string; signature?: string; parcelId?: string } | null = null;
     if (isPodAvailable()) {
       pod = await capturePod(stop.id).catch(() => null);
     }
@@ -89,17 +86,23 @@ export default function StopDeliveryScreen() {
       reason: selectedReason,
       notes,
     });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     failStop();
     router.back();
   }, [stop, shift, selectedReason, notes]);
 
+  const handleReasonSelect = useCallback((reason: string) => {
+    setSelectedReason(reason);
+    setShowReasons(false);
+  }, []);
+
   if (!stop) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>Stop not found.</Text>
+          <Text style={[styles.emptyText, { color: colors.subtext }]}>Stop not found.</Text>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>Go back</Text>
+            <Text style={[styles.backBtnText, { color: colors.blue }]}>Go back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -107,68 +110,76 @@ export default function StopDeliveryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
+
+        {/* ── Shift Progress ────────────────────────────────────── */}
+        <ShiftProgressBar
+          current={stop.index ?? 0}
+          total={shift?.stops.length ?? 1}
+        />
 
         {/* Stop header */}
-        <Text style={styles.stopIndex}>Stop {(stop.index ?? 0) + 1}</Text>
-        <Text style={styles.address} numberOfLines={3}>{stop.address}</Text>
-        {stop.notes ? <Text style={styles.stopNotes}>{stop.notes}</Text> : null}
+        <Text style={[styles.stopIndex, { color: colors.subtext }]}>
+          Stop {(stop.index ?? 0) + 1}
+        </Text>
+        <Text
+          style={[styles.address, { color: colors.text }]}
+          numberOfLines={3}
+        >
+          {stop.address}
+        </Text>
+        {stop.notes ? (
+          <Text style={[styles.stopNotes, { color: colors.amber }]}>{stop.notes}</Text>
+        ) : null}
         <View style={styles.metaRow}>
-          <Text style={styles.meta}>📦 {stop.parcelCount ?? 1} parcels</Text>
+          <Text style={[styles.meta, { color: colors.subtext }]}>
+            📦 {stop.parcelCount ?? 1} parcel{(stop.parcelCount ?? 1) !== 1 ? 's' : ''}
+          </Text>
         </View>
-
-        {/* Failure reason picker */}
-        {showReasons && (
-          <View style={styles.reasonsCard}>
-            <Text style={styles.reasonsLabel}>Select failure reason:</Text>
-            {FAIL_REASONS.map(r => (
-              <TouchableOpacity
-                key={r}
-                style={[
-                  styles.reasonItem,
-                  selectedReason === r && styles.reasonItemSelected,
-                ]}
-                onPress={() => { setSelectedReason(r); setShowReasons(false); }}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selectedReason === r }}
-              >
-                <Text style={styles.reasonText}>{r}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {selectedReason && (
-          <View style={styles.selectedReasonBadge}>
-            <Text style={styles.selectedReasonText}>✗ {selectedReason}</Text>
-          </View>
-        )}
 
         {/* Notes */}
         <TextInput
-          style={styles.notesInput}
+          style={[styles.notesInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.surfaceAlt }]}
           placeholder="Notes (optional)"
-          placeholderTextColor="#4a5568"
+          placeholderTextColor={colors.subtext}
           value={notes}
           onChangeText={setNotes}
           multiline
           numberOfLines={3}
+          accessibilityLabel="Delivery notes"
         />
 
         {/* B2B POD indicator — only visible if feature enabled */}
         {isPodAvailable() && (
-          <View style={styles.podBadge}>
-            <Text style={styles.podBadgeText}>📷 POD capture enabled</Text>
+          <View style={[styles.podBadge, { backgroundColor: colors.greenBg }]}>
+            <Text style={[styles.podBadgeText, { color: colors.green }]}>📷 POD capture enabled</Text>
           </View>
         )}
-
       </ScrollView>
 
+      {/* Failure reason modal */}
+      <Modal
+        visible={showReasons}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReasons(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
+            <FailureReasonSheet
+              onSelect={handleReasonSelect}
+              onClose={() => setShowReasons(false)}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Bottom actions — thumb zone */}
-      <View style={styles.actions}>
+      <View style={[styles.actions, { paddingBottom: 16, paddingTop: 12 }]}>
+        {/* Failed */}
         <TouchableOpacity
-          style={[styles.actionBtn, styles.failBtn]}
+          style={[styles.actionBtn, { backgroundColor: colors.redBg, minHeight: 72 }]}
           onPress={handleFailed}
           accessibilityRole="button"
           accessibilityLabel="Mark as failed"
@@ -179,66 +190,64 @@ export default function StopDeliveryScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.doneBtn]}
-          onPress={handleDelivered}
-          accessibilityRole="button"
-          accessibilityLabel="Mark as delivered"
-        >
-          <Text style={styles.actionIcon}>✓</Text>
-          <Text style={styles.actionLabel}>Delivered</Text>
-        </TouchableOpacity>
+        {/* Delivered */}
+        <SlideToConfirm
+          label="Confirm Delivered"
+          sublabel={`${stop.parcelCount ?? 1} parcel${(stop.parcelCount ?? 1) !== 1 ? 's' : ''}`}
+          color={colors.green}
+          trackColor={colors.greenBg}
+          onConfirm={handleDelivered}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
+export default function StopDeliveryScreen() {
+  return (
+    <ThemeProvider>
+      <StopDeliveryInner />
+    </ThemeProvider>
+  );
+}
+
 const styles = StyleSheet.create({
-  safe:       { flex: 1, backgroundColor: '#0f1923' },
   scroll:     { padding: 16, gap: 12, paddingBottom: 8 },
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText:  { color: '#8fa0b0', fontSize: 17, marginBottom: 16 },
+  emptyText:  { fontSize: 17, marginBottom: 16 },
   backBtn:    { backgroundColor: '#1c2a37', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
-  backBtnText:{ color: '#e0eaf4', fontSize: 15, fontWeight: '600' },
-  stopIndex:  { fontSize: 13, color: '#607080', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  address:    { fontSize: 22, color: '#e0eaf4', fontWeight: '700', lineHeight: 30, marginTop: 4 },
-  stopNotes:  { fontSize: 14, color: '#f0c040', lineHeight: 20 },
+  backBtnText:{ fontSize: 15, fontWeight: '600' },
+  stopIndex:  { fontSize: 15, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  address:    { fontSize: 22, fontWeight: '700', lineHeight: 30, marginTop: 4 },
+  stopNotes:  { fontSize: 14, lineHeight: 20 },
   metaRow:    { flexDirection: 'row', gap: 12 },
-  meta:       { fontSize: 14, color: '#8fa0b0' },
-  reasonsCard:{ backgroundColor: '#1c2a37', borderRadius: 14, padding: 14, gap: 8 },
-  reasonsLabel:{ fontSize: 13, color: '#607080', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
-  reasonItem: {
-    paddingVertical: 13, paddingHorizontal: 14,
-    backgroundColor: '#253545', borderRadius: 10, minHeight: 48,
-    justifyContent: 'center',
-  },
-  reasonItemSelected: { backgroundColor: '#3b1a1a', borderWidth: 1, borderColor: '#c62828' },
-  reasonText: { color: '#e0eaf4', fontSize: 15 },
-  selectedReasonBadge: {
-    backgroundColor: '#3b1a1a', borderRadius: 10,
-    paddingVertical: 10, paddingHorizontal: 14,
-  },
-  selectedReasonText: { color: '#ef9a9a', fontSize: 14, fontWeight: '600' },
+  meta:       { fontSize: 14 },
   notesInput: {
-    backgroundColor: '#1c2a37', borderRadius: 12, padding: 14,
-    color: '#e0eaf4', fontSize: 15, minHeight: 80,
-    textAlignVertical: 'top', borderWidth: 1, borderColor: '#253545',
+    borderRadius: 12, padding: 14,
+    fontSize: 15, minHeight: 80,
+    textAlignVertical: 'top', borderWidth: 1,
   },
   podBadge: {
-    backgroundColor: '#1a3b2a', borderRadius: 10,
+    borderRadius: 10,
     paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center',
   },
-  podBadgeText: { color: '#66bb6a', fontSize: 13, fontWeight: '600' },
+  podBadgeText: { fontSize: 13, fontWeight: '600' },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 40,
+  },
   actions: {
     flexDirection: 'row', gap: 10,
-    paddingHorizontal: 12, paddingBottom: 16, paddingTop: 12,
+    paddingHorizontal: 12,
   },
   actionBtn: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 14, minHeight: 64, gap: 4,
+    borderRadius: 14, gap: 4,
   },
-  failBtn:     { backgroundColor: '#3b1a1a' },
-  doneBtn:     { backgroundColor: '#0d3b1a' },
   actionIcon:  { fontSize: 24, color: '#e0eaf4' },
-  actionLabel: { fontSize: 13, color: '#8fa0b0', fontWeight: '700' },
+  actionLabel: { fontSize: 16, color: '#8fa0b0', fontWeight: '700' },
 });

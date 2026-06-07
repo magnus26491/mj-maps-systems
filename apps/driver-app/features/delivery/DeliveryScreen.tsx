@@ -5,7 +5,7 @@
  *   'EN_ROUTE' | 'ARRIVING' | 'AT_STOP'
  */
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -16,8 +16,10 @@ import { EnRouteScreen, StopDetailsSheet } from './EnRouteScreen';
 import { ArrivingScreen } from './ArrivingScreen';
 import { AtStopScreen, FailureSheet, PinCorrectionScreen } from './AtStopScreen';
 import { VehiclePicker, SettingsSheet } from './VehiclePicker';
-import { COLORS, TextStyles } from './components';
+import { TextStyles } from './components';
+import { useTheme } from '../../components/ThemeContext';
 import { PinConfirmMap } from '../../src/components/PinConfirmMap';
+import { ThemeProvider } from '../../components/ThemeContext';
 
 interface DeliveryScreenProps {
   // Route data will be loaded from the store
@@ -44,7 +46,7 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
 
   // UI state
   const [showPinCorrection, setShowPinCorrection] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const { colors } = useTheme();
 
   // Load vehicle profile on mount
   useEffect(() => {
@@ -73,7 +75,8 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   // If no vehicle selected, show vehicle picker
   if (!vehicleProfile) {
     return (
-      <View style={[styles.container, { backgroundColor: COLORS.background, paddingTop: insets.top }]}>
+      <ThemeProvider>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <StatusBar style="light" />
         <View style={styles.pickerWrapper}>
           <TextStyles.address style={styles.pickerTitle}>Select your vehicle to start</TextStyles.address>
@@ -85,6 +88,7 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
           />
         </View>
       </View>
+      </ThemeProvider>
     );
   }
 
@@ -106,13 +110,22 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   }, [markAtStop]);
 
   const handleEndShift = useCallback(() => {
-    settingsSheetRef.current?.dismiss();
-    endShift();
+    Alert.alert(
+      'End Shift',
+      'Are you sure you want to end the shift? Any undelivered stops will be marked incomplete.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Shift',
+          style: 'destructive',
+          onPress: () => {
+            settingsSheetRef.current?.dismiss();
+            endShift();
+          },
+        },
+      ],
+    );
   }, [endShift]);
-
-  const toggleDarkMode = useCallback(() => {
-    setIsDarkMode(prev => !prev);
-  }, []);
 
   const handlePinConfirm = useCallback((correct: boolean, correctedLat?: number, correctedLng?: number) => {
     if (!correct && correctedLat !== undefined && correctedLng !== undefined) {
@@ -181,20 +194,20 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
+    <ThemeProvider>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style="light" />
 
       {/* Top bar with settings */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={openSettings} style={styles.settingsBtn}>
+        <TouchableOpacity
+          onPress={openSettings}
+          style={styles.settingsBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+        >
           <Text style={styles.settingsIcon}>⚙️</Text>
         </TouchableOpacity>
-
-        {phase === 'EN_ROUTE' && (
-          <TouchableOpacity onPress={toggleDarkMode} style={styles.themeBtn}>
-            <Text style={styles.themeIcon}>{isDarkMode ? '☀️' : '🌙'}</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Phase content with fade transition */}
@@ -225,8 +238,6 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
         bottomSheetRef={settingsSheetRef}
         onChangeVehicle={openVehiclePicker}
         onEndShift={handleEndShift}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={toggleDarkMode}
       />
 
       {/* Failure reason sheet */}
@@ -259,6 +270,7 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
         </BottomSheetModal>
       )}
     </View>
+    </ThemeProvider>
   );
 }
 
@@ -274,22 +286,13 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   settingsBtn: {
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
   },
   settingsIcon: {
     fontSize: 24,
-  },
-  themeBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  themeIcon: {
-    fontSize: 22,
   },
   phaseContent: {
     flex: 1,

@@ -59,16 +59,12 @@ interface SettingsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheetModal | null>;
   onChangeVehicle: () => void;
   onEndShift: () => void;
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
 }
 
 export function SettingsSheet({
   bottomSheetRef,
   onChangeVehicle,
   onEndShift,
-  isDarkMode,
-  onToggleDarkMode,
 }: SettingsSheetProps) {
   return (
     <BottomSheetModal
@@ -80,19 +76,15 @@ export function SettingsSheet({
       <View style={settingsStyles.container}>
         <TextStyles.address style={settingsStyles.title}>Settings</TextStyles.address>
 
-        <TouchableOpacity style={settingsStyles.row} onPress={onChangeVehicle}>
+        <TouchableOpacity style={settingsStyles.row} onPress={onChangeVehicle}
+          accessibilityRole="button" accessibilityLabel="Change vehicle">
           <Text style={settingsStyles.rowText}>🚗 Change vehicle</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={settingsStyles.row} onPress={onToggleDarkMode}>
-          <Text style={settingsStyles.rowText}>
-            {isDarkMode ? '☀️ Switch to light mode' : '🌙 Switch to dark mode'}
-          </Text>
         </TouchableOpacity>
 
         <View style={settingsStyles.divider} />
 
-        <TouchableOpacity style={settingsStyles.row} onPress={onEndShift}>
+        <TouchableOpacity style={settingsStyles.row} onPress={onEndShift}
+          accessibilityRole="button" accessibilityLabel="End shift">
           <Text style={[settingsStyles.rowText, settingsStyles.dangerText]}>
             End shift
           </Text>

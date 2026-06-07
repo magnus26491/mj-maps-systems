@@ -3,19 +3,21 @@
  *
  * Layout:
  *  1. Stop details (top half)
- *  2. Three equal-width buttons: DELIVERED, REDELIVER, FAILED
+ *  2. DELIVERED (slide), REDELIVER, FAILED buttons
  *  3. PIN confirm card (after DELIVERED, auto-dismisses after 5s)
  */
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { useDeliveryStore, StopPoint, FailureReason } from '../../store/deliveryStore';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { ShiftProgressBar } from '../../components/ShiftProgressBar';
+import { isPodAvailable, capturePod } from '../../features/pod';
+import { useTheme } from '../../components/ThemeContext';
 import {
-  COLORS,
   TextStyles,
   BottomButton,
   StopDetails,
@@ -24,25 +26,38 @@ import {
   Badge,
 } from './components';
 
+interface PodCaptureState {
+  photoUri: string | null;
+  signature: string | null;
+  parcelId: string | null;
+}
+
 interface AtStopScreenProps {
   failureSheetRef: React.RefObject<BottomSheetModal | null>;
 }
 
 export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { width } = useWindowDimensions();
-  const currentStop = useDeliveryStore(s => s.currentStop);
+  const currentStop    = useDeliveryStore(s => s.currentStop);
   const showPinConfirm = useDeliveryStore(s => s.showPinConfirm);
   const completeDelivery = useDeliveryStore(s => s.completeDelivery);
   const markRedeliver = useDeliveryStore(s => s.markRedeliver);
-  const markFailed = useDeliveryStore(s => s.markFailed);
+  const markFailed    = useDeliveryStore(s => s.markFailed);
   const dismissPinConfirm = useDeliveryStore(s => s.dismissPinConfirm);
   const savePinCorrection = useDeliveryStore(s => s.savePinCorrection);
+  const totalStops     = useDeliveryStore(s => s.totalStops);
+  const currentStopIndex = useDeliveryStore(s => s.currentStopIndex);
+
+  const [podCapture, setPodCapture] = useState<PodCaptureState>({
+    photoUri: null, signature: null, parcelId: null,
+  });
 
   const handleDelivered = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    completeDelivery();
-  }, [completeDelivery]);
+    completeDelivery(podCapture);
+  }, [completeDelivery, podCapture]);
 
   const handleRedeliver = useCallback(() => {
     markRedeliver();
@@ -54,15 +69,14 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
 
   const handleFailureSelect = useCallback((reason: string) => {
     failureSheetRef.current?.dismiss();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     markFailed(reason as FailureReason);
   }, [failureSheetRef, markFailed]);
 
   const handlePinConfirm = useCallback((correct: boolean, correctedLat?: number, correctedLng?: number) => {
     if (correct) {
-      // Call confirm-pin API
       confirmPin(currentStop?.id ?? '', true);
     } else {
-      // Open pin correction flow
       savePinCorrection(correctedLat ?? currentStop?.pin?.lat ?? 0, correctedLng ?? currentStop?.pin?.lng ?? 0);
     }
     dismissPinConfirm();
@@ -70,7 +84,7 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
 
   if (!currentStop) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <TextStyles.body>No current stop</TextStyles.body>
       </View>
     );
@@ -79,7 +93,10 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
   const buttonWidth = (width - 48) / 3;
 
   return (
-    <View style={[styles.container, { backgroundColor: COLORS.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Progress counter */}
+      <ShiftProgressBar current={currentStopIndex} total={totalStops} />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 }]}
@@ -89,6 +106,11 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
         <View style={styles.detailsWrapper}>
           <StopDetails stop={currentStop} />
         </View>
+
+        {/* POD capture section — only if feature enabled */}
+        {isPodAvailable() && (
+          <PodCaptureSection stopId={currentStop.id} onCaptureDone={setPodCapture} />
+        )}
       </ScrollView>
 
       {/* Action buttons */}
@@ -97,7 +119,7 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
           <BottomButton
             title="✅ DELIVERED"
             onPress={handleDelivered}
-            variant="primary"
+            variant="slide"
           />
         </View>
         <View style={[styles.button, { width: buttonWidth }]}>
@@ -124,6 +146,88 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
     </View>
   );
 }
+
+// ─── POD Capture Section ──────────────────────────────────────────────────────
+
+interface PodCaptureSectionProps {
+  stopId: string;
+  onCaptureDone: (state: PodCaptureState) => void;
+}
+
+function PodCaptureSection({ stopId, onCaptureDone }: PodCaptureSectionProps) {
+  const [state, setState] = useState<PodCaptureState>({
+    photoUri: null, signature: null, parcelId: null,
+  });
+
+  const capture = useCallback(async (type: 'photo' | 'signature' | 'barcode') => {
+    try {
+      const result = await capturePod(stopId, type);
+      const next = { ...state };
+      if (type === 'photo')    next.photoUri   = result.photoUri ?? null;
+      if (type === 'signature') next.signature = result.signature ?? null;
+      if (type === 'barcode')  next.parcelId   = result.parcelId ?? null;
+      setState(next);
+      onCaptureDone(next);
+    } catch { /* non-fatal */ }
+  }, [state, stopId, onCaptureDone]);
+
+  const doneCount = [state.photoUri, state.signature, state.parcelId].filter(Boolean).length;
+
+  return (
+    <View style={podStyles.container}>
+      <Text style={podStyles.title}>📷 Proof of Delivery</Text>
+      {doneCount > 0 && (
+        <Text style={podStyles.doneCount}>✓ {doneCount}/3 captured</Text>
+      )}
+      <View style={podStyles.actions}>
+        <TouchableOpacity
+          style={[podStyles.btn, state.photoUri && podStyles.btnDone]}
+          onPress={() => capture('photo')}
+          accessibilityRole="button"
+          accessibilityLabel="Capture photo"
+        >
+          <Text style={podStyles.btnText}>📷 Photo</Text>
+          {state.photoUri && <Text style={podStyles.tick}>✓</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[podStyles.btn, state.signature && podStyles.btnDone]}
+          onPress={() => capture('signature')}
+          accessibilityRole="button"
+          accessibilityLabel="Capture signature"
+        >
+          <Text style={podStyles.btnText}>✍️ Signature</Text>
+          {state.signature && <Text style={podStyles.tick}>✓</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[podStyles.btn, state.parcelId && podStyles.btnDone]}
+          onPress={() => capture('barcode')}
+          accessibilityRole="button"
+          accessibilityLabel="Scan barcode"
+        >
+          <Text style={podStyles.btnText}>📦 Scan Barcode</Text>
+          {state.parcelId && <Text style={podStyles.tick}>✓</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const podStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: 16, marginTop: 16,
+    backgroundColor: '#1a3b2a', borderRadius: 12, padding: 16,
+  },
+  title:    { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  doneCount:{ fontSize: 13, color: '#66bb6a', marginBottom: 12 },
+  actions:  { flexDirection: 'row', gap: 8 },
+  btn: {
+    flex: 1, height: 64, backgroundColor: '#0d3b1a',
+    borderRadius: 10, justifyContent: 'center', alignItems: 'center',
+  },
+  btnDone:  { backgroundColor: '#1b5e20' },
+  btnText:  { fontSize: 13, fontWeight: '600', color: '#fff', textAlign: 'center' },
+  tick:     { fontSize: 12, color: '#66bb6a', marginTop: 2 },
+});
 
 // ─── Failure Reason Bottom Sheet ───────────────────────────────────────────────
 
