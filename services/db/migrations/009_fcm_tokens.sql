@@ -2,9 +2,13 @@
 -- FCM device tokens and push audit trail.
 
 
+BEGIN;
+
 -- Driver / dispatcher FCM token (set when app registers at login)
-ALTER TABLE drivers
+ALTER TABLE users
   ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+
+COMMIT;
 
 
 -- Customer tracking token (set when customer opens tracking link in browser/app)
