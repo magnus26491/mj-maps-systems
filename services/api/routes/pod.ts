@@ -4,7 +4,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireFeature } from '../middleware/auth.js';
 import {
   s3Configured,
   generateUploadUrl,
@@ -27,7 +27,7 @@ export const podRoute: FastifyPluginAsync = async (fastify) => {
   // ── Step 1: Get pre-signed upload URL ────────────────────────────────────
   fastify.post<{ Params: { stopId: string } }>(
     '/api/v1/stops/:stopId/pod/upload-url',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireFeature('POD_PHOTO')] },
     async (request, reply) => {
       if (!s3Configured) {
         return reply.code(503).send({ ok: false, error: 'Photo upload not available' });
@@ -58,7 +58,7 @@ export const podRoute: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { stopId: string }; Body: { objectKey: string } }>(
     '/api/v1/stops/:stopId/pod/confirm',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireFeature('POD_PHOTO')],
       schema: {
         body: {
           type: 'object',

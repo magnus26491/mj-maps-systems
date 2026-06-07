@@ -56,11 +56,12 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  // New API: signTokenPair({ userId, role, tier })
+  // New API: signTokenPair({ userId, role, tier, planId })
   const tokens = signTokenPair({
     userId: driver.id,
     role:   driver.role as 'driver' | 'dispatcher' | 'admin',
     tier:   'pro', // TODO: pull from users table when migrated
+    planId: (driver as { plan_id?: string }).plan_id ?? 'navigation',
   });
 
   // Store refresh token hash in DB
@@ -115,6 +116,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     userId: session.driver_id,
     role:   'driver',  // TODO: pull from users table when migrated
     tier:   'pro',
+    planId: 'navigation', // TODO: pull from users table when migrated
   });
 
   await createSession({

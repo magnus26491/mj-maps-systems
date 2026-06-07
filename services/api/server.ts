@@ -44,7 +44,7 @@ import { mapConfigRoute } from './routes/map-config';
 import { autocompleteRoute } from './routes/autocomplete';
 import { authRoutes } from './routes/auth';
 import { podRoute } from './routes/pod.js';
-import { requireAuth, requireRole, requireTier } from './middleware/auth';
+import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -172,10 +172,10 @@ const start = async () => {
     return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
   });
 
-  /** Optimise + auto-enrich a new route — all roles, all tiers */
+  /** Optimise + auto-enrich a new route — Custom plan only */
   server.post(
     '/api/v1/routes/optimise',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireFeature('ROUTE_OPTIMISE')] },
     async (request, reply) => {
       const body = z.object({
         stops:  z.array(StopSchema).min(1),
@@ -186,10 +186,10 @@ const start = async () => {
     },
   );
 
-  /** Get stop intelligence for a route */
+  /** Get stop intelligence for a route — Custom plan only */
   server.get(
     '/api/v1/routes/:routeId/intel',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireFeature('ROUTE_INTEL')] },
     async (request, reply) => {
       const { routeId } = request.params as { routeId: string };
       if (!RouteIdSchema.safeParse(routeId).success) {
@@ -199,10 +199,10 @@ const start = async () => {
     },
   );
 
-  /** Manual replan */
+  /** Manual replan — Custom plan only */
   server.post(
     '/api/v1/routes/:routeId/replan',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireFeature('DISPATCHER')] },
     async (request, reply) => {
       const { routeId } = request.params as { routeId: string };
       if (!RouteIdSchema.safeParse(routeId).success) {
@@ -212,10 +212,10 @@ const start = async () => {
     },
   );
 
-  /** Delete a route — dispatcher or admin only */
+  /** Delete a route — dispatcher or admin only (Custom plan) */
   server.delete(
     '/api/v1/routes/:routeId',
-    { preHandler: [requireAuth, requireRole('dispatcher', 'admin')] },
+    { preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireFeature('DISPATCHER')] },
     async (request, reply) => {
       const { routeId } = request.params as { routeId: string };
       if (!RouteIdSchema.safeParse(routeId).success) {
@@ -229,7 +229,7 @@ const start = async () => {
   server.get(
     '/api/v1/routes/:routeId/alerts',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireFeature('ROUTE_INTEL')],
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
@@ -244,7 +244,7 @@ const start = async () => {
   server.get(
     '/api/v1/routes/:routeId/alerts/red',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireFeature('RED_ALERTS')],
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
@@ -258,13 +258,13 @@ const start = async () => {
 
   server.post(
     '/api/v1/driver/event',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireFeature('STOP_STATUS')] },
     (request, reply) => handleDriverEvent(request as any, reply as any),
   );
 
   server.get(
     '/api/v1/turn-score',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireFeature('TURN_SCORE')] },
     async (request, reply) => {
       const t0 = Date.now();
       const parsed = z.object({
@@ -291,10 +291,10 @@ const start = async () => {
     },
   );
 
-  /** Admin-only routes — admin role required */
+  /** Admin-only routes — admin role required (Custom plan) */
   server.get(
     '/api/v1/admin/users',
-    { preHandler: [requireAuth, requireRole('admin')] },
+    { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
     async (request, reply) => {
       // TODO: wire into user management service
       return reply.send({ ok: true, data: [] });
@@ -303,7 +303,7 @@ const start = async () => {
 
   server.get(
     '/api/v1/admin/analytics',
-    { preHandler: [requireAuth, requireRole('admin')] },
+    { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
     async (request, reply) => {
       // TODO: wire into analytics service
       return reply.send({ ok: true, data: {} });
@@ -311,6 +311,7 @@ const start = async () => {
   );
 
   // ── WebSocket ──────────────────────────────────────────────────────────────────────
+  // TODO: gate LIVE_TRACKING_WS — requires plan check before socket upgrade
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',

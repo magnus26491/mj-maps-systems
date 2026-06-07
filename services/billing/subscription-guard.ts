@@ -15,7 +15,48 @@
  * All events are written to subscription_events table for audit trail.
  */
 
-export type PlanId = 'starter' | 'professional' | 'fleet';
+export type PlanId = 'navigation' | 'custom';
+
+export const FEATURES = {
+  // ── Available on BOTH plans ───────────────────────────────────────────────
+  NAVIGATION:           { plans: ['navigation', 'custom'] as PlanId[] },
+  HGV_ROUTING:          { plans: ['navigation', 'custom'] as PlanId[] },
+  BRIDGE_RESTRICTIONS:  { plans: ['navigation', 'custom'] as PlanId[] },
+  LIVE_TRAFFIC:         { plans: ['navigation', 'custom'] as PlanId[] },
+  ROADWORKS_AVOIDANCE:  { plans: ['navigation', 'custom'] as PlanId[] },
+  TIME_AWARE_OPTIMIZER: { plans: ['navigation', 'custom'] as PlanId[] },
+  OFFLINE_CACHE:        { plans: ['navigation', 'custom'] as PlanId[] },
+  PARKING_ADVISORY:     { plans: ['navigation', 'custom'] as PlanId[] },
+  TIDAL_AVOIDANCE:      { plans: ['navigation', 'custom'] as PlanId[] },
+  UNPAVED_SCORING:      { plans: ['navigation', 'custom'] as PlanId[] },
+  TURN_SCORE:           { plans: ['navigation', 'custom'] as PlanId[] },
+  W3W_PIN:              { plans: ['navigation', 'custom'] as PlanId[] },
+
+  // ── Custom plan only — delivery workflow ─────────────────────────────────
+  BARCODE_SCANNING:     { plans: ['custom'] as PlanId[] },
+  POD_PHOTO:            { plans: ['custom'] as PlanId[] },
+  SIGNATURE_CAPTURE:    { plans: ['custom'] as PlanId[] },
+  ROUTE_OPTIMISE:       { plans: ['custom'] as PlanId[] },
+  STOP_MANAGEMENT:      { plans: ['custom'] as PlanId[] },
+  PIN_CONFIRM:          { plans: ['custom'] as PlanId[] },
+  ACCESS_NOTES:         { plans: ['custom'] as PlanId[] },
+  FAILED_DELIVERY:      { plans: ['custom'] as PlanId[] },
+  STOP_STATUS:          { plans: ['custom'] as PlanId[] },
+  ETA_NOTIFICATIONS:    { plans: ['custom'] as PlanId[] },
+  DISPATCHER:           { plans: ['custom'] as PlanId[] },
+  LIVE_TRACKING_WS:     { plans: ['custom'] as PlanId[] },
+  WORKLOAD_GUARD:       { plans: ['custom'] as PlanId[] },
+  TROLLEY_ADVISORY:     { plans: ['custom'] as PlanId[] },
+  ROUTE_INTEL:          { plans: ['custom'] as PlanId[] },
+  RED_ALERTS:           { plans: ['custom'] as PlanId[] },
+  ADMIN_ANALYTICS:      { plans: ['custom'] as PlanId[] },
+} as const;
+
+export type FeatureKey = keyof typeof FEATURES;
+
+export function planHasFeature(planId: PlanId, feature: FeatureKey): boolean {
+  return (FEATURES[feature].plans as string[]).includes(planId);
+}
 
 export interface SubscriptionRecord {
   userId: string;

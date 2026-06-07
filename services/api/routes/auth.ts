@@ -146,7 +146,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const { rows } = await pool.query(
-        `SELECT id, email, password_hash, role, subscription_tier as tier, is_active
+        `SELECT id, email, password_hash, role, subscription_tier as tier,
+                plan_id, is_active
          FROM users WHERE email = $1`,
         [email],
       );
@@ -161,6 +162,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         password_hash: string;
         role: string;
         tier: string;
+        plan_id: string;
         is_active: boolean;
       };
 
@@ -184,6 +186,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         userId: user.id,
         role:   user.role,
         tier:   user.tier,
+        planId: user.plan_id ?? 'navigation',
       });
 
       // Store hashed refresh token in DB
@@ -197,10 +200,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         accessToken:  tokens.accessToken,
         refreshToken: tokens.refreshToken,
         user: {
-          id:   user.id,
-          email: user.email,
-          role:  user.role,
-          tier:  user.tier,
+          id:     user.id,
+          email:  user.email,
+          role:   user.role,
+          tier:   user.tier,
+          planId: user.plan_id ?? 'navigation',
         },
       });
     },
@@ -240,9 +244,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { user_id: userId } = rows[0] as { user_id: string };
 
-      // Load user to get current role/tier
+      // Load user to get current role/tier/planId
       const { rows: userRows } = await pool.query(
-        `SELECT id, role, subscription_tier as tier
+        `SELECT id, role, subscription_tier as tier, COALESCE(plan_id, 'navigation') as plan_id
          FROM users WHERE id = $1 AND is_active = TRUE`,
         [userId],
       );
@@ -251,7 +255,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(401).send({ error: 'User not found or inactive' });
       }
 
-      const user = userRows[0] as { id: string; role: string; tier: string };
+      const user = userRows[0] as { id: string; role: string; tier: string; plan_id: string };
 
       // ── Atomic rotation: revoke old + insert new in transaction ───────────
       const client = await pool.connect();
@@ -271,6 +275,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           userId: user.id,
           role:   user.role,
           tier:   user.tier,
+          planId: user.plan_id,
         });
 
         // Store new hashed refresh token
@@ -336,7 +341,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const { rows } = await pool.query(
-        `SELECT id, email, role, subscription_tier as tier, organisation_id,
+        `SELECT id, email, role, subscription_tier as tier,
+                COALESCE(plan_id, 'navigation') as plan_id,
+                organisation_id,
                 created_at, last_login, is_active
          FROM users WHERE id = $1`,
         [payload.sub],
@@ -351,6 +358,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         email: string;
         role: string;
         tier: string;
+        plan_id: string;
         organisation_id: string | null;
         created_at: Date;
         last_login: Date | null;
@@ -362,6 +370,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         email:           user.email,
         role:            user.role,
         tier:            user.tier,
+        planId:          user.plan_id,
         organisationId:  user.organisation_id,
         createdAt:       user.created_at,
         lastLogin:       user.last_login,

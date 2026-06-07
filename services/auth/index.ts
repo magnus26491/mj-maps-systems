@@ -33,6 +33,7 @@ export interface AccessPayload {
   sub:  string;  // user UUID
   role: string;
   tier: string;
+  planId: string;
   iat: number;
   exp: number;
 }
@@ -61,11 +62,11 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 
 /**
  * Sign a short-lived JWT access token.
- * Payload: { sub, role, tier, iat, exp }
+ * Payload: { sub, role, tier, planId, iat, exp }
  */
-export function signAccessToken(userId: string, role: string, tier: string): string {
+export function signAccessToken(userId: string, role: string, tier: string, planId: string): string {
   return jwt.sign(
-    { sub: userId, role, tier },
+    { sub: userId, role, tier, planId },
     JWT_SECRET,
     { expiresIn: '15m' },
   );
@@ -112,6 +113,7 @@ export interface SignTokenPairOptions {
   userId: string;
   role: string;
   tier: string;
+  planId: string;
   expiresInDays?: number;  // default 30
 }
 
@@ -121,8 +123,8 @@ export interface SignTokenPairOptions {
  * The client stores the raw token; the server stores only the hash.
  */
 export function signTokenPair(opts: SignTokenPairOptions): TokenPair {
-  const { userId, role, tier, expiresInDays = 30 } = opts;
-  const accessToken  = signAccessToken(userId, role, tier);
+  const { userId, role, tier, planId, expiresInDays = 30 } = opts;
+  const accessToken  = signAccessToken(userId, role, tier, planId);
   const refreshToken = signRefreshToken();
   const refreshTokenHash = hashRefreshToken(refreshToken);
   const expiresAt = new Date(Date.now() + expiresInDays * 86_400_000);

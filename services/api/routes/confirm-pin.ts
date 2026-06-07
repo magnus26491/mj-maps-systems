@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireFeature } from '../middleware/auth.js';
 import {
   getStopPinRow,
   updateStopPin,
@@ -36,7 +36,7 @@ export const confirmPinRoute: FastifyPluginAsync = async (fastify) => {
   }>(
     '/api/v1/stops/:stopId/confirm-pin',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireFeature('PIN_CONFIRM')],
       schema: {
         params: {
           type: 'object',
