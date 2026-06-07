@@ -64,6 +64,7 @@ export interface StopPoint {
   communityPin?: { lat: number; lng: number; verifiedAt: string; verifyCount: number };
   pin?: { lat: number; lng: number };  // set by batchResolvePins, used downstream
   access_notes?: string;
+  plusCode?: string;
 }
 
 export interface PinMeta {

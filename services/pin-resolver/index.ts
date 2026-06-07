@@ -27,6 +27,8 @@
  * Integration: called by road-enricher.ts before enrichRoute().
  */
 
+import { encode } from 'open-location-code';
+
 export type PinSource =
   | 'community_verified'   // driver confirmed in-app
   | 'what3words'           // exact W3W coordinate
@@ -154,7 +156,7 @@ export function resolvePin(input: PinResolveInput, options: {
  * Updates .pin, .lat/.lng (kept as geocoded centroid for fallback),
  * and appends access notes.
  */
-export function applyPinToStop<T extends { lat: number; lng: number; pin?: { lat: number; lng: number }; notes?: string; access_notes?: string }>(
+export function applyPinToStop<T extends { lat: number; lng: number; pin?: { lat: number; lng: number }; notes?: string; access_notes?: string; plusCode?: string }>(
   stop: T,
   resolved: ResolvedPin,
 ): T {
@@ -171,6 +173,7 @@ export function applyPinToStop<T extends { lat: number; lng: number; pin?: { lat
   return {
     ...stop,
     pin: { lat: resolved.lat, lng: resolved.lng },
+    plusCode: encode(resolved.lat, resolved.lng, 11),
     access_notes: accessLines.length > 0 ? accessLines.join('\n') : stop.access_notes,
   };
 }
