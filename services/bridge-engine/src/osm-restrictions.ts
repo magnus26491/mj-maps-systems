@@ -1,127 +1,82 @@
 /**
- * Bridge Engine — OSM restriction fetcher
- *
- * Queries Overpass for road restrictions within a bounding box around
- * a route segment. Parses OSM tags into RoadRestriction objects.
- *
- * Overpass query fetches ways with ANY of:
- *   maxheight, maxweight, maxaxleload, maxwidth, access=private,
- *   barrier=*, highway=turning_circle (for height barriers in car parks)
+ * Bridge / OSM Restriction Queries
+ * Fetches bridge clearance, weight limits, and access restrictions
+ * for a given location using the Overpass API.
  */
-import type { RoadRestriction } from './types';
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-const BBOX_PAD_DEG = 0.002; // ~200m padding around segment bounding box
+import { runOverpassQuery } from '../../osm/overpass-client';
+import {
+  computeBridgeScore,
+  getBridgeAlert,
+  type VehicleProfile,
+  type BridgeScoreResult,
+  type TurnAlert,
+} from '../../../packages/vehicle-profiles/index';
 
-function buildBbox(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number,
-): string {
-  const minLat = Math.min(lat1, lat2) - BBOX_PAD_DEG;
-  const maxLat = Math.max(lat1, lat2) + BBOX_PAD_DEG;
-  const minLng = Math.min(lng1, lng2) - BBOX_PAD_DEG;
-  const maxLng = Math.max(lng1, lng2) + BBOX_PAD_DEG;
-  return `${minLat},${minLng},${maxLat},${maxLng}`;
+export interface BridgeRestriction {
+  osmId: number;
+  lat: number;
+  lng: number;
+  clearanceM: number | null;
+  maxWeightT: number | null;
+  name: string | null;
+  scoreResult: BridgeScoreResult;
+  alert: TurnAlert;
 }
 
-function parseHeightTag(val: string): number | null {
-  // OSM height tags: "3.0", "3.0 m", "10ft", "10'6"
-  const metres = parseFloat(val);
-  if (!Number.isNaN(metres)) return metres;
+/**
+ * Find all bridges within radiusM of a point and score them for the given vehicle.
+ */
+export async function queryBridgesNear(
+  lat: number,
+  lng: number,
+  vehicle: VehicleProfile,
+  radiusM = 200,
+): Promise<BridgeRestriction[]> {
+  const query = `
+    [out:json][timeout:15];
+    (
+      way(around:${radiusM},${lat},${lng})["bridge"="yes"];
+      way(around:${radiusM},${lat},${lng})["maxheight"];
+    );
+    out body center;
+  `;
 
-  // feet’n’inches: 10'6 = 10.5 ft = 3.2m
-  const ftIn = val.match(/(\d+)'(\d+)?/);
-  if (ftIn) {
-    const ft  = parseInt(ftIn[1], 10);
-    const ins = parseInt(ftIn[2] ?? '0', 10);
-    return (ft * 12 + ins) * 0.0254;
-  }
-  return null;
-}
+  const data = await runOverpassQuery(query);
+  const elements: any[] = (data as any).elements ?? [];
 
-function parseWeightTag(val: string): number | null {
-  const t = parseFloat(val);
-  return Number.isNaN(t) ? null : t;
-}
+  const bridges: BridgeRestriction[] = [];
 
-export async function fetchRestrictionsForSegment(
-  fromLat: number, fromLng: number,
-  toLat:   number, toLng:   number,
-): Promise<RoadRestriction[]> {
-  const bbox  = buildBbox(fromLat, fromLng, toLat, toLng);
-  const query = `[out:json][timeout:10];
-(
-  way["maxheight"](${bbox});
-  way["maxweight"](${bbox});
-  way["maxaxleload"](${bbox});
-  way["maxwidth"](${bbox});
-  way["access"="private"](${bbox});
-  way["barrier"](${bbox});
-);
-out center tags;`;
+  for (const el of elements) {
+    if (!el.tags) continue;
 
-  try {
-    const res = await fetch(OVERPASS_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:    `data=${encodeURIComponent(query)}`,
-      signal:  AbortSignal.timeout(12_000),
+    const clearanceM = el.tags.maxheight
+      ? parseFloat(el.tags.maxheight)
+      : null;
+
+    const maxWeightT = el.tags.maxweight
+      ? parseFloat(el.tags.maxweight)
+      : null;
+
+    const score = computeBridgeScore(
+      vehicle,
+      clearanceM ?? (vehicle.heightM + 1.0), // assume 1m headroom if no data
+      clearanceM ? 'measured' : 'unknown',
+    );
+
+    const alert = getBridgeAlert(score, vehicle.label);
+
+    bridges.push({
+      osmId: el.id,
+      lat: el.center?.lat ?? lat,
+      lng: el.center?.lon ?? lng,
+      clearanceM,
+      maxWeightT,
+      name: el.tags.name ?? null,
+      scoreResult: score,
+      alert,
     });
-
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    const restrictions: RoadRestriction[] = [];
-
-    for (const el of data.elements ?? []) {
-      const tags    = el.tags ?? {};
-      const lat     = el.center?.lat ?? el.lat ?? fromLat;
-      const lng     = el.center?.lon ?? el.lon ?? fromLng;
-
-      if (tags.maxheight) {
-        restrictions.push({
-          wayId: el.id, lat, lng,
-          type: 'BRIDGE', severity: 'WARNING',
-          value: parseHeightTag(tags.maxheight),
-          description: `Max height: ${tags.maxheight}`,
-          driverVerified: false, source: 'osm',
-        });
-      }
-
-      if (tags.maxweight || tags.maxaxleload) {
-        const raw = tags.maxweight ?? tags.maxaxleload;
-        restrictions.push({
-          wayId: el.id, lat, lng,
-          type: 'WEIGHT', severity: 'WARNING',
-          value: parseWeightTag(raw),
-          description: `Max weight: ${raw}t`,
-          driverVerified: false, source: 'osm',
-        });
-      }
-
-      if (tags.maxwidth) {
-        restrictions.push({
-          wayId: el.id, lat, lng,
-          type: 'WIDTH', severity: 'WARNING',
-          value: parseFloat(tags.maxwidth) || null,
-          description: `Max width: ${tags.maxwidth}m`,
-          driverVerified: false, source: 'osm',
-        });
-      }
-
-      if (tags.access === 'private') {
-        restrictions.push({
-          wayId: el.id, lat, lng,
-          type: 'PRIVATE', severity: 'WARNING',
-          value: null,
-          description: 'Private road',
-          driverVerified: false, source: 'osm',
-        });
-      }
-    }
-
-    return restrictions;
-  } catch {
-    return []; // Fail open — don’t block route planning if Overpass is slow
   }
+
+  return bridges;
 }

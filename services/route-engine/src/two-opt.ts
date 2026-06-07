@@ -1,95 +1,75 @@
 /**
- * Route Engine — 2-opt local search improvement
- *
- * After the sweep-zone pass produces an anti-backtrack initial sequence,
- * 2-opt removes crossing edges that inflate total distance.
- *
- * 2-opt rule: if reversing segment [i+1..k] reduces total distance, do it.
- *
- * Complexity: O(n²) per pass, typically converges in 3-8 passes for
- * delivery routes up to 200 stops. Capped at MAX_ITERATIONS for safety.
- *
- * Anti-backtrack preservation:
- *   Zone boundaries are treated as soft constraints — 2-opt is allowed
- *   to cross zone boundaries only if the saving exceeds ZONE_CROSS_PENALTY.
- *   This means the sweep structure is largely preserved while still
- *   removing obvious distance inefficiencies within zones.
+ * 2-opt Local Search Improvement
+ * Iteratively reverses sub-routes to reduce total distance.
+ * O(n²) per pass — runs up to maxIterations passes.
  */
 
-import { haversineM } from './geo';
-import type { Stop } from './types';
+import type { StopPoint } from './types';
 
-const MAX_ITERATIONS    = 50;
-const ZONE_CROSS_PENALTY = 500; // metres — cost added for crossing a zone boundary
+function dist(a: StopPoint, b: StopPoint): number {
+  const aLat = a.pin?.lat ?? a.lat;
+  const aLng = a.pin?.lng ?? a.lng;
+  const bLat = b.pin?.lat ?? b.lat;
+  const bLng = b.pin?.lng ?? b.lng;
+  const dLat = (bLat - aLat) * 111_000;
+  const dLng = (bLng - aLng) * 111_000 * Math.cos(aLat * Math.PI / 180);
+  return Math.sqrt(dLat ** 2 + dLng ** 2);
+}
 
-function routeDistance(stops: Stop[]): number {
+function routeLength(stops: StopPoint[]): number {
   let total = 0;
   for (let i = 0; i < stops.length - 1; i++) {
-    total += haversineM(
-      stops[i].pin.lat, stops[i].pin.lng,
-      stops[i + 1].pin.lat, stops[i + 1].pin.lng,
-    );
+    total += dist(stops[i], stops[i + 1]);
   }
   return total;
 }
 
-function sameZone(a: Stop, b: Stop): boolean {
-  // Stops are in the same zone if they were assigned adjacent sequence numbers
-  // in the sweep pass — proxy: within 1.5km of each other
-  return haversineM(a.pin.lat, a.pin.lng, b.pin.lat, b.pin.lng) < 1500;
+function reverseSegment(stops: StopPoint[], i: number, k: number): StopPoint[] {
+  const result = [...stops];
+  let left = i;
+  let right = k;
+  while (left < right) {
+    [result[left], result[right]] = [result[right], result[left]];
+    left++;
+    right--;
+  }
+  return result;
 }
 
-export function twoOpt(stops: Stop[]): Stop[] {
-  if (stops.length < 4) return stops;
+export function twoOpt(
+  stops: StopPoint[],
+  maxIterations = 100,
+): { stops: StopPoint[]; improved: boolean; savingM: number } {
+  if (stops.length < 4) return { stops, improved: false, savingM: 0 };
 
-  let best    = [...stops];
-  let improved = true;
-  let iterations = 0;
+  let best = [...stops];
+  let bestLength = routeLength(best);
+  let improved = false;
 
-  while (improved && iterations < MAX_ITERATIONS) {
-    improved = false;
-    iterations++;
+  for (let iter = 0; iter < maxIterations; iter++) {
+    let localImproved = false;
 
-    for (let i = 0; i < best.length - 1; i++) {
+    for (let i = 1; i < best.length - 1; i++) {
       for (let k = i + 1; k < best.length; k++) {
-        // Current distance: i→i+1 and k→k+1
-        const d1 = haversineM(
-          best[i].pin.lat, best[i].pin.lng,
-          best[i + 1 < best.length ? i + 1 : 0].pin.lat,
-          best[i + 1 < best.length ? i + 1 : 0].pin.lng,
-        );
-        const d2 = k + 1 < best.length
-          ? haversineM(best[k].pin.lat, best[k].pin.lng, best[k + 1].pin.lat, best[k + 1].pin.lng)
-          : 0;
+        const candidate = reverseSegment(best, i, k);
+        const candidateLength = routeLength(candidate);
 
-        // New distance: i→k and i+1→k+1
-        const d3 = haversineM(
-          best[i].pin.lat, best[i].pin.lng,
-          best[k].pin.lat, best[k].pin.lng,
-        );
-        const d4 = k + 1 < best.length
-          ? haversineM(best[i + 1].pin.lat, best[i + 1].pin.lng, best[k + 1].pin.lat, best[k + 1].pin.lng)
-          : 0;
-
-        let saving = (d1 + d2) - (d3 + d4);
-
-        // Apply zone-cross penalty if this swap crosses zone boundaries
-        if (!sameZone(best[i], best[k])) saving -= ZONE_CROSS_PENALTY;
-
-        if (saving > 0) {
-          // Reverse segment [i+1..k]
-          const newRoute = [
-            ...best.slice(0, i + 1),
-            ...best.slice(i + 1, k + 1).reverse(),
-            ...best.slice(k + 1),
-          ];
-          best     = newRoute;
+        if (candidateLength < bestLength - 0.001) {
+          best = candidate;
+          bestLength = candidateLength;
+          localImproved = true;
           improved = true;
         }
       }
     }
+
+    if (!localImproved) break;
   }
 
-  // Re-assign sequence numbers
-  return best.map((stop, idx) => ({ ...stop, sequence: idx + 1 }));
+  const originalLength = routeLength(stops);
+  return {
+    stops: best,
+    improved,
+    savingM: Math.max(0, originalLength - bestLength),
+  };
 }

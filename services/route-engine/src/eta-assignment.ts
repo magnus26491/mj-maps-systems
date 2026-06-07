@@ -1,85 +1,58 @@
 /**
- * Route Engine — ETA assignment pass
- *
- * After stop order is determined, this pass walks the sequence and
- * assigns planned ETAs to every stop.
- *
- * Travel time model:
- *   distance (haversine) → road speed estimate → add dwell → cascade
- *
- * Road speed is estimated from distance bucket (crude but sufficient
- * for planning time; replaced by live traffic data mid-shift):
- *   < 500m   → 15 kph  (walking/very short urban hop)
- *   500–2km  → 25 kph  (urban)
- *   2–10km   → 45 kph  (suburban / A-road)
- *   > 10km   → 65 kph  (rural / dual carriageway)
- *
- * Time-window violations are flagged but do not reorder stops
- * (that would require full VRPTW — Phase 2 scope).
+ * ETA Assignment
+ * Walks the ordered stop list and stamps an ISO eta on each stop
+ * based on travel-time estimates and dwell times.
  */
 
-import { haversineM } from './geo';
-import type { Stop, RouteConstraints } from './types';
+import type { StopPoint } from './types';
 
-function speedKph(distM: number): number {
-  if (distM < 500)   return 15;
-  if (distM < 2000)  return 25;
-  if (distM < 10000) return 45;
-  return 65;
+const DEFAULT_SPEED_MPS = 30 / 3.6; // 30 km/h average urban speed
+const DEFAULT_DWELL_SEC = 120;        // 2-minute default stop
+
+/** Haversine distance in metres */
+function distanceM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+    * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export interface EtaAssignmentResult {
-  stops:              Stop[];
-  totalDistanceM:     number;
-  totalDurationSec:   number;
-  timeWindowViolations: Array<{ stopId: string; type: 'EARLY' | 'LATE'; deltaMin: number }>;
-}
+export function assignETAs(
+  stops: StopPoint[],
+  shiftStartISO?: string,
+): StopPoint[] {
+  let cursor = shiftStartISO ? new Date(shiftStartISO).getTime() : Date.now();
 
-export function assignEtas(
-  orderedStops: Stop[],
-  constraints:  RouteConstraints,
-): EtaAssignmentResult {
-  const stops:    Stop[]   = [];
-  const violations: EtaAssignmentResult['timeWindowViolations'] = [];
-
-  let curLat  = constraints.depotLat;
-  let curLng  = constraints.depotLng;
-  let curTime = constraints.shiftStartMs;
-  let totalDistM = 0;
-
-  for (const stop of orderedStops) {
-    const distM      = haversineM(curLat, curLng, stop.pin.lat, stop.pin.lng);
-    const travelSec  = (distM / 1000) / speedKph(distM) * 3600;
-    const eta        = curTime + travelSec * 1000;
-
-    totalDistM += distM;
-
-    // Check time window
-    if (stop.timeWindow) {
-      if (stop.timeWindow.earliest && eta < stop.timeWindow.earliest) {
-        violations.push({
-          stopId:   stop.id,
-          type:     'EARLY',
-          deltaMin: Math.round((stop.timeWindow.earliest - eta) / 60000),
-        });
-      }
-      if (stop.timeWindow.latest && eta > stop.timeWindow.latest) {
-        violations.push({
-          stopId:   stop.id,
-          type:     'LATE',
-          deltaMin: Math.round((eta - stop.timeWindow.latest) / 60000),
-        });
-      }
+  return stops.map((stop, i) => {
+    // Travel time from previous stop (or depot if first)
+    if (i > 0) {
+      const prev = stops[i - 1];
+      const prevLat = prev.pin?.lat ?? prev.lat;
+      const prevLng = prev.pin?.lng ?? prev.lng;
+      const stopLat = stop.pin?.lat ?? stop.lat;
+      const stopLng = stop.pin?.lng ?? stop.lng;
+      const dist = distanceM(prevLat, prevLng, stopLat, stopLng);
+      cursor += (dist / DEFAULT_SPEED_MPS) * 1000;
     }
 
-    stops.push({ ...stop, eta });
+    // Check time window — if we arrive early, wait
+    if (stop.timeWindow?.start) {
+      const windowOpenMs = new Date(stop.timeWindow.start).getTime();
+      if (cursor < windowOpenMs) cursor = windowOpenMs;
+    } else if (stop.time_window_start) {
+      const windowOpenMs = new Date(stop.time_window_start).getTime();
+      if (cursor < windowOpenMs) cursor = windowOpenMs;
+    }
 
-    curLat  = stop.pin.lat;
-    curLng  = stop.pin.lng;
-    curTime = eta + stop.dwellSeconds * 1000;
-  }
+    const eta = new Date(cursor).toISOString();
 
-  const totalDurationSec = (curTime - constraints.shiftStartMs) / 1000;
+    // Advance cursor by dwell time
+    const dwellSec = stop.dwellSeconds ?? stop.dwellTimeS ?? (stop.dwell_minutes ? stop.dwell_minutes * 60 : DEFAULT_DWELL_SEC);
+    cursor += dwellSec * 1000;
 
-  return { stops, totalDistanceM: totalDistM, totalDurationSec, timeWindowViolations: violations };
+    return { ...stop, eta, etaMs: new Date(eta).getTime() };
+  });
 }

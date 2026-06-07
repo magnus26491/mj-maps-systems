@@ -1,58 +1,34 @@
 /**
- * Route Engine — vehicle constraint pre-filter
- *
- * Before the solver runs, this module removes or flags stops that the
- * selected vehicle cannot safely service:
- *
- *   HARD block  — bridge/weight/width restriction: BLOCKED severity
- *                 Stop is moved to droppedStops and dispatcher is alerted.
- *
- *   SOFT flag   — RED turn score (< 0.40): stop is kept but flagged.
- *                 Driver receives warning 300m before arrival.
- *                 Route approach may be reversed if alternative exists.
- *
- *   AMBER flag  — AMBER turn score (0.40–0.74): stop kept, driver warned
- *                 at 500m. No rerouting — awareness only.
- *
- * Hard-blocked stops are never silently dropped — they are always
- * returned in droppedStops with a reason so the dispatcher can reassign
- * to a smaller vehicle or mark as failed.
+ * Constraint Filter
+ * Removes stops that cannot be serviced by the selected vehicle profile.
  */
 
-import type { Stop } from './types';
+import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index';
+import type { StopPoint } from './types';
 
-export interface FilterResult {
-  serviceable:  Stop[];
-  hardBlocked:  Array<{ stop: Stop; reason: string }>;
-  softFlagged:  Array<{ stop: Stop; reason: string }>;
-}
+export function filterConstraints(stops: StopPoint[], vehicleId: string): StopPoint[] {
+  const profile = (VEHICLE_PROFILES as Record<string, any>)[vehicleId];
+  if (!profile) return stops; // unknown vehicle — pass all through
 
-export function filterByVehicleConstraints(stops: Stop[]): FilterResult {
-  const serviceable: Stop[] = [];
-  const hardBlocked: Array<{ stop: Stop; reason: string }> = [];
-  const softFlagged: Array<{ stop: Stop; reason: string }> = [];
+  return stops.filter(stop => {
+    const r = stop.restrictions;
+    if (!r) return true;
 
-  for (const stop of stops) {
-    // Hard block: bridge/restriction BLOCKED
-    if (stop.restrictions && !stop.restrictions.clear) {
-      const reason = stop.restrictions.alternativeHint
-        ?? `Route to stop ${stop.id} is blocked by a vehicle restriction`;
-      hardBlocked.push({ stop, reason });
-      continue;
-    }
+    // Weight restriction
+    if (r.maxWeightT !== undefined && profile.gvwT > r.maxWeightT) return false;
 
-    // Soft flag: RED turn score
-    if (stop.turnScore && stop.turnScore.alertLevel === 'RED') {
-      softFlagged.push({
-        stop,
-        reason: `Red turn alert at stop ${stop.id}: ${stop.turnScore.recommendation}`,
-      });
-      serviceable.push(stop); // still route to it — driver decides
-      continue;
-    }
+    // Height restriction
+    if (r.maxHeightM !== undefined && profile.heightM > r.maxHeightM) return false;
 
-    serviceable.push(stop);
-  }
+    // Width restriction
+    if (r.maxWidthM !== undefined && profile.widthM > r.maxWidthM) return false;
 
-  return { serviceable, hardBlocked, softFlagged };
+    // No HGV
+    if (r.noHgv && profile.hgvRouting) return false;
+
+    // Pre-computed turn score: skip stops with extremely low score (< 0.15)
+    if (stop.turnScore !== undefined && stop.turnScore < 0.15) return false;
+
+    return true;
+  });
 }

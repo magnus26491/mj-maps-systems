@@ -8,6 +8,13 @@
  *  - Rate limiting: max 2 concurrent requests per endpoint
  *  - Timeout: 15s per request
  *  - Automatic failover to next endpoint
+ *
+ * Exports:
+ *  - runOverpassQuery(query)          — raw Overpass QL execution
+ *  - getRoadContext(lat, lng)         — single-stop road context
+ *  - getRoadContextBatch(stops)       — batch road contexts (used by road-enricher)
+ *  - OsmRoadContext                   — type for road context result
+ *  - checkOverpassHealth()            — endpoint health probe
  */
 
 // ─── ENDPOINTS ──────────────────────────────────────────────────────────────
@@ -18,11 +25,42 @@ export const OVERPASS_ENDPOINTS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ] as const;
 
+// ─── TYPES ───────────────────────────────────────────────────────────────────
+
+export interface OsmRoadContext {
+  stopId: string;
+  road: {
+    osmId: number;
+    name: string | null;
+    highway: string;
+    widthM: number;
+    maxspeedKph: number | null;
+    isDeadEnd: boolean;
+    hasTurningHead: boolean;
+    lengthToEndM: number;
+    surface: string | null;
+    access: string | null;
+    maxWeightT: number | null;
+    maxHeightM: number | null;
+    oneway: boolean;
+  } | null;
+  levelCrossings: Array<{ osmId: number; lat: number; lng: number }>;
+  pedestrianPaths: Array<{
+    osmId: number;
+    highway: string;
+    lengthM: number;
+    isLit: boolean;
+    hasSteps: boolean;
+    access: string | null;
+  }>;
+  fetchedAt: string; // ISO
+}
+
 // ─── CIRCUIT BREAKER STATE ───────────────────────────────────────────────────
 
 interface EndpointState {
   consecutiveFails: number;
-  openUntil: number; // timestamp ms — 0 means closed (healthy)
+  openUntil: number;
   inFlight: number;
 }
 
@@ -30,8 +68,8 @@ const endpointState: Map<string, EndpointState> = new Map(
   OVERPASS_ENDPOINTS.map(ep => [ep, { consecutiveFails: 0, openUntil: 0, inFlight: 0 }])
 );
 
-const CIRCUIT_OPEN_MS    = 60_000; // 60s cooldown after 3 consecutive fails
-const MAX_INFLIGHT       = 2;      // max concurrent requests per endpoint
+const CIRCUIT_OPEN_MS    = 60_000;
+const MAX_INFLIGHT       = 2;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES        = 3;
 
@@ -53,8 +91,8 @@ function getAvailableEndpoint(): string | null {
   const now = Date.now();
   for (const ep of OVERPASS_ENDPOINTS) {
     const state = endpointState.get(ep)!;
-    if (state.openUntil > now) continue;        // circuit open — skip
-    if (state.inFlight >= MAX_INFLIGHT) continue; // too busy
+    if (state.openUntil > now) continue;
+    if (state.inFlight >= MAX_INFLIGHT) continue;
     return ep;
   }
   return null;
@@ -79,14 +117,6 @@ function markFailure(ep: string): void {
 
 // ─── CORE FETCH ──────────────────────────────────────────────────────────────
 
-/**
- * Execute an Overpass QL query against the mirror pool.
- * Automatically retries with backoff across available endpoints.
- *
- * @param query  Raw Overpass QL string
- * @returns      Parsed JSON response
- * @throws       Error if all endpoints and retries are exhausted
- */
 export async function runOverpassQuery(query: string): Promise<any> {
   let lastError: Error | null = null;
 
@@ -94,11 +124,7 @@ export async function runOverpassQuery(query: string): Promise<any> {
     if (attempt > 0) await sleep(backoffMs(attempt - 1));
 
     const ep = getAvailableEndpoint();
-    if (!ep) {
-      // All endpoints busy or open — wait and retry
-      await sleep(2_000);
-      continue;
-    }
+    if (!ep) { await sleep(2_000); continue; }
 
     const state = endpointState.get(ep)!;
     state.inFlight++;
@@ -111,14 +137,11 @@ export async function runOverpassQuery(query: string): Promise<any> {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status} from ${ep}`);
-      }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${ep}`);
 
       const json = await resp.json();
       markSuccess(ep);
       return json;
-
     } catch (err) {
       lastError = err as Error;
       markFailure(ep);
@@ -129,12 +152,119 @@ export async function runOverpassQuery(query: string): Promise<any> {
   throw new Error(`Overpass: all retries exhausted. Last error: ${lastError?.message}`);
 }
 
-// ─── HEALTH CHECK ────────────────────────────────────────────────────────────
+// ─── ROAD CONTEXT QUERIES ────────────────────────────────────────────────────
+
+/** Road-width inference from OSM highway class (fallback when width tag absent) */
+const HIGHWAY_WIDTH_DEFAULTS: Record<string, number> = {
+  motorway: 11.0, trunk: 9.0, primary: 7.5, secondary: 6.5,
+  tertiary: 5.5, unclassified: 5.0, residential: 5.0,
+  service: 4.0, living_street: 4.5, track: 3.5,
+  path: 2.0, footway: 1.8, cycleway: 2.5,
+};
+
+function inferWidth(highway: string, widthTag?: string): number {
+  if (widthTag) {
+    const parsed = parseFloat(widthTag);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return HIGHWAY_WIDTH_DEFAULTS[highway] ?? 5.0;
+}
 
 /**
- * Quick health probe — runs a minimal Overpass query against all endpoints.
- * Returns per-endpoint status useful for monitoring dashboards.
+ * Fetch road context for a single lat/lng.
+ * Returns null road if no highway found within 30m.
  */
+export async function getRoadContext(lat: number, lng: number, stopId = 'single'): Promise<OsmRoadContext> {
+  const radius = 30; // metres
+  const query = `
+    [out:json][timeout:12];
+    (
+      way(around:${radius},${lat},${lng})[highway];
+    );
+    out body geom;
+  `;
+
+  let road: OsmRoadContext['road'] = null;
+  try {
+    const data = await runOverpassQuery(query);
+    const elements: any[] = (data as any).elements ?? [];
+    const ways = elements.filter((e: any) => e.type === 'way' && e.tags?.highway);
+
+    if (ways.length > 0) {
+      // Pick the closest / most relevant way — prefer named roads over tracks
+      const sorted = ways.sort((a: any, b: any) => {
+        const rank = (h: string) => ['residential','service','unclassified','tertiary','secondary','primary'].indexOf(h);
+        return rank(b.tags.highway) - rank(a.tags.highway);
+      });
+      const w = sorted[0];
+      const tags = w.tags ?? {};
+      const widthM = inferWidth(tags.highway, tags.width ?? tags['est_width']);
+
+      road = {
+        osmId: w.id,
+        name: tags.name ?? null,
+        highway: tags.highway,
+        widthM,
+        maxspeedKph: tags.maxspeed ? parseInt(tags.maxspeed) : null,
+        isDeadEnd: tags.highway === 'service' && !tags.name,
+        hasTurningHead: (tags.turning_circle === 'yes' || tags.amenity === 'turning_circle'),
+        lengthToEndM: widthM * 3, // heuristic until geometry analysis
+        surface: tags.surface ?? null,
+        access: tags.access ?? null,
+        maxWeightT: tags.maxweight ? parseFloat(tags.maxweight) : null,
+        maxHeightM: tags.maxheight ? parseFloat(tags.maxheight) : null,
+        oneway: tags.oneway === 'yes',
+      };
+    }
+  } catch (err) {
+    console.warn(`[overpass] getRoadContext failed for ${lat},${lng}: ${(err as Error).message}`);
+  }
+
+  return {
+    stopId,
+    road,
+    levelCrossings: [],
+    pedestrianPaths: [],
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Batch fetch road contexts for an array of stops.
+ * Runs up to 5 concurrent requests to stay within Overpass rate limits.
+ */
+export async function getRoadContextBatch(
+  stops: Array<{ id: string; lat: number; lng: number }>
+): Promise<Map<string, OsmRoadContext>> {
+  const results = new Map<string, OsmRoadContext>();
+  const CONCURRENCY = 5;
+
+  for (let i = 0; i < stops.length; i += CONCURRENCY) {
+    const batch = stops.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      batch.map(s => getRoadContext(s.lat, s.lng, s.id))
+    );
+    settled.forEach((result, idx) => {
+      const stopId = batch[idx].id;
+      if (result.status === 'fulfilled') {
+        results.set(stopId, result.value);
+      } else {
+        results.set(stopId, {
+          stopId,
+          road: null,
+          levelCrossings: [],
+          pedestrianPaths: [],
+          fetchedAt: new Date().toISOString(),
+        });
+      }
+    });
+  }
+
+  return results;
+}
+
+// ─── HEALTH CHECK ────────────────────────────────────────────────────────────
+
 export async function checkOverpassHealth(): Promise<Record<string, 'ok' | 'degraded' | 'down'>> {
   const probe = '[out:json][timeout:5];node(1);out;';
   const results: Record<string, 'ok' | 'degraded' | 'down'> = {};

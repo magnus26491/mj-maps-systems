@@ -17,8 +17,11 @@ import { getRoadContextBatch, type OsmRoadContext } from './overpass-client';
 import {
   computeTurnScore,
   getTurnAlert,
+  TURN_ALERT_DISTANCES,
   type VehicleProfile,
+  type TurnAlertLevel,
   type TurnAlert,
+  type TurnScoreResult,
 } from '../../packages/vehicle-profiles/index';
 import {
   detectClusters,
@@ -40,7 +43,6 @@ export interface StopPoint {
   totalWeightKg: number;
   requiresSignature: boolean;
   isOversize: boolean;
-  /** Sequence position in the optimised route */
   sequence: number;
 }
 
@@ -48,21 +50,17 @@ export interface EnrichedStop extends StopPoint {
   osmContext: OsmRoadContext | null;
   turn: {
     score: number;
+    alertLevel: TurnAlertLevel;
     alert: TurnAlert;
-    /** Distance before stop at which to show the alert (metres) */
     alertDistanceM: number;
-    /** Human-readable message for driver */
     message: string;
   } | null;
-  /** If this stop is part of a walk cluster, the cluster result */
   clusterResult: ClusterResult | null;
-  /** Index of cluster this stop belongs to (-1 = not clustered) */
   clusterId: number;
 }
 
 export interface EnrichedRoute {
   stops: EnrichedStop[];
-  /** Summary stats for the dispatcher console */
   summary: {
     totalStops: number;
     redTurnWarnings: number;
@@ -74,36 +72,28 @@ export interface EnrichedRoute {
   };
 }
 
-// ─── ALERT DISTANCE TABLE ────────────────────────────────────────────────────
-
-const ALERT_DISTANCES: Record<TurnAlert, number> = {
-  GREEN: 0,
-  AMBER: 300,
-  RED:   500,
-};
-
 // ─── TURN MESSAGE BUILDER ────────────────────────────────────────────────────
 
 function buildTurnMessage(
-  alert: TurnAlert,
+  alertLevel: TurnAlertLevel,
   road: OsmRoadContext['road'],
   vehicleName: string,
 ): string {
   if (!road) return '';
   const name = road.name ? `on ${road.name}` : 'ahead';
-  switch (alert) {
-    case 'GREEN':
-      return `✅ Road ${name} — safe to enter and turn for ${vehicleName}.`;
-    case 'AMBER':
+  switch (alertLevel) {
+    case 'green':
+      return `\u2705 Road ${name} — safe to enter and turn for ${vehicleName}.`;
+    case 'amber':
       return [
-        `⚠️ Tight road ${name}.`,
+        `\u26a0\ufe0f Tight road ${name}.`,
         road.hasTurningHead
           ? `Turning head present — proceed carefully with ${vehicleName}.`
           : `Limited turning space — consider reversing out with ${vehicleName}.`,
       ].join(' ');
-    case 'RED':
+    case 'red':
       return [
-        `🔴 Do NOT enter ${name} with ${vehicleName}.`,
+        `\ud83d\udd34 Do NOT enter ${name} with ${vehicleName}.`,
         road.hasTurningHead
           ? 'Turning head exists but road too narrow for your vehicle.'
           : 'No turning space — you will be stuck. Reverse now.',
@@ -114,17 +104,6 @@ function buildTurnMessage(
 
 // ─── MAIN ENRICHMENT FUNCTION ────────────────────────────────────────────────
 
-/**
- * Enrich a full route with OSM road data, turn scores, and cluster decisions.
- *
- * @example
- * const enriched = await enrichRoute({
- *   stops: optimisedStops,
- *   vehicle: VEHICLE_PROFILES.luton,
- * });
- * // enriched.stops[i].turn.alert === 'RED' → show warning 500m before
- * // enriched.stops[i].clusterResult?.decision === 'WALK' → park + walk
- */
 export async function enrichRoute(params: {
   stops: StopPoint[];
   vehicle: VehicleProfile;
@@ -133,12 +112,10 @@ export async function enrichRoute(params: {
   const { stops, vehicle, driverPreferences = DEFAULT_DRIVER_PREFERENCES } = params;
   const start = Date.now();
 
-  // ── 1. Batch fetch all OSM road contexts ─────────────────────────────────
   const osmContextMap = await getRoadContextBatch(
     stops.map(s => ({ id: s.id, lat: s.lat, lng: s.lng }))
   );
 
-  // ── 2. Compute turn score for every stop ─────────────────────────────────
   const enrichedStops: EnrichedStop[] = stops.map(stop => {
     const osmContext = osmContextMap.get(stop.id) ?? null;
     const road = osmContext?.road ?? null;
@@ -146,18 +123,17 @@ export async function enrichRoute(params: {
     let turn: EnrichedStop['turn'] = null;
 
     if (road) {
-      const score = computeTurnScore({
-        roadWidthM: road.widthM,
+      const result: TurnScoreResult = computeTurnScore(vehicle, road.widthM, {
         hasTurningHead: road.hasTurningHead,
-        roadLengthToEndM: road.lengthToEndM,
-        vehicleProfile: vehicle,
+        deadEndLengthM: road.lengthToEndM,
       });
-      const alert = getTurnAlert(score);
+      const alert: TurnAlert = getTurnAlert(result, vehicle.label);
       turn = {
-        score,
+        score: result.score,
+        alertLevel: result.alertLevel,
         alert,
-        alertDistanceM: ALERT_DISTANCES[alert],
-        message: buildTurnMessage(alert, road, vehicle.label),
+        alertDistanceM: TURN_ALERT_DISTANCES[result.alertLevel],
+        message: buildTurnMessage(result.alertLevel, road, vehicle.label),
       };
     }
 
@@ -170,23 +146,13 @@ export async function enrichRoute(params: {
     };
   });
 
-  // ── 3. Detect walk/drive clusters ────────────────────────────────────────
-  const clusterStops: ClusterStop[] = enrichedStops.map(s => ({
-    ...s,
-    parcelCount: s.parcelCount,
-    totalWeightKg: s.totalWeightKg,
-    requiresSignature: s.requiresSignature,
-    isOversize: s.isOversize,
-  }));
-
+  const clusterStops: ClusterStop[] = enrichedStops.map(s => ({ ...s }));
   const clusters = detectClusters(clusterStops);
 
   clusters.forEach((cluster, clusterIdx) => {
-    // Use the first stop's road context as the cluster road reference
     const anchorOsm = osmContextMap.get(cluster[0].id);
     const anchorRoad = anchorOsm?.road;
 
-    // Next road: first stop NOT in this cluster after the last cluster stop
     const lastClusterStopIdx = enrichedStops.findIndex(
       s => s.id === cluster[cluster.length - 1].id
     );
@@ -221,7 +187,6 @@ export async function enrichRoute(params: {
       driverPreferences,
     });
 
-    // Write cluster result back to each enriched stop
     cluster.forEach(clusterStop => {
       const enriched = enrichedStops.find(s => s.id === clusterStop.id);
       if (enriched) {
@@ -231,9 +196,8 @@ export async function enrichRoute(params: {
     });
   });
 
-  // ── 4. Build summary ─────────────────────────────────────────────────────
-  const redWarnings   = enrichedStops.filter(s => s.turn?.alert === 'RED').length;
-  const amberWarnings = enrichedStops.filter(s => s.turn?.alert === 'AMBER').length;
+  const redWarnings   = enrichedStops.filter(s => s.turn?.alertLevel === 'red').length;
+  const amberWarnings = enrichedStops.filter(s => s.turn?.alertLevel === 'amber').length;
   const walkClusters  = clusters.filter((_, i) => {
     const result = enrichedStops.find(s => s.clusterId === i)?.clusterResult;
     return result?.decision === 'WALK' || result?.decision === 'WALK_VIA_CUTTHROUGH';

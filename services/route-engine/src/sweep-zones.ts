@@ -1,138 +1,102 @@
 /**
- * Route Engine — sweep-zone clustering (anti-backtrack core)
- *
- * The #1 driver complaint: apps send you out of an area then back in later.
- * This module prevents that by:
- *
- *   1. Dividing stops into geographic zones (grid cells or radial sectors)
- *   2. Sorting zones by compass bearing from depot (N → NE → E → SE → S → …)
- *   3. Sequencing stops within each zone using nearest-neighbour
- *   4. Applying a zone-completion penalty so the solver strongly prefers
- *      finishing a zone before moving to the next
- *
- * The result is a "sweep" motion — the driver works one area clean,
- * then sweeps to the next. No backtracking.
- *
- * Zone granularity: configurable via ZONE_CELL_DEG (default 0.015° ≈ 1.2km).
- * For dense urban routes use 0.008° (~700m). For rural use 0.025° (~2km).
+ * Sweep Zone Builder
+ * Groups stops into geographic zones to prevent backtracking.
+ * Uses a simple grid-cell bucketing approach (fast, O(n)).
  */
 
-import { haversineM, bearingDeg } from './geo';
-import type { Stop } from './types';
+import type { StopPoint, SweepZone, LatLng } from './types';
 
-const ZONE_CELL_DEG = 0.015; // ~1.2km grid cells
+/** Grid cell size in degrees (~1-2 km depending on latitude) */
+const CELL_DEG = 0.015;
 
-interface Zone {
-  key:     string;
-  stops:   Stop[];
-  centLat: number;
-  centLng: number;
-  /** Bearing from depot to zone centroid */
-  bearing: number;
+function cellKey(lat: number, lng: number): string {
+  return `${Math.floor(lat / CELL_DEG)},${Math.floor(lng / CELL_DEG)}`;
 }
 
-function zoneKey(lat: number, lng: number): string {
-  const row = Math.floor(lat / ZONE_CELL_DEG);
-  const col = Math.floor(lng / ZONE_CELL_DEG);
-  return `${row}:${col}`;
-}
-
-function centroid(stops: Stop[]): { lat: number; lng: number } {
-  const lat = stops.reduce((s, st) => s + st.pin.lat, 0) / stops.length;
-  const lng = stops.reduce((s, st) => s + st.pin.lng, 0) / stops.length;
+function centroid(latlngs: LatLng[]): LatLng {
+  const lat = latlngs.reduce((s, p) => s + p.lat, 0) / latlngs.length;
+  const lng = latlngs.reduce((s, p) => s + p.lng, 0) / latlngs.length;
   return { lat, lng };
 }
 
-/**
- * Group stops into geographic grid zones.
- */
-export function buildZones(
-  stops:     Stop[],
-  depotLat:  number,
-  depotLng:  number,
-): Zone[] {
-  const zoneMap = new Map<string, Stop[]>();
+function radiusKm(points: LatLng[], center: LatLng): number {
+  let maxDeg = 0;
+  for (const p of points) {
+    const d = Math.sqrt((p.lat - center.lat) ** 2 + (p.lng - center.lng) ** 2);
+    if (d > maxDeg) maxDeg = d;
+  }
+  return maxDeg * 111; // 1 degree ≈ 111 km
+}
+
+export function buildSweepZones(stops: StopPoint[]): SweepZone[] {
+  const cells = new Map<string, StopPoint[]>();
 
   for (const stop of stops) {
-    const key = zoneKey(stop.pin.lat, stop.pin.lng);
-    if (!zoneMap.has(key)) zoneMap.set(key, []);
-    zoneMap.get(key)!.push(stop);
+    const lat = stop.pin?.lat ?? stop.lat;
+    const lng = stop.pin?.lng ?? stop.lng;
+    const key = cellKey(lat, lng);
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key)!.push(stop);
   }
 
-  const zones: Zone[] = [];
-  for (const [key, zoneStops] of zoneMap) {
-    const c = centroid(zoneStops);
+  const zones: SweepZone[] = [];
+  let zoneIdx = 0;
+
+  cells.forEach((cellStops) => {
+    if (cellStops.length === 0) return;
+
+    const points: LatLng[] = cellStops.map(s => ({
+      lat: s.pin?.lat ?? s.lat,
+      lng: s.pin?.lng ?? s.lng,
+    }));
+    const c = centroid(points);
+    const rKm = radiusKm(points, c);
+
     zones.push({
-      key,
-      stops:   zoneStops,
-      centLat: c.lat,
-      centLng: c.lng,
-      bearing: bearingDeg(depotLat, depotLng, c.lat, c.lng),
+      id: `zone-${zoneIdx++}`,
+      stopIds: cellStops.map(s => s.id),
+      centroidLat: c.lat,
+      centroidLng: c.lng,
+      radiusKm: rKm,
+      centroid: c,
+      radiusM: rKm * 1000,
     });
-  }
+  });
 
-  // Sort zones by bearing (clockwise sweep from North)
-  zones.sort((a, b) => a.bearing - b.bearing);
   return zones;
 }
 
 /**
- * Within a zone, sequence stops using nearest-neighbour from the
- * zone entry point (previous stop position or zone centroid).
+ * Anti-backtrack penalty — returns a penalty multiplier (1.0 = no penalty)
+ * for a proposed stop sequence. Higher = worse.
  */
-export function sequenceZone(
-  zone:     Zone,
-  entryLat: number,
-  entryLng: number,
-): Stop[] {
-  const remaining = [...zone.stops];
-  const ordered:   Stop[] = [];
-  let curLat = entryLat;
-  let curLng = entryLng;
+export function antiBacktrackPenalty(stops: StopPoint[]): number {
+  if (stops.length < 3) return 1.0;
 
-  while (remaining.length) {
-    let bestIdx  = 0;
-    let bestDist = Infinity;
+  let backtrackCount = 0;
 
-    for (let i = 0; i < remaining.length; i++) {
-      const d = haversineM(curLat, curLng, remaining[i].pin.lat, remaining[i].pin.lng);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
-    }
+  for (let i = 1; i < stops.length - 1; i++) {
+    const prev = stops[i - 1];
+    const curr = stops[i];
+    const next = stops[i + 1];
 
-    const next = remaining.splice(bestIdx, 1)[0];
-    ordered.push(next);
-    curLat = next.pin.lat;
-    curLng = next.pin.lng;
+    const prevLat = prev.pin?.lat ?? prev.lat;
+    const prevLng = prev.pin?.lng ?? prev.lng;
+    const currLat = curr.pin?.lat ?? curr.lat;
+    const currLng = curr.pin?.lng ?? curr.lng;
+    const nextLat = next.pin?.lat ?? next.lat;
+    const nextLng = next.pin?.lng ?? next.lng;
+
+    // Dot product of vectors prev→curr and curr→next
+    // Negative dot = sharp reversal = backtrack
+    const v1lat = currLat - prevLat;
+    const v1lng = currLng - prevLng;
+    const v2lat = nextLat - currLat;
+    const v2lng = nextLng - currLng;
+    const dot = v1lat * v2lat + v1lng * v2lng;
+
+    if (dot < 0) backtrackCount++;
   }
 
-  return ordered;
-}
-
-/**
- * Full sweep-zone sequencer.
- * Returns stops in anti-backtrack order with sequence numbers set.
- */
-export function sweepSequence(
-  stops:    Stop[],
-  depotLat: number,
-  depotLng: number,
-): Stop[] {
-  if (!stops.length) return [];
-
-  const zones  = buildZones(stops, depotLat, depotLng);
-  const result: Stop[] = [];
-  let curLat   = depotLat;
-  let curLng   = depotLng;
-
-  for (const zone of zones) {
-    const sequenced = sequenceZone(zone, curLat, curLng);
-    result.push(...sequenced);
-    if (sequenced.length) {
-      curLat = sequenced[sequenced.length - 1].pin.lat;
-      curLng = sequenced[sequenced.length - 1].pin.lng;
-    }
-  }
-
-  // Assign sequence numbers
-  return result.map((stop, idx) => ({ ...stop, sequence: idx + 1 }));
+  return 1.0 + (backtrackCount / stops.length) * 0.5;
 }

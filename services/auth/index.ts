@@ -7,11 +7,11 @@
  */
 
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'changeme_insecure_default';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '15m';
+const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN ?? '15m') as string;
 const REFRESH_EXPIRES_IN = '7d';
 
 if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'changeme_insecure_default') {
@@ -51,16 +51,19 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 // ── Tokens ───────────────────────────────────────────────────────────────────
 
 export function signTokenPair(payload: Omit<JwtPayload, 'type'>): TokenPair {
+  const accessOptions: SignOptions = { expiresIn: JWT_EXPIRES_IN as any };
+  const refreshOptions: SignOptions = { expiresIn: REFRESH_EXPIRES_IN as any };
+
   const accessToken = jwt.sign(
-    { ...payload, type: 'access' } satisfies JwtPayload,
+    { ...payload, type: 'access' } as object,
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN },
+    accessOptions,
   );
 
   const refreshToken = jwt.sign(
-    { ...payload, type: 'refresh' } satisfies JwtPayload,
+    { ...payload, type: 'refresh' } as object,
     JWT_SECRET,
-    { expiresIn: REFRESH_EXPIRES_IN },
+    refreshOptions,
   );
 
   const refreshTokenHash = crypto
@@ -68,7 +71,6 @@ export function signTokenPair(payload: Omit<JwtPayload, 'type'>): TokenPair {
     .update(refreshToken)
     .digest('hex');
 
-  // Expiry date for DB storage
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 

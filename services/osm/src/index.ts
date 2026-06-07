@@ -1,10 +1,8 @@
 /**
- * OSM Service — public export barrel
- *
- * getRoadGeometry is the single function consumed by the turn-engine resolver.
- * It abstracts over Overpass API + Redis cache + fallback heuristics.
+ * OSM service entry point
+ * Re-exports everything consumers need from one place.
  */
-export { getRoadGeometry } from '../road-query';
-export { enrichRoad } from '../road-enricher';
-export { queryBuilding } from '../building-query';
-export type { OverpassResponse, OverpassWay, OverpassNode } from './types';
+export { runOverpassQuery, getRoadContext, getRoadContextBatch, checkOverpassHealth } from '../overpass-client';
+export type { OsmRoadContext } from '../overpass-client';
+export { enrichRoute } from '../road-enricher';
+export type { EnrichedRoute, EnrichedStop } from '../road-enricher';

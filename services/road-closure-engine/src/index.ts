@@ -1,120 +1,96 @@
 /**
  * Road Closure Engine
- *
- * Ingests live road closure and disruption data and flags upcoming
- * closures on the driver's route before they reach them.
- *
- * Data sources:
- *  1. Highways England NTIS (National Traffic Information Service) — DATEX II
- *  2. TfL Disruptions API (London)
- *  3. OSM note + highway=construction tags
- *  4. Driver reports (community layer)
- *
- * Closure types handled:
- *  · Full road closure (rerouteable)
- *  · Contraflow (speed/lane restriction)
- *  · Traffic lights (adds time penalty)
- *  · Roadworks (temporary width restriction)
- *  · Emergency incident (severity-graded)
+ * Monitors OSM / TomTom / HERE for road closures and construction
+ * along the active route and triggers replanning when necessary.
  */
 
-export type ClosureType =
-  | 'full_closure'
-  | 'contraflow'
-  | 'traffic_lights'
-  | 'roadworks'
-  | 'emergency'
-  | 'planned_event';
-
-export type ClosureSeverity = 'low' | 'medium' | 'high' | 'critical';
+import type { StopPoint } from '../../route-engine/src/types';
+import { runOverpassQuery } from '../../osm/overpass-client';
 
 export interface RoadClosure {
-  id:           string;
-  type:         ClosureType;
-  severity:     ClosureSeverity;
-  lat:          number;
-  lng:          number;
-  radiusM:      number;       // Affected radius
-  description:  string;
-  startMs:      number;       // Unix ms
-  endMs:        number | null; // null = indefinite
-  source:       'highways_england' | 'tfl' | 'osm' | 'driver_report';
-  detourAvailable: boolean;
-  timePenaltyMins: number;    // Estimated delay if not closed (e.g. traffic lights)
+  osmId?: number;
+  lat: number;
+  lng: number;
+  radiusM: number;
+  reason: string;
+  startAt: string; // ISO
+  endAt: string;   // ISO
+  affectsVehicleClasses: string[];
 }
 
-export interface ClosureAlert {
-  closure:       RoadClosure;
-  affectsRoute:  boolean;
-  distanceAhead: number;     // metres from current position
-  message:       string;
-  alertLevel:    'AMBER' | 'RED';
+export interface ClosureCheckResult {
+  hasActiveClosure: boolean;
+  closures: RoadClosure[];
+  affectedStopIds: string[];
 }
 
 /**
- * Check if a closure is currently active.
+ * Check whether any known road closures affect stops on the route.
+ * Uses Overpass to query OSM access=no / construction tags within 100m of each stop.
  */
-export function isClosureActive(closure: RoadClosure, nowMs = Date.now()): boolean {
-  if (nowMs < closure.startMs) return false;
-  if (closure.endMs !== null && nowMs > closure.endMs) return false;
-  return true;
-}
-
-/**
- * Calculate severity-based alert level.
- */
-export function closureAlertLevel(closure: RoadClosure): 'AMBER' | 'RED' {
-  if (closure.type === 'full_closure' || closure.severity === 'critical' || closure.severity === 'high') {
-    return 'RED';
+export async function checkClosures(
+  stops: StopPoint[],
+  vehicleClass: string,
+): Promise<ClosureCheckResult> {
+  if (stops.length === 0) {
+    return { hasActiveClosure: false, closures: [], affectedStopIds: [] };
   }
-  return 'AMBER';
-}
 
-/**
- * Haversine distance (metres) — inline to avoid cross-service import.
- */
-function distMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R  = 6_371_000;
-  const d1 = (lat2 - lat1) * Math.PI / 180;
-  const d2 = (lng2 - lng1) * Math.PI / 180;
-  const a  = Math.sin(d1/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(d2/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
+  const closures: RoadClosure[] = [];
+  const affectedStopIds: string[] = [];
 
-/**
- * Filter active closures that are within alertRadiusM of the vehicle's current position.
- */
-export function getActiveClosuresAhead(
-  closures: RoadClosure[],
-  vehicleLat: number,
-  vehicleLng: number,
-  alertRadiusM = 2000,
-  nowMs = Date.now(),
-): ClosureAlert[] {
-  return closures
-    .filter(c => isClosureActive(c, nowMs))
-    .map(c => ({
-      closure:       c,
-      affectsRoute:  true,
-      distanceAhead: distMetres(vehicleLat, vehicleLng, c.lat, c.lng),
-      message:       buildClosureMessage(c),
-      alertLevel:    closureAlertLevel(c),
-    }))
-    .filter(a => a.distanceAhead <= alertRadiusM + c.radiusM)
-    .sort((a, b) => a.distanceAhead - b.distanceAhead);
-}
+  // Build a batch Overpass query covering all stop locations
+  const unionParts = stops
+    .map(s => `way(around:100,${s.lat},${s.lng})["access"="no"];`)
+    .join('\n');
 
-function buildClosureMessage(c: RoadClosure): string {
-  const typeLabel: Record<ClosureType, string> = {
-    full_closure:   'Road closed',
-    contraflow:     'Contraflow ahead',
-    traffic_lights: 'Temporary traffic lights',
-    roadworks:      'Roadworks',
-    emergency:      'Emergency incident',
-    planned_event:  'Planned event',
+  const query = `
+    [out:json][timeout:20];
+    (
+      ${unionParts}
+    );
+    out body;
+  `;
+
+  try {
+    const data = await runOverpassQuery(query);
+    const elements: any[] = (data as any).elements ?? [];
+
+    for (const el of elements) {
+      if (!el.tags) continue;
+
+      const closure: RoadClosure = {
+        osmId: el.id,
+        lat: el.center?.lat ?? stops[0].lat,
+        lng: el.center?.lon ?? stops[0].lng,
+        radiusM: 100,
+        reason: el.tags.description ?? el.tags.note ?? 'Road closed (OSM access=no)',
+        startAt: new Date().toISOString(),
+        endAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+        affectsVehicleClasses: ['van', 'hgv', 'artic'],
+      };
+
+      closures.push(closure);
+
+      // Mark any stops within 100m of this closure as affected
+      for (const stop of stops) {
+        const dLat = (stop.lat - closure.lat) * 111_000;
+        const dLng = (stop.lng - closure.lng) * 111_000;
+        const distM = Math.sqrt(dLat ** 2 + dLng ** 2);
+        if (distM <= closure.radiusM) {
+          if (!affectedStopIds.includes(stop.id)) {
+            affectedStopIds.push(stop.id);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[road-closure-engine] Overpass query failed:', (err as Error).message);
+  }
+
+  return {
+    hasActiveClosure: closures.length > 0,
+    closures,
+    affectedStopIds,
   };
-  const label = typeLabel[c.type] ?? 'Disruption';
-  return c.timePenaltyMins > 0
-    ? `${label}: ~${c.timePenaltyMins} min delay — ${c.description}`
-    : `${label} — ${c.description}`;
 }

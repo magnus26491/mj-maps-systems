@@ -1,84 +1,66 @@
 /**
- * Route Engine — main solver
- *
- * Pipeline:
- *   1. filterByVehicleConstraints  — remove hard-blocked stops
- *   2. sweepSequence               — anti-backtrack zone ordering
- *   3. twoOpt                      — local distance improvement
- *   4. assignEtas                  — cascade ETAs from shift start
- *
- * Returns SolverResult with ordered stops, metrics, and any dropped stops.
- *
- * Design principles:
- *   · Deterministic — same input always produces same output
- *   · Fast — O(n²) worst case, < 100ms for 200-stop routes
- *   · Fail-safe — partial results returned even if a stage throws
- *   · No external I/O — all data must be pre-fetched and passed in
+ * Route Engine — Solver
+ * Wraps the sequencer + constraint filter + eta-assignment into a single call.
  */
 
-import { filterByVehicleConstraints } from './constraint-filter';
-import { sweepSequence }              from './sweep-zones';
-import { twoOpt }                     from './two-opt';
-import { assignEtas }                 from './eta-assignment';
-import type { SolverInput, SolverResult, Stop } from './types';
+import type { SequencerInput, SequencerOutput, StopPoint } from './types';
 
-export function solve(input: SolverInput): SolverResult {
-  const start = Date.now();
+/**
+ * Thin orchestration layer — calls sequencer and applies post-processing.
+ * The heavy TSP logic lives in sequencer.ts; this file coordinates the pipeline.
+ */
+export async function solve(input: SequencerInput): Promise<SequencerOutput> {
+  const { stops, depotLat, depotLng, vehicleId, shiftStartISO, constraints } = input;
 
-  // ── Stage 1: Vehicle constraint pre-filter ──────────────────────────────
-  const { serviceable, hardBlocked, softFlagged } =
-    filterByVehicleConstraints(input.stops);
+  // Import lazily to avoid circular deps
+  const { runSequencer } = await import('./sequencer');
+  const { filterConstraints } = await import('./constraint-filter');
+  const { assignETAs } = await import('./eta-assignment');
 
-  // Log soft flags (driver warnings) — in production these go to the
-  // driver app notification queue, not console
-  if (softFlagged.length) {
-    for (const { stop, reason } of softFlagged) {
-      // eslint-disable-next-line no-console
-      console.warn(`[route-engine] SOFT FLAG stop=${stop.id}: ${reason}`);
+  // 1. Filter out stops that fail vehicle constraints
+  const feasible = filterConstraints(stops, vehicleId);
+  const dropped = stops.filter(s => !feasible.find(f => f.id === s.id));
+
+  // 2. Run TSP sequencer on feasible stops
+  const sequenced = await runSequencer({
+    stops: feasible,
+    depotLat,
+    depotLng,
+    vehicleId,
+    shiftStartISO,
+    respectTimeWindows: input.respectTimeWindows,
+  });
+
+  // 3. Assign ETAs
+  const ordered = assignETAs(sequenced.ordered, shiftStartISO);
+
+  // 4. Apply max-shift constraint — trim stops that fall outside the window
+  const maxShiftSec = constraints?.maxShiftSeconds ?? input.maxShiftSeconds;
+  let trimmed = ordered;
+  let extraDropped: StopPoint[] = [];
+  if (maxShiftSec) {
+    const shiftStartMs = shiftStartISO ? new Date(shiftStartISO).getTime() : Date.now();
+    trimmed = [];
+    extraDropped = [];
+    for (const stop of ordered) {
+      const etaMs = stop.etaMs ?? (stop.eta ? new Date(stop.eta).getTime() : undefined);
+      if (etaMs !== undefined && (etaMs - shiftStartMs) / 1000 > maxShiftSec) {
+        extraDropped.push(stop);
+      } else {
+        trimmed.push(stop);
+      }
     }
   }
 
-  // ── Stage 2: Sweep-zone anti-backtrack sequencing ───────────────────────
-  const swept = sweepSequence(
-    serviceable,
-    input.constraints.depotLat,
-    input.constraints.depotLng,
-  );
-
-  // ── Stage 3: 2-opt local improvement ────────────────────────────────────
-  const optimised = twoOpt(swept);
-
-  // ── Stage 4: ETA assignment ──────────────────────────────────────────────
-  const { stops, totalDistanceM, totalDurationSec } =
-    assignEtas(optimised, input.constraints);
-
-  // Enforce shift duration limit — drop stops that would exceed max shift
-  const maxEndTime =
-    input.constraints.shiftStartMs +
-    input.constraints.maxShiftSeconds * 1000;
-
-  const inShift:   Stop[] = [];
-  const overShift: Stop[] = [];
-
-  for (const stop of stops) {
-    if (stop.eta && stop.eta > maxEndTime) {
-      overShift.push(stop);
-    } else {
-      inShift.push(stop);
-    }
-  }
-
-  const droppedStops: Stop[] = [
-    ...hardBlocked.map(h => h.stop),
-    ...overShift,
-  ];
+  const allDropped = [...dropped, ...extraDropped];
 
   return {
-    orderedStops:     inShift,
-    totalDistanceM,
-    totalDurationSec,
-    droppedStops,
-    solvedIn:         Date.now() - start,
-    algorithm:        'sweep-zones + 2-opt',
+    ordered: trimmed,
+    totalDistanceKm: sequenced.totalDistanceKm,
+    totalDistanceM: sequenced.totalDistanceKm * 1000,
+    estimatedDurationMin: sequenced.estimatedDurationMin,
+    totalDurationSec: sequenced.estimatedDurationMin * 60,
+    sweepZones: sequenced.sweepZones,
+    droppedStops: allDropped,
   };
 }

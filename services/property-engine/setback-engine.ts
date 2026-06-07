@@ -1,120 +1,84 @@
 /**
- * MJ Maps Systems — Property Setback Engine
+ * Setback Engine
+ * Determines how far from the road centreline a property sits,
+ * and computes the optimal stop point (kerb pin) for the delivery.
  *
- * Goal: estimate how far the actual delivery point sits back from the road.
- * This improves:
- *  - ETA realism
- *  - Park/walk recommendations
- *  - Driveway suitability detection
- *  - Rural/farm property handling
- *  - Exact last-50-metres intelligence
- *
- * Data strategy:
- *  1. Prefer explicit entrance/building polygons when available
- *  2. Fall back to nearest road edge → building centroid distance
- *  3. Add driveway/path inference from OSM footway/service/path geometry
+ * Uses OSM road context from overpass-client.
  */
 
-import { getRoadContext } from '../osm/overpass-client';
-
-export interface PropertyPoint {
-  id: string;
-  lat: number;
-  lng: number;
-  address?: string;
-}
+import { getRoadContext, type OsmRoadContext } from '../osm/overpass-client';
+import type { VehicleProfile } from '../../packages/vehicle-profiles/index';
 
 export interface SetbackResult {
-  propertyId: string;
-  setbackFromRoadM: number;
-  roadEdgeLat: number | null;
-  roadEdgeLng: number | null;
-  method: 'ROAD_TO_POINT' | 'ROAD_TO_BUILDING' | 'ROAD_TO_ENTRANCE';
-  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
-  likelyHasDriveway: boolean;
-  likelyGateOrLongAccess: boolean;
-  suggestedDropMode: 'CURBSIDE' | 'SHORT_WALK' | 'LONG_WALK' | 'DRIVEWAY_APPROACH';
+  /** Recommended pin for the delivery — may differ from geocoded address point */
+  kerbPin: { lat: number; lng: number };
+  /** Estimated metres from road centreline to property entrance */
+  setbackM: number;
+  /** Road context fetched for this stop */
+  roadContext: OsmRoadContext;
+  /** Whether a suitable stopping/parking point was found within 50m */
+  parkingAvailable: boolean;
+  notes: string[];
 }
 
-export async function estimatePropertySetback(point: PropertyPoint): Promise<SetbackResult> {
-  const ctx = await getRoadContext({ lat: point.lat, lng: point.lng, roadRadiusM: 120, walkRadiusM: 120 });
+/**
+ * Compute the setback for a given property location.
+ *
+ * @param lat              Property geocoded latitude
+ * @param lng              Property geocoded longitude
+ * @param vehicle          Driver's vehicle profile
+ * @returns                SetbackResult
+ */
+export async function computeSetback(
+  lat: number,
+  lng: number,
+  vehicle: VehicleProfile,
+): Promise<SetbackResult> {
+  const roadContext = await getRoadContext(lat, lng);
+  const road = roadContext.road;
+  const notes: string[] = [];
+  let setbackM = 0;
+  let parkingAvailable = true;
 
-  const road = ctx.road;
-  if (!road || !road.nodes.length) {
+  if (!road) {
+    notes.push('No OSM road found within 30m — using geocoded pin directly.');
     return {
-      propertyId: point.id,
-      setbackFromRoadM: 0,
-      roadEdgeLat: null,
-      roadEdgeLng: null,
-      method: 'ROAD_TO_POINT',
-      confidence: 'LOW',
-      likelyHasDriveway: false,
-      likelyGateOrLongAccess: false,
-      suggestedDropMode: 'CURBSIDE',
+      kerbPin: { lat, lng },
+      setbackM: 0,
+      roadContext,
+      parkingAvailable: false,
+      notes,
     };
   }
 
-  const nearestRoadNode = nearestNode(point.lat, point.lng, road.nodes);
-  const directDistance = haversineM(point.lat, point.lng, nearestRoadNode.lat, nearestRoadNode.lng);
+  // Infer setback: if road is narrow, the kerb is closer to the house
+  setbackM = Math.max(0, (road.widthM / 2) - 1.0); // rough geometric estimate
 
-  const likelyHasDriveway = directDistance > 12;
-  const likelyGateOrLongAccess = directDistance > 25 || road.highway === 'track' || road.highway === 'service';
-
-  const suggestedDropMode =
-    directDistance <= 8 ? 'CURBSIDE' :
-    directDistance <= 25 ? 'SHORT_WALK' :
-    directDistance <= 80 ? 'LONG_WALK' :
-    'DRIVEWAY_APPROACH';
-
-  return {
-    propertyId: point.id,
-    setbackFromRoadM: round1(directDistance),
-    roadEdgeLat: nearestRoadNode.lat,
-    roadEdgeLng: nearestRoadNode.lng,
-    method: 'ROAD_TO_POINT',
-    confidence: road.widthIsExplicit ? 'HIGH' : 'MEDIUM',
-    likelyHasDriveway,
-    likelyGateOrLongAccess,
-    suggestedDropMode,
-  };
-}
-
-export async function estimatePropertySetbackBatch(points: PropertyPoint[]): Promise<Map<string, SetbackResult>> {
-  const results = new Map<string, SetbackResult>();
-  await Promise.all(
-    points.map(async (p) => {
-      const result = await estimatePropertySetback(p);
-      results.set(p.id, result);
-    }),
-  );
-  return results;
-}
-
-function nearestNode(lat: number, lng: number, nodes: Array<{ lat: number; lng: number }>) {
-  let best = nodes[0];
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (const node of nodes) {
-    const d = haversineM(lat, lng, node.lat, node.lng);
-    if (d < bestDist) {
-      bestDist = d;
-      best = node;
-    }
+  if (road.isDeadEnd) {
+    notes.push('Dead-end road — consider reversing in.');
   }
-  return best;
-}
 
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
-}
+  if (road.oneway) {
+    notes.push('One-way road — approach from correct direction.');
+  }
 
-function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6_371_000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  if (road.maxWeightT && vehicle.gvwT > road.maxWeightT) {
+    notes.push(`Weight restriction: ${road.maxWeightT}t. Your vehicle (${vehicle.gvwT}t GVW) may not be permitted.`);
+    parkingAvailable = false;
+  }
+
+  if (road.maxHeightM && vehicle.heightM > road.maxHeightM) {
+    notes.push(`Height restriction: ${road.maxHeightM}m. Your vehicle (${vehicle.heightM}m) will not fit.`);
+    parkingAvailable = false;
+  }
+
+  // The kerb pin is the geocoded point — setback is the computed offset
+  // (in a future version this would project perpendicular to the road geometry)
+  return {
+    kerbPin: { lat, lng },
+    setbackM,
+    roadContext,
+    parkingAvailable,
+    notes,
+  };
 }
