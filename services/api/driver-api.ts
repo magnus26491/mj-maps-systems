@@ -470,10 +470,8 @@ export function handleDriverWebSocket(
   let authenticated = false;
   let verifiedDriverId: string | null = null;
 
-  // Register socket so broadcastToDriver() can push messages to this driver
-  driverSockets.set(driverId, socket);
-
-  socket.send(JSON.stringify({ type: 'CONNECTED', driverId, routeId }));
+  // Socket NOT registered yet — wait for successful AUTH first
+  // This prevents broadcastToDriver() from pushing to an unauthenticated connection
 
   socket.on('message', async (raw: any) => {
     // ── Auth gate: first message must be AUTH ───────────────────────────────────
@@ -512,6 +510,9 @@ export function handleDriverWebSocket(
         }
 
         authenticated = true;
+        // Register only after auth is confirmed — prevents unauthenticated push
+        driverSockets.set(driverId, socket);
+        socket.send(JSON.stringify({ type: 'CONNECTED', driverId, routeId }));
       } catch (err: any) {
         const code = err?.name === 'TokenExpiredError' ? WS_CODE_TOKEN_EXPIRED : WS_CODE_UNAUTHORIZED;
         socket.close(code, err?.name ?? 'Auth failed');
