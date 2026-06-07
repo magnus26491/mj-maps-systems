@@ -32,7 +32,7 @@ import {
   handleRouteAlertsRed,
 } from './driver-api';
 import { resolveTurnScore } from '../turn-engine/src/resolver';
-import { VEHICLE_PROFILES } from '../vehicle-profiles/index';
+import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -54,48 +54,6 @@ export const server = Fastify({
       : undefined,
   },
   trustProxy: true,
-});
-
-// ─── PLUGINS ─────────────────────────────────────────────────────────────────
-await server.register(fastifyHelmet, { contentSecurityPolicy: false });
-
-await server.register(fastifyCors, {
-  origin: NODE_ENV === 'production'
-    ? ['https://mjmaps.app', 'https://app.mjmaps.app']
-    : true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-});
-
-await server.register(fastifyCompress, {
-  threshold: 1024,
-  encodings: ['gzip', 'deflate'],
-});
-
-await server.register(fastifyJwt, {
-  secret: JWT_SECRET,
-  sign: { expiresIn: '12h' },
-});
-
-await server.register(fastifyRateLimit, {
-  global: true,
-  max: 120,
-  timeWindow: '1 minute',
-  errorResponseBuilder: () => ({
-    ok: false,
-    error: 'Too many requests',
-    retryAfterMs: 60_000,
-  }),
-});
-
-await server.register(fastifyWebsocket);
-
-// ─── AUTH DECORATOR ──────────────────────────────────────────────────────────
-server.decorate('authenticate', async function (request: any, reply: any) {
-  try {
-    await request.jwtVerify();
-  } catch {
-    reply.code(401).send({ ok: false, error: 'Unauthorised — invalid or expired token' });
-  }
 });
 
 // ─── ZOD SCHEMAS ─────────────────────────────────────────────────────────────
@@ -122,165 +80,206 @@ const RouteIdSchema = z.string().min(1).max(128).regex(
   'routeId must be alphanumeric/hyphen/underscore only',
 );
 
-// ─── ROUTES ──────────────────────────────────────────────────────────────────
+// ─── START (all plugin registration + routes live here to avoid top-level await) ───
+const start = async () => {
+  // ── Plugins ────────────────────────────────────────────────────────────────
+  await server.register(fastifyHelmet, { contentSecurityPolicy: false });
 
-/** Health — no auth, used by Railway health checks */
-server.get('/api/v1/health', handleHealth as any);
+  await server.register(fastifyCors, {
+    origin: NODE_ENV === 'production'
+      ? ['https://mjmaps.app', 'https://app.mjmaps.app']
+      : true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+  });
 
-/** Issue JWT for a driver */
-server.post('/api/v1/auth/token', async (request, reply) => {
-  const parsed = z.object({
-    driverId: z.string().min(1),
-    secret:   z.string().min(1),
-  }).safeParse(request.body);
+  await server.register(fastifyCompress, {
+    threshold: 1024,
+    encodings: ['gzip', 'deflate'],
+  });
 
-  if (!parsed.success) {
-    return reply.code(400).send({ ok: false, error: 'driverId and secret required' });
-  }
+  await server.register(fastifyJwt, {
+    secret: JWT_SECRET,
+    sign: { expiresIn: '12h' },
+  });
 
-  const { driverId, secret } = parsed.data;
+  await server.register(fastifyRateLimit, {
+    global: true,
+    max: 120,
+    timeWindow: '1 minute',
+    errorResponseBuilder: () => ({
+      ok: false,
+      error: 'Too many requests',
+      retryAfterMs: 60_000,
+    }),
+  });
 
-  if (NODE_ENV === 'production' && secret !== process.env.DRIVER_API_KEY) {
-    return reply.code(401).send({ ok: false, error: 'Invalid credentials' });
-  }
+  await server.register(fastifyWebsocket);
 
-  const token = (server as any).jwt.sign({ sub: driverId, role: 'driver' });
-  return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
-});
-
-/** Optimise + auto-enrich a new route */
-server.post(
-  '/api/v1/routes/optimise',
-  { preHandler: [(server as any).authenticate] },
-  async (request, reply) => {
-    const body = z.object({
-      stops:  z.array(StopSchema).min(1),
-      config: RouteConfigSchema,
-    }).safeParse(request.body);
-    if (!body.success) return reply.code(400).send({ ok: false, error: body.error.message });
-    return handleOptimiseRoute(request as any, reply as any);
-  },
-);
-
-/** Get stop intelligence for a route */
-server.get(
-  '/api/v1/routes/:routeId/intel',
-  { preHandler: [(server as any).authenticate] },
-  async (request, reply) => {
-    const { routeId } = request.params as { routeId: string };
-    if (!RouteIdSchema.safeParse(routeId).success) {
-      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+  // ── Auth decorator ─────────────────────────────────────────────────────────
+  server.decorate('authenticate', async function (request: any, reply: any) {
+    try {
+      await request.jwtVerify();
+    } catch {
+      reply.code(401).send({ ok: false, error: 'Unauthorised — invalid or expired token' });
     }
-    return handleRouteIntelligence(request as any, reply as any);
-  },
-);
+  });
 
-/** Manual replan */
-server.post(
-  '/api/v1/routes/:routeId/replan',
-  { preHandler: [(server as any).authenticate] },
-  async (request, reply) => {
-    const { routeId } = request.params as { routeId: string };
-    if (!RouteIdSchema.safeParse(routeId).success) {
-      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
-    }
-    return handleManualReplan(request as any, reply as any);
-  },
-);
+  // ── Routes ─────────────────────────────────────────────────────────────────
 
-/**
- * GET /api/v1/routes/:routeId/alerts
- * Full pre-departure alert list. Rate-limited tighter (20/min).
- */
-server.get(
-  '/api/v1/routes/:routeId/alerts',
-  {
-    preHandler: [(server as any).authenticate],
-    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
-  },
-  async (request, reply) => {
-    const { routeId } = request.params as { routeId: string };
-    if (!RouteIdSchema.safeParse(routeId).success) {
-      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
-    }
-    return handleRouteAlerts(request as any, reply as any);
-  },
-);
+  /** Health — no auth, used by Railway health checks */
+  server.get('/api/v1/health', handleHealth as any);
 
-/**
- * GET /api/v1/routes/:routeId/alerts/red
- * Dispatcher: impassable stops only.
- */
-server.get(
-  '/api/v1/routes/:routeId/alerts/red',
-  {
-    preHandler: [(server as any).authenticate],
-    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
-  },
-  async (request, reply) => {
-    const { routeId } = request.params as { routeId: string };
-    if (!RouteIdSchema.safeParse(routeId).success) {
-      return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
-    }
-    return handleRouteAlertsRed(request as any, reply as any);
-  },
-);
-
-/** HTTP fallback for driver events */
-server.post(
-  '/api/v1/driver/event',
-  { preHandler: [(server as any).authenticate] },
-  (request, reply) => handleDriverEvent(request as any, reply as any),
-);
-
-/**
- * Live turn feasibility check.
- * FIXED: now passes { lat, lng, vehicleId } object to resolveTurnScore.
- */
-server.get(
-  '/api/v1/turn-score',
-  { preHandler: [(server as any).authenticate] },
-  async (request, reply) => {
-    const t0 = Date.now();
+  /** Issue JWT for a driver */
+  server.post('/api/v1/auth/token', async (request, reply) => {
     const parsed = z.object({
-      lat:       z.coerce.number(),
-      lng:       z.coerce.number(),
-      vehicleId: z.string(),
-    }).safeParse(request.query);
+      driverId: z.string().min(1),
+      secret:   z.string().min(1),
+    }).safeParse(request.body);
 
     if (!parsed.success) {
-      return reply.code(400).send({ ok: false, error: parsed.error.message });
+      return reply.code(400).send({ ok: false, error: 'driverId and secret required' });
     }
 
-    const { lat, lng, vehicleId } = parsed.data;
+    const { driverId, secret } = parsed.data;
 
-    if (!VEHICLE_PROFILES[vehicleId]) {
-      return reply.code(400).send({
-        ok: false,
-        error: `Unknown vehicleId: ${vehicleId}. Valid: ${Object.keys(VEHICLE_PROFILES).join(', ')}`,
-      });
+    if (NODE_ENV === 'production' && secret !== process.env.DRIVER_API_KEY) {
+      return reply.code(401).send({ ok: false, error: 'Invalid credentials' });
     }
 
-    // Correct signature: { lat, lng, vehicleId } not (lat, lng, vehicleObject)
-    const result = await resolveTurnScore({ lat, lng, vehicleId });
-    return reply.send({ ok: true, data: result, durationMs: Date.now() - t0 });
-  },
-);
+    const token = (server as any).jwt.sign({ sub: driverId, role: 'driver' });
+    return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
+  });
 
-// ─── WEBSOCKET ───────────────────────────────────────────────────────────────
-server.register(async function wsRoutes(fastify: any) {
-  fastify.get(
-    '/ws/driver/:driverId/:routeId',
-    { websocket: true },
-    (socket: any, req: any) => {
-      const { driverId, routeId } = req.params;
-      handleDriverWebSocket(socket, driverId, routeId);
+  /** Optimise + auto-enrich a new route */
+  server.post(
+    '/api/v1/routes/optimise',
+    { preHandler: [(server as any).authenticate] },
+    async (request, reply) => {
+      const body = z.object({
+        stops:  z.array(StopSchema).min(1),
+        config: RouteConfigSchema,
+      }).safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ ok: false, error: body.error.message });
+      return handleOptimiseRoute(request as any, reply as any);
     },
   );
-});
 
-// ─── START ───────────────────────────────────────────────────────────────────
-const start = async () => {
+  /** Get stop intelligence for a route */
+  server.get(
+    '/api/v1/routes/:routeId/intel',
+    { preHandler: [(server as any).authenticate] },
+    async (request, reply) => {
+      const { routeId } = request.params as { routeId: string };
+      if (!RouteIdSchema.safeParse(routeId).success) {
+        return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+      }
+      return handleRouteIntelligence(request as any, reply as any);
+    },
+  );
+
+  /** Manual replan */
+  server.post(
+    '/api/v1/routes/:routeId/replan',
+    { preHandler: [(server as any).authenticate] },
+    async (request, reply) => {
+      const { routeId } = request.params as { routeId: string };
+      if (!RouteIdSchema.safeParse(routeId).success) {
+        return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+      }
+      return handleManualReplan(request as any, reply as any);
+    },
+  );
+
+  /**
+   * GET /api/v1/routes/:routeId/alerts
+   * Full pre-departure alert list. Rate-limited tighter (20/min).
+   */
+  server.get(
+    '/api/v1/routes/:routeId/alerts',
+    {
+      preHandler: [(server as any).authenticate],
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const { routeId } = request.params as { routeId: string };
+      if (!RouteIdSchema.safeParse(routeId).success) {
+        return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+      }
+      return handleRouteAlerts(request as any, reply as any);
+    },
+  );
+
+  /**
+   * GET /api/v1/routes/:routeId/alerts/red
+   * Dispatcher: impassable stops only.
+   */
+  server.get(
+    '/api/v1/routes/:routeId/alerts/red',
+    {
+      preHandler: [(server as any).authenticate],
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const { routeId } = request.params as { routeId: string };
+      if (!RouteIdSchema.safeParse(routeId).success) {
+        return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
+      }
+      return handleRouteAlertsRed(request as any, reply as any);
+    },
+  );
+
+  /** HTTP fallback for driver events */
+  server.post(
+    '/api/v1/driver/event',
+    { preHandler: [(server as any).authenticate] },
+    (request, reply) => handleDriverEvent(request as any, reply as any),
+  );
+
+  /**
+   * Live turn feasibility check.
+   */
+  server.get(
+    '/api/v1/turn-score',
+    { preHandler: [(server as any).authenticate] },
+    async (request, reply) => {
+      const t0 = Date.now();
+      const parsed = z.object({
+        lat:       z.coerce.number(),
+        lng:       z.coerce.number(),
+        vehicleId: z.string(),
+      }).safeParse(request.query);
+
+      if (!parsed.success) {
+        return reply.code(400).send({ ok: false, error: parsed.error.message });
+      }
+
+      const { lat, lng, vehicleId } = parsed.data;
+
+      if (!VEHICLE_PROFILES[vehicleId]) {
+        return reply.code(400).send({
+          ok: false,
+          error: `Unknown vehicleId: ${vehicleId}. Valid: ${Object.keys(VEHICLE_PROFILES).join(', ')}`,
+        });
+      }
+
+      const result = await resolveTurnScore({ lat, lng, vehicleId });
+      return reply.send({ ok: true, data: result, durationMs: Date.now() - t0 });
+    },
+  );
+
+  // ── WebSocket ──────────────────────────────────────────────────────────────
+  server.register(async function wsRoutes(fastify: any) {
+    fastify.get(
+      '/ws/driver/:driverId/:routeId',
+      { websocket: true },
+      (socket: any, req: any) => {
+        const { driverId, routeId } = req.params;
+        handleDriverWebSocket(socket, driverId, routeId);
+      },
+    );
+  });
+
+  // ── Listen ─────────────────────────────────────────────────────────────────
   try {
     await server.listen({ port: PORT, host: HOST });
     console.log(`[mj-maps-api] Listening on ${HOST}:${PORT} (${NODE_ENV})`);

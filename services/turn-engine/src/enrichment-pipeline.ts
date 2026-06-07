@@ -22,6 +22,7 @@
 import { resolveTurnScore } from './resolver';
 import { resolveApproach }  from './approach-side';
 import { setEnrichedRoute } from '../../api/driver-api';
+import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index';
 import type { EnrichedStopInput } from './alert-dispatcher';
 import type { Stop } from '../../route-engine/route-engine';
 
@@ -90,8 +91,29 @@ async function enrichStop(
     // 1. OSM road context + turn score
     const turnResult = await resolveTurnScore({ lat: stop.lat, lng: stop.lng, vehicleId });
 
-    // 2. Approach method (which side, which manoeuvre, how far to warn)
-    const approach = resolveApproach(turnResult);
+    // 2. Resolve vehicle profile for approach calculation
+    const vehicle = VEHICLE_PROFILES[vehicleId];
+    if (!vehicle) throw new Error(`Unknown vehicleId: ${vehicleId}`);
+
+    // 3. Approach method — full 4-arg call matching resolveApproach signature:
+    //    resolveApproach(score, vehicle, roadWidthM, opts)
+    const roadWidthM = turnResult.segment?.widthM ?? null;
+    const approach = resolveApproach(
+      turnResult,
+      vehicle,
+      roadWidthM,
+      {
+        hasTurningHead:  turnResult.hasTurningHead,
+        isDeadEnd:       turnResult.deadEndLengthM !== null,
+        deadEndDepthM:   turnResult.deadEndLengthM ?? 0,
+        stopLat:         stop.lat,
+        stopLng:         stop.lng,
+        incomingBearing: 0,  // bearing unknown at enrichment time; alert-dispatcher refines
+      },
+    );
+
+    // turnResult.alert is uppercase (GREEN/AMBER/RED) from the turn-engine scorer
+    const alertLevel = (turnResult.alert as string).toLowerCase() as 'green' | 'amber' | 'red';
 
     return {
       id:       stop.id,
@@ -99,11 +121,11 @@ async function enrichStop(
       address:  stop.notes ?? `Stop ${stop.id}`,
       lat:      stop.lat,
       lng:      stop.lng,
-      pin:      { lat: stop.lat, lng: stop.lng }, // replaced by W3W/building pin when available
+      pin:      { lat: stop.lat, lng: stop.lng },
       turn: {
-        alertLevel: turnResult.alert.toLowerCase() as 'green' | 'amber' | 'red',
+        alertLevel,
         approach: {
-          turnAroundMethod:  approach.method,
+          turnAroundMethod:  approach.turnAroundMethod,   // ← was approach.method
           alertDistanceM:    approach.alertDistanceM,
           preAlertWaypoint:  approach.preAlertWaypoint,
           message:           approach.message,
