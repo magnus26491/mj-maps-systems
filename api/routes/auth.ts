@@ -60,7 +60,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   const tokens = signTokenPair({
     userId: driver.id,
     role:   driver.role as 'driver' | 'dispatcher' | 'admin',
-    tier:   'free', // TODO: pull from users table when migrated
+    tier:   'pro', // TODO: pull from users table when migrated
   });
 
   // Store refresh token hash in DB
@@ -114,7 +114,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
   const tokens = signTokenPair({
     userId: session.driver_id,
     role:   'driver',  // TODO: pull from users table when migrated
-    tier:   'free',
+    tier:   'pro',
   });
 
   await createSession({

@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash    TEXT NOT NULL,
   role             TEXT NOT NULL DEFAULT 'driver',  -- 'driver' | 'dispatcher' | 'admin'
   organisation_id  UUID,
-  subscription_tier TEXT NOT NULL DEFAULT 'free',   -- matches subscription-engine tiers
+  subscription_tier TEXT NOT NULL DEFAULT 'pro'
+    CONSTRAINT valid_tier CHECK (subscription_tier IN ('pro', 'enterprise')),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_login       TIMESTAMPTZ,
   is_active        BOOLEAN NOT NULL DEFAULT TRUE

@@ -15,9 +15,9 @@ import { canAddStop, hasFeature, canAddDriver, type PlanId } from '../../package
 
 // In production this comes from the JWT claim or a Redis plan cache
 async function getPlanForOrg(orgId: string): Promise<PlanId> {
-  // TODO: query Postgres plans table
-  // SELECT plan_id FROM organisations WHERE id = $1
-  return 'business'; // placeholder
+  // TODO: query Postgres users table
+  // SELECT subscription_tier FROM users WHERE organisation_id = $1 LIMIT 1
+  return 'pro'; // placeholder
 }
 
 export async function enforceStopLimit(
