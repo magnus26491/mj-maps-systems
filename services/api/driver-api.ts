@@ -30,6 +30,7 @@ import {
   enrichRouteBackground,
   generateRouteId,
 } from '../turn-engine/src/enrichment-pipeline';
+import { triggerEtaNotifications } from '../notifications/eta-notifier.js';
 
 // ─── IN-MEMORY ENRICHED ROUTE STORE ──────────────────────────────────────────
 // Holds the most recent EnrichedStopInput[] per routeId.
@@ -211,6 +212,14 @@ export async function handleDriverEvent(
       return;
     }
     reply.send(ok(result, t0));
+
+    // Fire-and-forget: send customer ETA SMS after DB write completes.
+    // Never awaited — failures are logged internally and never surface to client.
+    if (event.routeId && event.stopId) {
+      triggerEtaNotifications(event.routeId, event.stopId).catch(err => {
+        request.log.warn({ err }, '[driver-api] triggerEtaNotifications failed');
+      });
+    }
   } catch (err) {
     reply.code(500).send(fail((err as Error).message, t0));
   }
@@ -336,6 +345,11 @@ export function handleDriverWebSocket(
     }
     if (result.eta) {
       socket.send(JSON.stringify({ type: 'ETA_UPDATE', payload: result.eta }));
+    }
+
+    // Fire-and-forget: send customer ETA SMS after DB write completes
+    if (event.stopId) {
+      triggerEtaNotifications(routeId, event.stopId).catch(() => {});
     }
   });
 
