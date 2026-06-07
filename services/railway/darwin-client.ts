@@ -69,7 +69,7 @@ export async function getUpcomingServices(params: {
     throw new Error(`Darwin API error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as { services?: any[] };
   const now = new Date();
   const cutoff = new Date(now.getTime() + lookaheadMinutes * 60_000);
 

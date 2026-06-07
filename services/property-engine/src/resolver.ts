@@ -51,7 +51,7 @@ async function resolveViaNominatim(
 
     if (!res.ok) return null;
 
-    const results: NominatimResult[] = await res.json();
+    const results = await res.json() as NominatimResult[];
     if (!results.length) return null;
 
     // Pick highest importance result
@@ -89,7 +89,7 @@ async function resolveViaPostcode(
     const res   = await fetch(`https://api.postcodes.io/postcodes/${clean}`);
     if (!res.ok) return null;
 
-    const data = await res.json();
+    const data = await res.json() as { result: { latitude: number; longitude: number } | null };
     if (!data.result) return null;
 
     return {

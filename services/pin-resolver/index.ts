@@ -177,10 +177,22 @@ export function applyPinToStop<T extends { lat: number; lng: number; pin?: { lat
 
 /**
  * Batch resolve pins for an entire route.
- * In production: parallelises API calls; here delegates to resolvePin per stop.
+ *
+ * Generic over T so that callers passing a richer stop type (e.g.
+ * PinResolveInput & StopPoint) get back that same rich type — TypeScript
+ * will not widen the return to the bare parameter-constraint type.
+ *
+ * T must satisfy the minimum shape batchResolvePins needs to call
+ * resolvePin and applyPinToStop.
  */
-export async function batchResolvePins(
-  stops: Array<PinResolveInput & { lat: number; lng: number; pin?: { lat: number; lng: number }; notes?: string; access_notes?: string }>,
+export async function batchResolvePins<T extends PinResolveInput & {
+  lat: number;
+  lng: number;
+  pin?: { lat: number; lng: number };
+  notes?: string;
+  access_notes?: string;
+}>(
+  stops: T[],
   fetchCoords: (stopId: string) => Promise<{
     w3wCoord?: { lat: number; lng: number };
     addressbaseCoord?: { lat: number; lng: number };
@@ -188,9 +200,9 @@ export async function batchResolvePins(
     geocoderCoord?: { lat: number; lng: number };
     postcodeCoord: { lat: number; lng: number };
   }>,
-): Promise<typeof stops> {
+): Promise<T[]> {
   return Promise.all(
-    stops.map(async stop => {
+    stops.map(async (stop): Promise<T> => {
       const coords = await fetchCoords(stop.stopId);
       const resolved = resolvePin(stop, coords);
       return applyPinToStop(stop, resolved);

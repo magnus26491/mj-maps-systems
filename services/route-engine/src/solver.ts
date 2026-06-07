@@ -13,9 +13,10 @@ export async function solve(input: SequencerInput): Promise<SequencerOutput> {
   const { stops, depotLat, depotLng, vehicleId, shiftStartISO, constraints } = input;
 
   // Import lazily to avoid circular deps
-  const { runSequencer } = await import('./sequencer');
-  const { filterConstraints } = await import('./constraint-filter');
-  const { assignETAs } = await import('./eta-assignment');
+  // .js extensions required by Node16 moduleResolution
+  const { runSequencer } = await import('./sequencer.js');
+  const { filterConstraints } = await import('./constraint-filter.js');
+  const { assignETAs } = await import('./eta-assignment.js');
 
   // 1. Filter out stops that fail vehicle constraints
   const feasible = filterConstraints(stops, vehicleId);

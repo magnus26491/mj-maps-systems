@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+.git
+.gitignore
+*.md
+dist
+coverage
+.nyc_output
+# cache-bust: 2026-06-07T10:18Z
