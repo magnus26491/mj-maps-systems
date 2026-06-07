@@ -1,40 +1,38 @@
 /**
  * MJ Maps Systems — Approach Side Resolver
  *
- * FIX #3: Turn-Around Intelligence (enhanced)
- *
- * Determines:
- *   1. Which side of the road to approach the stop from
+ * Determines for every stop:
+ *   1. Which side of the road to approach from (UK left-hand traffic)
  *   2. Whether a turn-around is required before the stop
  *   3. The safest turn-around method for the vehicle
- *   4. A pre-alert waypoint (where to start slowing / making decisions)
+ *   4. A pre-alert waypoint (where the driver must start planning)
  *
- * This is the "last tactical decision" layer — runs after the turn scorer
- * has already rated the road. The scorer tells you IF you can turn;
- * this module tells you HOW and WHERE.
+ * Turn-around methods (priority order):
+ *   NOT_REQUIRED      — road is wide enough; proceed normally
+ *   USE_TURNING_HEAD  — turning circle/head confirmed in OSM; use it
+ *   FORWARD_TURN      — one-manoeuvre wide U-turn
+ *   THREE_POINT       — 3-point turn (medium risk; warn 300m out)
+ *   REVERSE_OUT       — dead-end reverse (high risk; warn 500m out)
+ *   DO_NOT_ENTER      — road physically unsuitable; do not enter at all
  *
- * Turn-around methods (in order of preference):
- *   NOT_REQUIRED    — road is wide enough to proceed normally
- *   FORWARD_TURN    — standard wide turn, one manoeuvre
- *   THREE_POINT     — requires a 3-point turn (medium-risk)
- *   REVERSE_OUT     — must reverse from dead end back to junction (high-risk)
- *
- * Inputs:
- *   - TurnScoreResult from scorer.ts
- *   - Vehicle profile
- *   - Road geometry (width, dead-end depth, turning head)
- *   - UK driving side convention (drive on left)
+ * Accepts TurnScoreResult from EITHER:
+ *   - services/turn-engine/src/types.ts  (field: .alert)
+ *   - packages/vehicle-profiles/index.ts (field: .alertLevel)
+ * Both shapes are normalised internally.
  */
 
 import type { VehicleProfile } from '../../../packages/vehicle-profiles/index';
-import type { TurnScoreResult } from './types';
 import type { LatLng } from '../../route-engine/src/types';
+
+// ─── TYPES ─────────────────────────────────────────────────────────────────
 
 export type TurnAroundMethod =
   | 'NOT_REQUIRED'
+  | 'USE_TURNING_HEAD'
   | 'FORWARD_TURN'
   | 'THREE_POINT'
-  | 'REVERSE_OUT';
+  | 'REVERSE_OUT'
+  | 'DO_NOT_ENTER';
 
 export type ApproachSide = 'LEFT' | 'RIGHT' | 'EITHER';
 
@@ -42,27 +40,81 @@ export interface ApproachDecision {
   approachSide: ApproachSide;
   turnAroundMethod: TurnAroundMethod;
   alertDistanceM: number;
-  preAlertWaypoint: LatLng | null;    // point to display "make decision here" marker
+  preAlertWaypoint: LatLng | null;  // map marker: "make decision here"
   message: string;
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
-// Alert distances: how far before the stop do we warn the driver?
-const ALERT_M_BY_METHOD: Record<TurnAroundMethod, number> = {
-  NOT_REQUIRED:  0,
-  FORWARD_TURN:  150,
-  THREE_POINT:   300,
-  REVERSE_OUT:   500,
+/** Accept either alert shape from the two different TurnScoreResult interfaces */
+export interface TurnScoreInput {
+  score: number;
+  alert?: 'GREEN' | 'AMBER' | 'RED';        // turn-engine/src/types.ts
+  alertLevel?: 'green' | 'amber' | 'red';   // packages/vehicle-profiles/index.ts
+  [key: string]: unknown;
+}
+
+// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+
+/** How far before the stop to fire the driver warning, per method */
+export const ALERT_M_BY_METHOD: Record<TurnAroundMethod, number> = {
+  NOT_REQUIRED:     0,
+  USE_TURNING_HEAD: 150,
+  FORWARD_TURN:     150,
+  THREE_POINT:      300,
+  REVERSE_OUT:      500,
+  DO_NOT_ENTER:     600,  // earliest possible — reroute before driver commits
 };
 
-// Vehicle-specific thresholds for turn methods
-// minForwardTurnWidthM: road must be at least this wide for a forward turn
-// minThreePointWidthM: minimum for a 3-point turn
-const FORWARD_TURN_ROAD_FACTOR = 1.8;  // need road ≥ 1.8 × vehicle width for forward turn
-const THREE_POINT_ROAD_FACTOR  = 1.4;  // need road ≥ 1.4 × vehicle width for 3-point
+/**
+ * Road must be ≥ FORWARD_TURN_FACTOR × vehicle.widthM for a forward U-turn.
+ * Road must be ≥ THREE_POINT_FACTOR  × vehicle.widthM for a 3-point turn.
+ */
+const FORWARD_TURN_FACTOR = 1.8;
+const THREE_POINT_FACTOR  = 1.4;
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+
+/** Normalise the alert level from either TurnScoreResult shape */
+function normaliseAlert(score: TurnScoreInput): 'GREEN' | 'AMBER' | 'RED' {
+  if (score.alert) return score.alert;
+  if (score.alertLevel) return score.alertLevel.toUpperCase() as 'GREEN' | 'AMBER' | 'RED';
+  // Derive from numeric score as final fallback
+  if (score.score >= 0.75) return 'GREEN';
+  if (score.score >= 0.40) return 'AMBER';
+  return 'RED';
+}
+
+/**
+ * Project a point backwards along a bearing by a given distance.
+ * Returns the LatLng of the pre-alert decision waypoint.
+ */
+function projectBack(lat: number, lng: number, bearing: number, distanceM: number): LatLng {
+  const R     = 6_371_000;
+  const d     = distanceM / R;
+  const brng  = (bearing + 180) % 360;
+  const bRad  = brng  * (Math.PI / 180);
+  const latR  = lat   * (Math.PI / 180);
+  const lngR  = lng   * (Math.PI / 180);
+
+  const newLatR = Math.asin(
+    Math.sin(latR) * Math.cos(d) +
+    Math.cos(latR) * Math.sin(d) * Math.cos(bRad),
+  );
+  const newLngR = lngR + Math.atan2(
+    Math.sin(bRad) * Math.sin(d) * Math.cos(latR),
+    Math.cos(d) - Math.sin(latR) * Math.sin(newLatR),
+  );
+
+  return {
+    lat: newLatR * (180 / Math.PI),
+    lng: newLngR * (180 / Math.PI),
+  };
+}
+
+// ─── MAIN FUNCTION ────────────────────────────────────────────────────────────
 
 export function resolveApproach(
-  score: TurnScoreResult,
+  score: TurnScoreInput,
   vehicle: VehicleProfile,
   roadWidthM: number | null,
   opts: {
@@ -71,95 +123,103 @@ export function resolveApproach(
     deadEndDepthM: number;
     stopLat: number;
     stopLng: number;
-    incomingBearing: number; // degrees, 0=N
+    incomingBearing: number;  // degrees 0–360, 0 = North
   },
 ): ApproachDecision {
   const { hasTurningHead, isDeadEnd, deadEndDepthM, stopLat, stopLng, incomingBearing } = opts;
+  const alertNorm   = normaliseAlert(score);
+  const width       = roadWidthM ?? vehicle.widthM * 2.5;  // conservative fallback
+  const hasWidthData = roadWidthM !== null;
 
-  // ── Approach side (UK: drive on left) ──────────────────────────────────────
-  // In the UK deliveries are typically made kerbside (left side of road).
-  // If the stop is on the right side we need to pull over safely.
-  // Default: LEFT (nearside). Flip to RIGHT if address parity suggests it.
-  const approachSide: ApproachSide = 'LEFT'; // enriched by side-of-road-grouper in full pipeline
+  // UK: deliveries default to LEFT (nearside / kerb side).
+  // Enriched by side-of-road-grouper in full pipeline to LEFT|RIGHT|EITHER.
+  const approachSide: ApproachSide = 'LEFT';
 
-  // ── Turn-around method ──────────────────────────────────────────────────────
-  let turnAroundMethod: TurnAroundMethod;
+  let method: TurnAroundMethod;
   let message: string;
-  let confidence: ApproachDecision['confidence'] = 'MEDIUM';
+  let confidence: ApproachDecision['confidence'];
 
-  const effectiveWidth = roadWidthM ?? vehicle.widthM * 2.5; // fallback assumption
+  // ── Decision tree ────────────────────────────────────────────────────
 
-  if (score.alert === 'GREEN' && effectiveWidth >= vehicle.widthM * FORWARD_TURN_ROAD_FACTOR) {
-    turnAroundMethod = 'NOT_REQUIRED';
-    message = `Road clear for ${vehicle.label}. Approach normally.`;
-    confidence = roadWidthM !== null ? 'HIGH' : 'LOW';
+  if (alertNorm === 'GREEN' && width >= vehicle.widthM * FORWARD_TURN_FACTOR) {
+    // ✅ 1. Wide enough — no turn-around needed
+    method     = 'NOT_REQUIRED';
+    message    = `Road clear for ${vehicle.label}. Approach left kerb normally.`;
+    confidence = hasWidthData ? 'HIGH' : 'LOW';
 
   } else if (hasTurningHead) {
-    // Turning head / turning circle available — use it
-    turnAroundMethod = 'FORWARD_TURN';
-    message = `Turning head ahead. Pull into turning circle after delivery.`;
+    // ✅ 2. OSM-confirmed turning circle/head available — best safe exit option
+    method     = 'USE_TURNING_HEAD';
+    message    = `Turning head confirmed ahead. Deliver then pull into turning circle to exit safely.`;
     confidence = 'HIGH';
 
   } else if (
-    effectiveWidth >= vehicle.widthM * THREE_POINT_ROAD_FACTOR &&
-    score.alert !== 'RED'
+    alertNorm !== 'RED' &&
+    width >= vehicle.widthM * FORWARD_TURN_FACTOR
   ) {
-    turnAroundMethod = 'THREE_POINT';
-    message = `Tight road. Plan a 3-point turn — check for traffic before manoeuvring.`;
-    confidence = roadWidthM !== null ? 'HIGH' : 'MEDIUM';
+    // ✅ 3. Wide enough for a clean forward U-turn
+    method     = 'FORWARD_TURN';
+    message    = `Tight but passable. Plan a forward turn at the end of the road for ${vehicle.label}.`;
+    confidence = hasWidthData ? 'HIGH' : 'MEDIUM';
 
-  } else if (isDeadEnd && deadEndDepthM >= vehicle.minReverseDepthM) {
-    turnAroundMethod = 'REVERSE_OUT';
-    message = `Dead end — you must reverse out. Engage reversing camera. ${deadEndDepthM.toFixed(0)}m available.`;
+  } else if (
+    alertNorm !== 'RED' &&
+    width >= vehicle.widthM * THREE_POINT_FACTOR
+  ) {
+    // ⚠️ 4. Only 3-point turn possible
+    method     = 'THREE_POINT';
+    message    = `Narrow road. You will need a 3-point turn for ${vehicle.label}. Check for oncoming traffic.`;
+    confidence = hasWidthData ? 'HIGH' : 'MEDIUM';
+
+  } else if (
+    alertNorm === 'RED' &&
+    isDeadEnd &&
+    deadEndDepthM >= (vehicle.minReverseDepthM ?? vehicle.lengthM * 1.5)
+  ) {
+    // 🔴 5. RED score + dead end but enough room to reverse out
+    method     = 'REVERSE_OUT';
+    message    = [
+      `⚠️ Road too narrow for forward turn — ${vehicle.label} must reverse out.`,
+      `${deadEndDepthM.toFixed(0)}m available. Engage reversing camera before entering.`,
+    ].join(' ');
     confidence = 'HIGH';
+
+  } else if (
+    alertNorm !== 'RED' &&
+    isDeadEnd &&
+    deadEndDepthM >= (vehicle.minReverseDepthM ?? vehicle.lengthM * 1.5)
+  ) {
+    // ⚠️ 6. AMBER + dead end — reverse out
+    method     = 'REVERSE_OUT';
+    message    = [
+      `Dead end. You must reverse out after delivery.`,
+      `${deadEndDepthM.toFixed(0)}m of road available. Plan your exit now.`,
+    ].join(' ');
+    confidence = hasWidthData ? 'HIGH' : 'MEDIUM';
 
   } else {
-    // RED: vehicle cannot safely service this stop with current approach
-    turnAroundMethod = 'REVERSE_OUT';
-    message = `⚠️ Do NOT enter. Road too narrow for ${vehicle.label}. Reverse now or find alternate access.`;
-    confidence = 'HIGH';
+    // 🔴 7. No safe manoeuvre possible — do not enter
+    method     = 'DO_NOT_ENTER';
+    message    = [
+      `🔴 DO NOT ENTER — road is physically unsuitable for ${vehicle.label}.`,
+      `Reroute now. Attempt delivery on foot or escalate to dispatcher.`,
+    ].join(' ');
+    confidence = hasWidthData ? 'HIGH' : 'MEDIUM';
   }
 
-  // ── Pre-alert waypoint ──────────────────────────────────────────────────────
-  // Project back along incomingBearing by alertDistanceM to get the decision point
-  const alertDistanceM = ALERT_M_BY_METHOD[turnAroundMethod];
+  // ── Pre-alert waypoint ───────────────────────────────────────────────────
+
+  const alertDistanceM = ALERT_M_BY_METHOD[method];
   const preAlertWaypoint = alertDistanceM > 0
     ? projectBack(stopLat, stopLng, incomingBearing, alertDistanceM)
     : null;
 
   return {
     approachSide,
-    turnAroundMethod,
+    turnAroundMethod: method,
     alertDistanceM,
     preAlertWaypoint,
     message,
     confidence,
-  };
-}
-
-/**
- * Project a point backwards along a bearing by a given distance.
- * Returns the lat/lng of the pre-alert decision point.
- */
-function projectBack(lat: number, lng: number, bearing: number, distanceM: number): LatLng {
-  const R = 6_371_000;
-  const d = distanceM / R;
-  const brng = (bearing + 180) % 360; // reverse direction
-  const brngRad = brng * (Math.PI / 180);
-  const latRad  = lat  * (Math.PI / 180);
-  const lngRad  = lng  * (Math.PI / 180);
-
-  const newLatRad = Math.asin(
-    Math.sin(latRad) * Math.cos(d) +
-    Math.cos(latRad) * Math.sin(d) * Math.cos(brngRad)
-  );
-  const newLngRad = lngRad + Math.atan2(
-    Math.sin(brngRad) * Math.sin(d) * Math.cos(latRad),
-    Math.cos(d) - Math.sin(latRad) * Math.sin(newLatRad)
-  );
-
-  return {
-    lat: newLatRad * (180 / Math.PI),
-    lng: newLngRad * (180 / Math.PI),
   };
 }
