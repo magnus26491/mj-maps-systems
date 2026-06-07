@@ -30,9 +30,10 @@ COPY --from=builder /app/dist ./dist
 
 USER mjmaps
 
-EXPOSE 3100
+EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3100/health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/v1/health || exit 1
 
-CMD ["node", "dist/api/index.js"]
+# tsc rootDir=. outDir=dist => services/api/server.ts -> dist/services/api/server.js
+CMD ["node", "dist/services/api/server.js"]
