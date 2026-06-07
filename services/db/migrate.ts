@@ -34,9 +34,10 @@ if (!CONNECTION_STRING) {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-// __dirname is available in all Node.js envs including CommonJS
-const MIGRATIONS_DIR = join(__dirname, 'migrations');
+// Root tsconfig.json compiles to Node16 (CommonJS), so __dirname is available natively.
+// Compiled migrate.js lives at dist/db/migrate.js.
+// Navigate up: dist/db/ → api/ → services/ → db/ → migrations/.
+const MIGRATIONS_DIR = join(__dirname, '..', '..', 'services', 'db', 'migrations');
 
 const CREATE_TRACKING_TABLE = `
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -172,6 +173,9 @@ async function main(): Promise<void> {
   console.log(`\n  Applied:  ${appliedCount}`);
   console.log(`  Skipped:  ${skippedCount}`);
   console.log('\n  All migrations complete.\n');
+
+  // Release pool so the process can exit cleanly when run standalone
+  await pool.end();
 }
 
 main().catch((err: unknown) => {
