@@ -2,20 +2,16 @@
  * MJ Maps Systems — Turn Engine
  * Redis Cache Layer
  *
- * Caches TurnEngineResult by geohash (6-char = ~1.2km precision) + vehicleProfileId.
- * TTL: 24 hours for static geometry, 1 hour if closure data was factored in.
- *
- * Uses ioredis. Connection string from REDIS_URL env var.
- * Gracefully degrades if Redis is unavailable — cache miss is returned, not an error.
+ * Caches TurnEngineResult by geohash (6-char) + vehicleProfileId.
+ * TTL: 24 hours static, 1 hour if closure data factored in.
+ * Gracefully degrades if Redis unavailable.
  */
 
 import Redis from 'ioredis';
 import type { TurnEngineResult } from './types';
 
-/** Cache TTL in seconds */
-const TTL_STATIC_S  = 60 * 60 * 24;   // 24 hours — pure road geometry
-const TTL_DYNAMIC_S = 60 * 60;         // 1 hour  — when closures are factored in
-
+const TTL_STATIC_S  = 60 * 60 * 24;
+const TTL_DYNAMIC_S = 60 * 60;
 const CACHE_VERSION = 'v1';
 
 let _client: Redis | null = null;
@@ -43,11 +39,6 @@ function getClient(): Redis | null {
   }
 }
 
-/**
- * Build a cache key from geohash + vehicleProfileId.
- * Geohash precision 6 = ~1.2km grid cell — acceptable for road-geometry data.
- * Keys look like: mj:turn:v1:gcpvh0:van_swb
- */
 function buildKey(geohash6: string, vehicleProfileId: string): string {
   return `mj:turn:${CACHE_VERSION}:${geohash6}:${vehicleProfileId}`;
 }
@@ -62,7 +53,7 @@ export async function getFromCache(
     const raw = await client.get(buildKey(geohash6, vehicleProfileId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as TurnEngineResult;
-    return { ...parsed, fromCache: true };
+    return { ...parsed, cached: true };
   } catch {
     return null;
   }
@@ -85,13 +76,11 @@ export async function setInCache(
       ttl,
     );
   } catch {
-    // Swallow — cache write failure is non-fatal
+    // Swallow — non-fatal
   }
 }
 
-export async function invalidateLocation(
-  geohash6: string,
-): Promise<void> {
+export async function invalidateLocation(geohash6: string): Promise<void> {
   const client = getClient();
   if (!client) return;
   try {

@@ -1,11 +1,23 @@
-export { solve }                        from './solver';
-export { sweepSequence, buildZones }    from './sweep-zones';
-export { twoOpt }                       from './two-opt';
-export { filterByVehicleConstraints }   from './constraint-filter';
-export { assignEtas }                   from './eta-assignment';
-export { haversineM, bearingDeg, stopSide, buildDistanceMatrix } from './geo';
+/**
+ * Route Engine — public API
+ */
+export { planRoute } from './route-planner';
+export { sequenceStops, buildSweepZones } from './sequencer';
+export { planStopApproach, planAllApproaches } from './approach-planner';
 export type {
-  Stop, StopStatus, TimeWindow,
-  PlannedRoute, RouteConstraints,
-  SolverInput, SolverResult,
+  StopPoint,
+  Stop,
+  SequencerInput,
+  SequencerOutput,
+  SweepZone,
+  ApproachSide,
+  TurnAroundMethod,
+  ApproachedStop,
+  PlannedRoute,
+  LatLng,
+  RouteConstraints,
+  SolverInput,
+  SolverResult,
+  StopStatus,
+  TimeWindow,
 } from './types';

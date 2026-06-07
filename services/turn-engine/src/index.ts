@@ -3,4 +3,15 @@
  */
 export { resolveTurnScore } from './resolver';
 export { scoreTurn } from './scorer';
-export type { TurnScoreResult, RoadGeometry, VehicleProfile, AlertLevel } from './types';
+export type {
+  TurnScoreResult,
+  TurnEngineResult,
+  RoadGeometry,
+  VehicleProfile,
+  AlertLevel,
+  ClearanceConfidence,
+  OsmRoadSegment,
+  OsmWayTags,
+  LatLng,
+  OverpassResponse,
+} from './types';

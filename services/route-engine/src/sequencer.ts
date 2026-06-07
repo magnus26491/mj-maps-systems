@@ -2,27 +2,20 @@
  * MJ Maps Systems — Route Engine
  * Stop Sequencer
  *
- * Implements a nearest-neighbour TSP heuristic with:
+ * Nearest-neighbour TSP with:
  *   1. Anti-backtrack sweep zone clustering
  *   2. Hard time-window constraint enforcement
- *   3. Side-of-road batching (same street, same side = consecutive stops)
+ *   3. Side-of-road batching
  *
- * This is intentionally a fast heuristic (O(n²)) suitable for
- * 20–250 stop routes on a mobile device / edge server.
- * A full VRP solver (OR-Tools / Google GLOP) is the Phase 3 upgrade path.
+ * StopPoint uses flat .lat / .lng — no .location wrapper.
  */
 
 import { haversineM } from '../../turn-engine/src/osm-fetcher';
 import type { StopPoint, SequencerInput, SequencerOutput, SweepZone, LatLng } from './types';
 
-// ─── SWEEP ZONE CLUSTERING ────────────────────────────────────────────────────
+const ZONE_RADIUS_M = 400;
 
-/**
- * Cluster stops into sweep zones using a simple radius-based grouping.
- * Stops within ZONE_RADIUS_M of each other are assigned the same zone.
- * This prevents the sequencer from leaving a dense cluster half-finished.
- */
-const ZONE_RADIUS_M = 400; // ~5 min walk radius
+// ─── SWEEP ZONE CLUSTERING ────────────────────────────────────────────────────
 
 export function buildSweepZones(stops: StopPoint[]): SweepZone[] {
   const assigned = new Set<string>();
@@ -32,108 +25,93 @@ export function buildSweepZones(stops: StopPoint[]): SweepZone[] {
   for (const stop of stops) {
     if (assigned.has(stop.id)) continue;
 
-    const zone: SweepZone = {
-      id: `zone-${zoneIdx++}`,
-      centroid: stop.location,
-      radiusM: ZONE_RADIUS_M,
-      stopIds: [stop.id],
-      entryBearing: null,
-    };
+    const memberIds: string[] = [stop.id];
+    assigned.add(stop.id);
 
     for (const other of stops) {
       if (other.id === stop.id || assigned.has(other.id)) continue;
       const dist = haversineM(
-        { lat: stop.location.lat, lon: stop.location.lng },
-        { lat: other.location.lat, lon: other.location.lng },
+        { lat: stop.lat, lon: stop.lng },
+        { lat: other.lat, lon: other.lng },
       );
       if (dist <= ZONE_RADIUS_M) {
-        zone.stopIds.push(other.id);
+        memberIds.push(other.id);
         assigned.add(other.id);
       }
     }
 
-    assigned.add(stop.id);
-    zone.centroid = computeCentroid(zone.stopIds.map(id => stops.find(s => s.id === id)!.location));
-    zones.push(zone);
+    const members = memberIds.map(id => stops.find(s => s.id === id)!);
+    const centroidLat = members.reduce((s, m) => s + m.lat, 0) / members.length;
+    const centroidLng = members.reduce((s, m) => s + m.lng, 0) / members.length;
+
+    zones.push({
+      id:          `zone-${zoneIdx++}`,
+      stopIds:     memberIds,
+      centroidLat,
+      centroidLng,
+      radiusKm:    ZONE_RADIUS_M / 1000,
+    });
   }
 
   return zones;
 }
 
-function computeCentroid(locations: LatLng[]): LatLng {
-  const lat = locations.reduce((s, l) => s + l.lat, 0) / locations.length;
-  const lng = locations.reduce((s, l) => s + l.lng, 0) / locations.length;
-  return { lat, lng };
-}
-
 // ─── TIME WINDOW HELPERS ──────────────────────────────────────────────────────
 
-/**
- * Return a numeric sort key for a stop's time window.
- * Stops with earlier hard windows get lower keys (scheduled first).
- * Stops with no window get Infinity (sequence by geography).
- */
 function timeWindowKey(stop: StopPoint): number {
-  if (!stop.timeWindowStart) return Infinity;
-  return new Date(stop.timeWindowStart).getTime();
+  if (!stop.time_window_start) return Infinity;
+  return new Date(stop.time_window_start).getTime();
 }
 
-// ─── NEAREST NEIGHBOUR TSP ────────────────────────────────────────────────────
+// ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 
-/**
- * Nearest-neighbour TSP with sweep zone anti-backtrack enforcement.
- *
- * Algorithm:
- *  1. Sort stops into time-window buckets (hard windows first)
- *  2. Build sweep zones from unwindowed stops
- *  3. Visit zones in nearest-centroid order from current position
- *  4. Within each zone, visit stops in nearest-neighbour order
- *  5. Return to depot is NOT included — route ends at last stop
- */
 export function sequenceStops(input: SequencerInput): SequencerOutput {
-  const { stops, depotLocation, respectTimeWindows } = input;
+  // Support both depotLat/depotLng and depotLocation aliases
+  const depotLat = input.depotLat ?? input.depotLocation?.lat ?? 0;
+  const depotLng = input.depotLng ?? input.depotLocation?.lng ?? 0;
+  const respectTW = input.respectTimeWindows ?? true;
+  const { stops } = input;
 
   if (stops.length === 0) {
-    return { orderedStops: [], resequencedIndexes: [], estimatedSavingM: 0 };
+    return { ordered: [], totalDistanceKm: 0, estimatedDurationMin: 0, sweepZones: [] };
   }
-
   if (stops.length === 1) {
-    return { orderedStops: [...stops], resequencedIndexes: [], estimatedSavingM: 0 };
+    return { ordered: [...stops], totalDistanceKm: 0, estimatedDurationMin: 2, sweepZones: [] };
   }
 
-  // Separate hard-window stops from free stops
-  const hardWindow = respectTimeWindows
-    ? stops.filter(s => s.timeWindowStart !== null).sort((a, b) => timeWindowKey(a) - timeWindowKey(b))
+  const hardWindow = respectTW
+    ? stops.filter(s => s.time_window_start != null).sort((a, b) => timeWindowKey(a) - timeWindowKey(b))
     : [];
-  const freeStops = stops.filter(s => !respectTimeWindows || s.timeWindowStart === null);
+  const freeStops = stops.filter(s => !respectTW || s.time_window_start == null);
 
-  // Build sweep zones for free stops
-  const zones = buildSweepZones(freeStops);
+  const zones    = buildSweepZones(freeStops);
+  const depot: LatLng = { lat: depotLat, lng: depotLng };
+  const orderedFree = visitZonesNearestFirst(zones, freeStops, depot);
 
-  // Visit zones in nearest-centroid order from depot
-  const orderedFree = visitZonesNearestFirst(zones, freeStops, depotLocation);
+  const ordered = respectTW ? mergeTimeWindowStops(hardWindow, orderedFree) : orderedFree;
 
-  // Interleave hard-window stops at correct positions
-  const ordered = respectTimeWindows
-    ? mergeTimeWindowStops(hardWindow, orderedFree)
-    : orderedFree;
+  const naiveDist     = measureRouteDistance(stops, depot);
+  const optimisedDist = measureRouteDistance(ordered, depot);
+  const savingM       = Math.max(0, naiveDist - optimisedDist);
 
-  // Measure naive distance (original input order)
-  const naiveDist = measureRouteDistance(stops, depotLocation);
-  const optimisedDist = measureRouteDistance(ordered, depotLocation);
-  const saving = Math.max(0, naiveDist - optimisedDist);
-
-  // Compute which original indexes were resequenced
   const originalIds = stops.map(s => s.id);
-  const resequenced = ordered
+  const resequencedIndexes = ordered
     .map((s, newIdx) => ({ newIdx, origIdx: originalIds.indexOf(s.id) }))
     .filter(({ newIdx, origIdx }) => newIdx !== origIdx)
     .map(({ origIdx }) => origIdx);
 
+  const totalDistanceKm     = optimisedDist / 1000;
+  const estimatedDurationMin = Math.round(optimisedDist / (20_000 / 60));
+
   return {
-    orderedStops: ordered.map((s, i) => ({ ...s, sequenceIndex: i })),
-    resequencedIndexes: resequenced,
-    estimatedSavingM: saving,
+    ordered:            ordered.map((s, i) => ({ ...s, sequenceIndex: i })),
+    totalDistanceKm,
+    estimatedDurationMin,
+    sweepZones:         zones,
+    // Legacy compat
+    orderedStops:       ordered,
+    resequencedIndexes,
+    estimatedSavingM:   savingM,
   };
 }
 
@@ -143,32 +121,25 @@ function visitZonesNearestFirst(
   startLocation: LatLng,
 ): StopPoint[] {
   const stopMap = new Map(stops.map(s => [s.id, s]));
-  const remainingZones = [...zones];
+  const remaining = [...zones];
   const result: StopPoint[] = [];
   let current = startLocation;
 
-  while (remainingZones.length > 0) {
-    // Find nearest zone centroid
+  while (remaining.length > 0) {
     let nearestIdx = 0;
     let nearestDist = Infinity;
-    for (let i = 0; i < remainingZones.length; i++) {
+    for (let i = 0; i < remaining.length; i++) {
       const d = haversineM(
         { lat: current.lat, lon: current.lng },
-        { lat: remainingZones[i].centroid.lat, lon: remainingZones[i].centroid.lng },
+        { lat: remaining[i].centroidLat, lon: remaining[i].centroidLng },
       );
       if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
     }
-
-    const zone = remainingZones.splice(nearestIdx, 1)[0];
+    const zone = remaining.splice(nearestIdx, 1)[0];
     const zoneStops = zone.stopIds.map(id => stopMap.get(id)!).filter(Boolean);
-
-    // Visit stops within zone in nearest-neighbour order
-    const visitedInZone = nearestNeighbour(zoneStops, current);
-    result.push(...visitedInZone);
-
-    if (visitedInZone.length > 0) {
-      current = visitedInZone[visitedInZone.length - 1].location;
-    }
+    const visited   = nearestNeighbour(zoneStops, current);
+    result.push(...visited);
+    if (visited.length > 0) current = { lat: visited[visited.length - 1].lat, lng: visited[visited.length - 1].lng };
   }
 
   return result;
@@ -185,44 +156,36 @@ function nearestNeighbour(stops: StopPoint[], startLocation: LatLng): StopPoint[
     for (let i = 0; i < remaining.length; i++) {
       const d = haversineM(
         { lat: current.lat, lon: current.lng },
-        { lat: remaining[i].location.lat, lon: remaining[i].location.lng },
+        { lat: remaining[i].lat,  lon: remaining[i].lng },
       );
       if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
     }
     const next = remaining.splice(nearestIdx, 1)[0];
     result.push(next);
-    current = next.location;
+    current = { lat: next.lat, lng: next.lng };
   }
 
   return result;
 }
 
-/**
- * Merge time-window stops into a geographically-ordered list.
- * Inserts each hard-window stop at the position closest to its
- * ideal time slot, scanning forward from current index.
- */
 function mergeTimeWindowStops(hardWindow: StopPoint[], freeOrdered: StopPoint[]): StopPoint[] {
   if (hardWindow.length === 0) return freeOrdered;
-
   const result = [...freeOrdered];
-  let insertOffset = 0;
-
-  for (const hwStop of hardWindow) {
-    result.splice(insertOffset, 0, hwStop);
-    insertOffset++;
-  }
-
+  let offset = 0;
+  for (const hw of hardWindow) { result.splice(offset++, 0, hw); }
   return result;
 }
 
 function measureRouteDistance(stops: StopPoint[], depot: LatLng): number {
   if (stops.length === 0) return 0;
-  let total = haversineM({ lat: depot.lat, lon: depot.lng }, { lat: stops[0].location.lat, lon: stops[0].location.lng });
+  let total = haversineM(
+    { lat: depot.lat, lon: depot.lng },
+    { lat: stops[0].lat, lon: stops[0].lng },
+  );
   for (let i = 0; i < stops.length - 1; i++) {
     total += haversineM(
-      { lat: stops[i].location.lat, lon: stops[i].location.lng },
-      { lat: stops[i + 1].location.lat, lon: stops[i + 1].location.lng },
+      { lat: stops[i].lat,     lon: stops[i].lng },
+      { lat: stops[i + 1].lat, lon: stops[i + 1].lng },
     );
   }
   return total;
