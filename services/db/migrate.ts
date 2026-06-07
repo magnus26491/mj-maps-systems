@@ -35,8 +35,19 @@ if (!CONNECTION_STRING) {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 // Root tsconfig.json compiles to Node16 (CommonJS), so __dirname is available natively.
-// Compiled migrate.js lives at dist/db/migrate.js.
-// Navigate up: dist/db/ → api/ → services/ → db/ → migrations/.
+// MIGRATIONS_DIR resolves correctly in both execution contexts:
+//
+//   ts-node services/db/migrate.ts:
+//     __dirname = <repo>/services/db
+//     join(__dirname, '..', '..', 'services', 'db', 'migrations')
+//     = <repo>/services/db/../../../services/db/migrations
+//     = <repo>/services/db/migrations  ✅
+//
+//   node dist/services/db/migrate.js (after npm run build):
+//     __dirname = <repo>/dist/services/db
+//     join(__dirname, '..', '..', 'services', 'db', 'migrations')
+//     = <repo>/dist/services/db/../../services/db/migrations
+//     = <repo>/services/db/migrations  ✅
 const MIGRATIONS_DIR = join(__dirname, '..', '..', 'services', 'db', 'migrations');
 
 const CREATE_TRACKING_TABLE = `
@@ -174,7 +185,9 @@ async function main(): Promise<void> {
   console.log(`  Skipped:  ${skippedCount}`);
   console.log('\n  All migrations complete.\n');
 
-  // Release pool so the process can exit cleanly when run standalone
+  // Safe to end pool here — migrate:prod and start run as separate OS processes
+  // (joined by shell &&), so this pool instance is not shared with the API server.
+  // This also ensures the standalone `node dist/db/migrate.js` exits cleanly.
   await pool.end();
 }
 
