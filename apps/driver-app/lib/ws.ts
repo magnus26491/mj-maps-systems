@@ -2,25 +2,33 @@
  * lib/ws.ts
  * Driver WebSocket client.
  *
- * Connects to: WS_BASE/ws/driver/:driverId/:routeId?token=JWT
- * Sends:   JSON driver events (same shape as POST /api/v1/driver/event)
+ * Connects to: WS_BASE/ws/driver/:driverId/:routeId
+ * Auth: sends { type: 'AUTH', token } as first message after onopen
+ *       (never in URL — prevents token appearing in server/proxy logs)
+ * Sends:   JSON driver events
  * Receives: APPROACH_BRIEF, PLAN_UPDATE, WORKLOAD_WARNING, WORKLOAD_OVERLOAD
  *
- * Auto-reconnects every 3s on drop.
+ * Auto-reconnects every 3s on drop, with token refresh on 4008/4001 close codes.
  * Falls back to enqueue() for send if WS not open.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { refreshAccessToken } from './auth';
 import { enqueue } from './offline-queue';
 import { ServerMessageType } from '../constants/events';
 import type { ServerMessage } from './types';
 
 const WS_BASE = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000')
+  .replace(/^https/, 'wss')
   .replace(/^http/, 'ws');
 
+// WS close codes used by our server
+const CODE_UNAUTHORIZED   = 4001;
+const CODE_TOKEN_EXPIRED  = 4008;
+
 interface UseDriverWsOptions {
-  driverId:        string;
-  routeId:         string;
+  driverId:           string;
+  routeId:            string;
   onApproachBrief?:   (msg: ServerMessage) => void;
   onPlanUpdate?:      (msg: ServerMessage) => void;
   onWorkloadWarning?: (msg: ServerMessage) => void;
@@ -35,24 +43,31 @@ export function useDriverWs({
   onWorkloadWarning,
   onOverload,
 }: UseDriverWsOptions) {
-  const wsRef       = useRef<WebSocket | null>(null);
+  const wsRef         = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
-  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mountedRef   = useRef(true);
+  const reconnectRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function connect() {
       if (cancelled || !driverId || !routeId) return;
-      const token = await SecureStore.getItemAsync('mj_jwt');
+
+      let token = await SecureStore.getItemAsync('mj_jwt');
+      if (!token) token = await refreshAccessToken();
       if (cancelled || !token) return;
 
-      const url = `${WS_BASE}/ws/driver/${driverId}/${routeId}?token=${encodeURIComponent(token)}`;
+      // Token NOT in URL — sent as first message after open
+      const url = `${WS_BASE}/ws/driver/${driverId}/${routeId}`;
       const ws  = new WebSocket(url);
       wsRef.current = ws;
 
-      ws.onopen = () => { if (!cancelled) setConnected(true); };
+      ws.onopen = () => {
+        if (cancelled) return;
+        // Authenticate via first message (token never in URL/logs)
+        ws.send(JSON.stringify({ type: 'AUTH', token }));
+        setConnected(true);
+      };
 
       ws.onmessage = (e) => {
         if (cancelled) return;
@@ -67,9 +82,15 @@ export function useDriverWs({
         } catch { /* ignore malformed */ }
       };
 
-      ws.onclose = () => {
+      ws.onclose = async (event) => {
         if (cancelled) return;
         setConnected(false);
+
+        // Token expired — refresh before reconnecting
+        if (event.code === CODE_UNAUTHORIZED || event.code === CODE_TOKEN_EXPIRED) {
+          await refreshAccessToken();
+        }
+
         reconnectRef.current = setTimeout(connect, 3000);
       };
 

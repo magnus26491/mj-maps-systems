@@ -48,6 +48,8 @@ import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
 import { fcmTokenRoutes } from './routes/fcm-token.js';
 import { dispatcherRoutes } from './routes/dispatcher.js';
+import { driverRoutes }      from './routes/driver-routes.js';
+import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
@@ -103,9 +105,13 @@ const start = async () => {
   // ── Plugins ─────────────────────────────────────────────────────────────────────
   await server.register(fastifyHelmet, { contentSecurityPolicy: false });
 
+  const extraOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
   await server.register(fastifyCors, {
     origin: NODE_ENV === 'production'
-      ? ['https://mjmaps.app', 'https://app.mjmaps.app']
+      ? ['https://mjmaps.app', 'https://app.mjmaps.app', ...extraOrigins]
       : true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
@@ -155,6 +161,8 @@ const start = async () => {
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
   await server.register(dispatcherRoutes);
+  await server.register(driverRoutes);
+  await server.register(assignRouteRoutes);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
@@ -319,24 +327,18 @@ const start = async () => {
   );
 
   // ── WebSocket ──────────────────────────────────────────────────────────────────────
+  // No preHandler auth here — JWT is verified per-message inside handleDriverWebSocket
+  // via the AUTH { type, token } first-message pattern.
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
       {
         websocket: true,
-        preHandler: [requireAuth, requireFeature('LIVE_TRACKING_WS')],
+        // Auth is validated per-message: first message must be { type: 'AUTH', token }
+        // Close codes: 4001 = bad/missing token, 4008 = token expired
       },
       (socket: any, req: any) => {
         const { driverId, routeId } = req.params as { driverId: string; routeId: string };
-
-        // Security: ensure the authenticated driver can only open their own socket.
-        // JWT sub is set to driverId at login (see authRoutes).
-        const jwtDriverId = (req as any).authUser?.sub ?? (req as any).user?.sub;
-        if (jwtDriverId && jwtDriverId !== driverId) {
-          socket.close(4003, 'Forbidden — token does not match driverId');
-          return;
-        }
-
         handleDriverWebSocket(socket, driverId, routeId);
       },
     );

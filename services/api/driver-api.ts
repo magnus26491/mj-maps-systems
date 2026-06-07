@@ -435,16 +435,93 @@ export function handleHealth(_request: FastifyRequest, reply: FastifyReply): voi
   });
 }
 
+// ─── DRIVER SOCKET MAP (for server-push messages) ─────────────────────────────
+type DriverSocket = {
+  send: (data: string) => void;
+  on: (event: string, cb: (data: any) => void) => void;
+};
+
+const driverSockets = new Map<string, DriverSocket>();
+
+// WS close codes — must match client ws.ts constants
+const WS_CODE_UNAUTHORIZED  = 4001;
+const WS_CODE_TOKEN_EXPIRED = 4008;
+
+/**
+ * Push a JSON message to a connected driver's WebSocket, if open.
+ * No-op if driver is offline — caller does not need to check.
+ */
+export function broadcastToDriver(driverId: string, msg: Record<string, unknown>): void {
+  const socket = driverSockets.get(driverId);
+  if (socket) {
+    try {
+      socket.send(JSON.stringify(msg));
+    } catch { /* ignore send errors */ }
+  }
+}
+
 // ─── WEBSOCKET HANDLER ───────────────────────────────────────────────────────
 
 export function handleDriverWebSocket(
-  socket: { send: (data: string) => void; on: (event: string, cb: (data: any) => void) => void },
+  socket: { send: (data: string) => void; on: (event: string, cb: (data: any) => void) => void; close: (code: number, reason?: string) => void },
   driverId: string,
   routeId: string,
 ): void {
+  let authenticated = false;
+  let verifiedDriverId: string | null = null;
+
+  // Register socket so broadcastToDriver() can push messages to this driver
+  driverSockets.set(driverId, socket);
+
   socket.send(JSON.stringify({ type: 'CONNECTED', driverId, routeId }));
 
   socket.on('message', async (raw: any) => {
+    // ── Auth gate: first message must be AUTH ───────────────────────────────────
+    if (!authenticated) {
+      let msg: { type?: string; token?: string };
+      try {
+        msg = JSON.parse(raw.toString());
+      } catch {
+        socket.close(WS_CODE_UNAUTHORIZED, 'Invalid JSON');
+        return;
+      }
+
+      if (msg.type !== 'AUTH' || !msg.token) {
+        socket.close(WS_CODE_UNAUTHORIZED, 'Expected AUTH message first');
+        return;
+      }
+
+      // Verify JWT from AUTH message
+      try {
+        const jwt = await import('jsonwebtoken');
+        const payload = jwt.default.verify(
+          msg.token,
+          process.env.JWT_SECRET ?? 'CHANGE_ME_IN_PRODUCTION',
+        ) as { sub?: string; id?: string };
+        verifiedDriverId = payload.sub ?? payload.id ?? null;
+
+        if (!verifiedDriverId) {
+          socket.close(WS_CODE_UNAUTHORIZED, 'Token missing driver ID');
+          return;
+        }
+
+        // Enforce driverId from JWT matches the URL param
+        if (verifiedDriverId !== driverId) {
+          socket.close(WS_CODE_UNAUTHORIZED, 'Token driverId mismatch');
+          return;
+        }
+
+        authenticated = true;
+      } catch (err: any) {
+        const code = err?.name === 'TokenExpiredError' ? WS_CODE_TOKEN_EXPIRED : WS_CODE_UNAUTHORIZED;
+        socket.close(code, err?.name ?? 'Auth failed');
+        return;
+      }
+
+      return; // AUTH consumed — wait for real events
+    }
+    // ── End auth gate ───────────────────────────────────────────────────────────
+
     let event: DriverEvent;
     try {
       event = JSON.parse(raw.toString());
@@ -583,5 +660,6 @@ export function handleDriverWebSocket(
 
   socket.on('close', () => {
     console.log(`[ws] Driver ${driverId} disconnected from route ${routeId}`);
+    driverSockets.delete(driverId);
   });
 }

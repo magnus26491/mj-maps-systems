@@ -79,12 +79,13 @@ export interface AuthResponse {
 
 // Offline queue entry
 export interface QueuedEvent {
-  id:         string;
-  type:       string;
-  payload:     Record<string, unknown>;
-  queuedAt:   number; // epoch ms
-  retryCount: number;
-  critical:   boolean; // if true, never discard
+  id:             string;
+  type:           string;
+  payload:        Record<string, unknown>;
+  queuedAt:       number; // epoch ms when first queued
+  lastAttemptAt:  number; // epoch ms of most recent send attempt (0 if never tried)
+  retryCount:     number;
+  critical:       boolean; // if true, never discard
 }
 
 export interface ServerMessage {
