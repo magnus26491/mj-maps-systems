@@ -20,7 +20,7 @@
  */
 
 import { resolveTurnScore } from './resolver';
-import { resolveApproach }  from './approach-side';
+import { resolveApproach, type TurnScoreInput }  from './approach-side';
 import { setEnrichedRoute } from '../../api/driver-api';
 import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index';
 import type { EnrichedStopInput } from './alert-dispatcher';
@@ -97,9 +97,11 @@ async function enrichStop(
 
     // 3. Approach method — full 4-arg call matching resolveApproach signature:
     //    resolveApproach(score, vehicle, roadWidthM, opts)
+    //    TurnEngineResult extends TurnScoreResult which lacks the index signature
+    //    TurnScoreInput requires — cast is safe, the fields are a superset.
     const roadWidthM = turnResult.segment?.widthM ?? null;
     const approach = resolveApproach(
-      turnResult,
+      turnResult as TurnScoreInput,
       vehicle,
       roadWidthM,
       {
@@ -125,7 +127,7 @@ async function enrichStop(
       turn: {
         alertLevel,
         approach: {
-          turnAroundMethod:  approach.turnAroundMethod,   // ← was approach.method
+          turnAroundMethod:  approach.turnAroundMethod,
           alertDistanceM:    approach.alertDistanceM,
           preAlertWaypoint:  approach.preAlertWaypoint,
           message:           approach.message,

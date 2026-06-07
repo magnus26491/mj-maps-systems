@@ -101,3 +101,6 @@ export async function runSequencer(
     estimatedSavingM: antiBacktrackResult.totalDetourKmEliminated * 1000,
   };
 }
+
+/** Alias for backward-compatibility with route-planner.ts */
+export const sequenceStops = runSequencer;

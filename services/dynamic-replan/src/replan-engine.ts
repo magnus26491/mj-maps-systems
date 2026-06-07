@@ -126,3 +126,27 @@ export async function replan(req: ReplanRequest): Promise<ReplanResult> {
     distanceSavedKm: Math.max(0, originalDistKm - newDistKm),
   };
 }
+
+/**
+ * Returns true if the driver has deviated beyond thresholdM from their
+ * expected position on the planned route. Used by the dynamic-replan
+ * service to decide whether a mid-shift replan should be triggered.
+ */
+export function isDeviated(
+  driverLat: number,
+  driverLng: number,
+  expectedLat: number,
+  expectedLng: number,
+  thresholdM = 250,
+): boolean {
+  const R = 6_371_000;
+  const dLat = (expectedLat - driverLat) * (Math.PI / 180);
+  const dLng = (expectedLng - driverLng) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(driverLat * (Math.PI / 180)) *
+      Math.cos(expectedLat * (Math.PI / 180)) *
+      Math.sin(dLng / 2) ** 2;
+  const distM = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return distM > thresholdM;
+}

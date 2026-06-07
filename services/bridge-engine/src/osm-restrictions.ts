@@ -80,3 +80,16 @@ export async function queryBridgesNear(
 
   return bridges;
 }
+
+/**
+ * Fetch OSM restrictions for a single road segment by lat/lng.
+ * Returns bridge/weight/height restrictions within 100m of the point.
+ * Used by bridge-engine/src/index.ts.
+ */
+export async function fetchRestrictionsForSegment(
+  lat: number,
+  lng: number,
+  vehicle: VehicleProfile,
+): Promise<BridgeRestriction[]> {
+  return queryBridgesNear(lat, lng, vehicle, 100);
+}

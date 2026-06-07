@@ -7,10 +7,10 @@
  *  3. Enrich route with turn warnings, clusters, and crossings
  */
 
-import { estimatePropertySetbackBatch } from '../property-engine/setback-engine';
-import { optimizeRoute, type OptimizerStop } from '../route-optimizer/index';
-import { enrichRoute } from '../osm/road-enricher';
-import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index';
+import { estimatePropertySetbackBatch } from '../services/property-engine/src/setback-engine';
+import { optimizeRoute, type OptimizerStop } from '../services/route-optimizer/index';
+import { enrichRoute } from '../services/osm/road-enricher';
+import { VEHICLE_PROFILES } from '../packages/vehicle-profiles/index';
 
 export async function buildPlannedRoute(input: {
   depot: { lat: number; lng: number };
