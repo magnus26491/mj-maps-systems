@@ -34,6 +34,8 @@ import {
 import { resolveTurnScore } from '../turn-engine/src/resolver';
 import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index';
 import { confirmPinRoute } from './routes/confirm-pin';
+import { mapConfigRoute } from './routes/map-config';
+import { autocompleteRoute } from './routes/autocomplete';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -130,6 +132,8 @@ const start = async () => {
   // ── Routes ──────────────────────────────────────────────────────────────────────────
 
   await server.register(confirmPinRoute);
+  await server.register(mapConfigRoute);
+  await server.register(autocompleteRoute);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
