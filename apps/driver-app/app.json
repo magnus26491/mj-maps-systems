@@ -7,10 +7,17 @@
     "icon": "./assets/icon.png",
     "scheme": "mjmaps-driver",
     "userInterfaceStyle": "dark",
+    "runtimeVersion": { "policy": "appVersion" },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#030712"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/REPLACE_WITH_EAS_PROJECT_ID",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     },
     "extra": {
       "privacyPolicyUrl": "https://mjmaps.co.uk/privacy",

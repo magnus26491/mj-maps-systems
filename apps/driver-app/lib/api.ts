@@ -119,3 +119,24 @@ export async function apiUploadPod(
   const data = await res.json() as { ok: boolean; data: { podPhotoUrl: string } };
   return data.data;
 }
+
+// ── Driver Route Discovery ───────────────────────────────────────────────────
+
+/**
+ * Discover today's routeId for the authenticated driver.
+ * Called on login. Returns null if no route assigned yet.
+ */
+export const apiGetTodayRoute = () =>
+  apiFetch<{ ok: boolean; data: { routeId: string } | null }>(
+    '/api/v1/driver/me/today-route',
+  );
+
+/**
+ * Fetch full route detail + stops for the authenticated driver.
+ * Uses the driver-accessible endpoint (not the dispatcher endpoint).
+ * Security enforced server-side: driver can only fetch their own route.
+ */
+export const apiGetDriverRoute = (routeId: string) =>
+  apiFetch<{ ok: boolean; data: RouteDetail }>(
+    `/api/v1/driver/routes/${encodeURIComponent(routeId)}`,
+  );

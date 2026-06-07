@@ -26,6 +26,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useTurnScore } from '../hooks/useTurnScore';
 import { apiRegisterFcmToken } from '../lib/api';
 import { setupShiftNotificationChannel } from '../modules/shiftNotification';
+import { usePodDrain } from '../hooks/usePodDrain';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +96,9 @@ function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
   const currentStop = useShiftStore(s => s.currentStop);
   const driverId    = useShiftStore(s => s.driverId);
   const vehicleId   = useShiftStore(s => s.vehicleId);
+
+  // Mount POD outbox drain — wires NetInfo → SQLite outbox drain
+  usePodDrain();
 
   useWebSocket(
     isActive ? (driverId ?? null) : null,

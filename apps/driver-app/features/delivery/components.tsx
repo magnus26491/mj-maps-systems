@@ -201,6 +201,9 @@ interface BottomButtonProps {
   onPress:  () => void;
   variant?: 'primary' | 'secondary' | 'danger' | 'slide';
   disabled?: boolean;
+  accessibilityRole?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export function BottomButton({
@@ -208,6 +211,9 @@ export function BottomButton({
   onPress,
   variant = 'primary',
   disabled = false,
+  accessibilityRole,
+  accessibilityLabel,
+  accessibilityHint,
 }: BottomButtonProps) {
   const { colors } = useTheme();
 
@@ -239,8 +245,9 @@ export function BottomButton({
         { backgroundColor: bgColors[variant] },
         disabled && buttonStyles.disabled,
       ]}
-      accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityRole={accessibilityRole ?? 'button'}
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityHint={accessibilityHint}
     >
       <Text style={[buttonStyles.text, { color: '#fff' }]}>{title}</Text>
     </TouchableOpacity>
@@ -417,9 +424,13 @@ export function PlusCodeChip({ plusCode, onPress }: PlusCodeChipProps) {
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={`Open Plus Code ${plusCode}`}>
+      accessibilityLabel={`Plus code: ${plusCode}`}
+      accessibilityHint="Tap to copy the Plus Code to clipboard or open it in Maps"
+    >
       <View style={[chipStyles.container, { backgroundColor: COLORS.surfaceAlt }]}>
         <Text style={chipStyles.icon}>📍</Text>
         <Text style={[chipStyles.text, { color: COLORS.white }]}>{plusCode}</Text>

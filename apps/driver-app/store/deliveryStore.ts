@@ -11,6 +11,7 @@
  */
 import { create } from 'zustand';
 import * as Haptics from 'expo-haptics';
+import { enqueuePod } from '../lib/podOutbox';
 import { startShiftActivity, updateShiftActivity, endShiftActivity } from '../../modules/liveActivity';
 import { showShiftProgressNotification, dismissShiftProgressNotification } from '../../modules/shiftNotification';
 
@@ -205,12 +206,26 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   completeDelivery: (podCapture) => {
-    const { enrichedRoute, currentStopIndex, pinConfirmTimeout } = get();
+    const { enrichedRoute, currentStopIndex, pinConfirmTimeout, currentStop } = get();
     if (pinConfirmTimeout) clearTimeout(pinConfirmTimeout);
     if (!enrichedRoute) return;
 
     const nextIndex = currentStopIndex + 1;
     const nextStop = enrichedRoute.stops[nextIndex] ?? null;
+
+    // Enqueue POD to SQLite outbox (fire-and-forget — no throw, no block)
+    if (currentStop && podCapture) {
+      enqueuePod({
+        idempotencyKey: `${currentStop.id}_${podCapture.capturedAt ?? Date.now()}`,
+        stopId:         currentStop.id,
+        photoUri:       podCapture.photoUri ?? null,
+        signatureSvg:   podCapture.signatureSvg ?? null,
+        barcodeValue:   podCapture.barcodeValue ?? null,
+        outcome:        'delivered',
+        failureReason:  null,
+        capturedAt:     podCapture.capturedAt ?? Date.now(),
+      }).catch(() => {});
+    }
 
     set({
       pendingPodCapture: podCapture ?? null,
@@ -250,11 +265,25 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   markRedeliver: () => {
-    const { enrichedRoute, currentStopIndex } = get();
+    const { enrichedRoute, currentStopIndex, currentStop } = get();
     if (!enrichedRoute) return;
 
     const nextIndex = currentStopIndex + 1;
     const nextStop = enrichedRoute.stops[nextIndex] ?? null;
+
+    // Enqueue POD to SQLite outbox (fire-and-forget)
+    if (currentStop) {
+      enqueuePod({
+        idempotencyKey: `${currentStop.id}_redeliver_${Date.now()}`,
+        stopId:         currentStop.id,
+        photoUri:       null,
+        signatureSvg:   null,
+        barcodeValue:   null,
+        outcome:        'redeliver',
+        failureReason:  null,
+        capturedAt:     Date.now(),
+      }).catch(() => {});
+    }
 
     set({
       lastOutcome: 'redeliver',
@@ -281,12 +310,26 @@ export const useDeliveryStore = create<DeliveryState>((set, get) => ({
   },
 
   markFailed: (reason) => {
-    const { enrichedRoute, currentStopIndex, pinConfirmTimeout } = get();
+    const { enrichedRoute, currentStopIndex, pinConfirmTimeout, currentStop } = get();
     if (pinConfirmTimeout) clearTimeout(pinConfirmTimeout);
     if (!enrichedRoute) return;
 
     const nextIndex = currentStopIndex + 1;
     const nextStop = enrichedRoute.stops[nextIndex] ?? null;
+
+    // Enqueue POD to SQLite outbox (fire-and-forget)
+    if (currentStop) {
+      enqueuePod({
+        idempotencyKey: `${currentStop.id}_failed_${Date.now()}`,
+        stopId:         currentStop.id,
+        photoUri:       null,
+        signatureSvg:   null,
+        barcodeValue:   null,
+        outcome:        'failed',
+        failureReason:  reason,
+        capturedAt:     Date.now(),
+      }).catch(() => {});
+    }
 
     set({
       lastOutcome: 'failed',

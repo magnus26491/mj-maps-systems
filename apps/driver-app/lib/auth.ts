@@ -10,6 +10,7 @@ import type { User } from './types';
 const TOKEN_KEY   = 'mj_jwt';
 const REFRESH_KEY = 'mj_refresh';
 const USER_KEY    = 'mj_user';
+const ROUTE_KEY   = 'mj_route_id';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -33,6 +34,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync(REFRESH_KEY, refreshToken);
     await SecureStore.setItemAsync(USER_KEY,     JSON.stringify(user));
     set({ token, user, isReady: true });
+
+    // Discover today's routeId and cache it in SecureStore for fast startup.
+    // Uses fetch directly instead of api.ts to avoid a circular dep (api → auth → api).
+    try {
+      const res = await fetch(`${BASE}/api/v1/driver/me/today-route`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json() as { ok: boolean; data: { routeId: string } | null };
+        if (json.ok && json.data?.routeId) {
+          await SecureStore.setItemAsync(ROUTE_KEY, json.data.routeId);
+        }
+      }
+    } catch {
+      // Non-fatal — driver can manually refresh on home screen
+    }
   },
 
   loadStored: async () => {
@@ -50,6 +67,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       SecureStore.deleteItemAsync(TOKEN_KEY),
       SecureStore.deleteItemAsync(REFRESH_KEY),
       SecureStore.deleteItemAsync(USER_KEY),
+      SecureStore.deleteItemAsync(ROUTE_KEY),
     ]);
     set({ token: null, user: null });
   },

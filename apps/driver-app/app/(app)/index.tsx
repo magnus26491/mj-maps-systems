@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore } from '../../lib/auth';
-import { apiGetRouteDetail, apiGetAlerts } from '../../lib/api';
+import { apiGetDriverRoute, apiGetAlerts } from '../../lib/api';
 import { useLocationSender } from '../../lib/location';
 import { flushQueue, getQueueLength } from '../../lib/offline-queue';
 import { useDriverWs } from '../../lib/ws';
@@ -50,10 +50,10 @@ export default function HomeScreen() {
 
   // Route detail query
   const { data, isLoading, refetch } = useQuery({
-    queryKey:        ['route', routeId],
-    queryFn:         () => apiGetRouteDetail(routeId!),
+    queryKey:        ['driver-route', routeId],
+    queryFn:         () => apiGetDriverRoute(routeId!),
     enabled:         !!routeId,
-    refetchInterval: 30_000,
+    staleTime:       30_000,
   });
 
   const { data: alertsData } = useQuery({
@@ -70,7 +70,7 @@ export default function HomeScreen() {
     driverId:       user?.id ?? '',
     routeId:        routeId ?? '',
     onApproachBrief:   setApproachBrief,
-    onPlanUpdate:      () => qc.invalidateQueries({ queryKey: ['route', routeId] }),
+    onPlanUpdate:      () => qc.invalidateQueries({ queryKey: ['driver-route', routeId] }),
     onWorkloadWarning: setWorkloadMsg,
     onOverload:        setWorkloadMsg,
   });
