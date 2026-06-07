@@ -5,18 +5,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy manifests first for layer caching
 COPY package.json ./
 
-# Use npm install (not npm ci) — no lockfile committed yet.
-# Once you run `npm install` locally and commit package-lock.json,
-# change this back to: RUN npm ci --omit=dev
-RUN npm install
+# --legacy-peer-deps resolves any remaining peer conflicts during build
+RUN npm install --legacy-peer-deps
 
-# Copy source
 COPY . .
 
-# Compile TypeScript
 RUN npm run build
 
 # ────────────────────────────────────────────────────────────────
@@ -26,14 +21,11 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Non-root user for security
 RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
 
-# Only production deps
 COPY package.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --legacy-peer-deps
 
-# Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
 USER mjmaps
