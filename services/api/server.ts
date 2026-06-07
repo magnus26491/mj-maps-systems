@@ -43,6 +43,7 @@ import { confirmPinRoute } from './routes/confirm-pin';
 import { mapConfigRoute } from './routes/map-config';
 import { autocompleteRoute } from './routes/autocomplete';
 import { authRoutes } from './routes/auth';
+import { podRoute } from './routes/pod.js';
 import { requireAuth, requireRole, requireTier } from './middleware/auth';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
@@ -145,6 +146,7 @@ const start = async () => {
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);
+  await server.register(podRoute);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
