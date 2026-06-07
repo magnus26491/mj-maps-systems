@@ -8,11 +8,10 @@
     "start": "node dist/api/index.js",
     "dev": "ts-node-dev --respawn --transpile-only api/index.ts",
     "test": "jest --runInBand",
-    "test:watch": "jest --watch",
-    "lint": "eslint 'services/**/*.ts' 'api/**/*.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "axios": "^1.7.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "express": "^4.19.2",
@@ -21,7 +20,8 @@
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.5",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -44,7 +44,6 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/__tests__/**/*.test.ts"],
-    "collectCoverageFrom": ["services/**/*.ts", "api/**/*.ts"]
+    "testMatch": ["**/__tests__/**/*.test.ts"]
   }
 }

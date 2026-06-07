@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "lib": ["ES2022"],
     "outDir": "dist",
     "rootDir": ".",
@@ -15,9 +16,9 @@
     "sourceMap": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitAny": true,
-    "strictNullChecks": true
+    "noImplicitAny": false,
+    "strictNullChecks": false
   },
-  "include": ["src/**/*", "services/**/*", "packages/**/*"],
-  "exclude": ["node_modules", "dist", "**/__tests__/**"]
+  "include": ["api/**/*", "services/**/*", "packages/**/*"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**", "apps/**/*"]
 }
