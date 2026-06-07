@@ -1,15 +1,25 @@
 /**
  * Database helpers — typed pg query wrappers
  * Uses the `pg` Pool. Connection string from POSTGRES_URL env var.
+ * Supports DATABASE_URL (Railway) as fallback for POSTGRES_URL.
  */
 
 import { Pool } from 'pg';
 
+function resolveConnectionString(): string {
+  return (
+    process.env.DATABASE_URL ??
+    process.env.POSTGRES_URL ??
+    ''
+  );
+}
+
 export const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
+  connectionString: resolveConnectionString(),
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
+  ssl: { rejectUnauthorized: false },
 });
 
 pool.on('error', (err) => console.error('[db] Pool error:', err.message));
