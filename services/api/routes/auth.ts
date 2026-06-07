@@ -344,6 +344,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         `SELECT id, email, role, subscription_tier as tier,
                 COALESCE(plan_id, 'navigation') as plan_id,
                 organisation_id,
+                vehicle_id, vehicle_make, vehicle_model, vehicle_year,
+                vehicle_height_m, vehicle_gvw_kg, vehicle_payload_kg, vehicle_length_m,
                 created_at, last_login, is_active
          FROM users WHERE id = $1`,
         [payload.sub],
@@ -360,6 +362,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         tier: string;
         plan_id: string;
         organisation_id: string | null;
+        vehicle_id: string;
+        vehicle_make: string | null;
+        vehicle_model: string | null;
+        vehicle_year: number | null;
+        vehicle_height_m: number | null;
+        vehicle_gvw_kg: number | null;
+        vehicle_payload_kg: number | null;
+        vehicle_length_m: number | null;
         created_at: Date;
         last_login: Date | null;
         is_active: boolean;
@@ -375,6 +385,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         createdAt:       user.created_at,
         lastLogin:       user.last_login,
         isActive:        user.is_active,
+        vehicleId:       user.vehicle_id,
+        vehicleMake:     user.vehicle_make    ?? null,
+        vehicleModel:    user.vehicle_model   ?? null,
+        vehicleYear:     user.vehicle_year    ?? null,
+        vehicleHeightM:  user.vehicle_height_m  ?? null,
+        vehicleGvwKg:    user.vehicle_gvw_kg   ?? null,
+        vehiclePayloadKg:user.vehicle_payload_kg ?? null,
+        vehicleLengthM:  user.vehicle_length_m  ?? null,
       });
     },
   );

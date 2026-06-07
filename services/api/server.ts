@@ -45,6 +45,7 @@ import { autocompleteRoute } from './routes/autocomplete';
 import { authRoutes } from './routes/auth';
 import { podRoute } from './routes/pod.js';
 import { stopsRoutes } from './routes/stops.js';
+import { vehiclesRoutes } from './routes/vehicles.js';
 import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
@@ -149,6 +150,7 @@ const start = async () => {
   await server.register(autocompleteRoute);
   await server.register(podRoute);
   await server.register(stopsRoutes);
+  await server.register(vehiclesRoutes);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);

@@ -57,6 +57,11 @@ export interface RouteConfig {
   returnToDepot?: boolean;   // default: true
   antiBacktrackWeight?: number; // 0–1, default 0.7
   sideOfRoadWeight?: number;    // 0–1, default 0.5
+  // Optional real vehicle specs (populated when driver sets make/model):
+  vehicleHeightM?:   number;  // feeds bridge-engine height filter
+  vehicleGvwKg?:     number;  // feeds bridge-engine weight filter
+  vehicleLengthM?:   number;  // feeds turn-engine difficulty scorer
+  vehiclePayloadKg?: number;  // informational — used in shift summary warnings
 }
 
 export interface RouteResult {
@@ -408,6 +413,17 @@ export async function optimiseRoute(
   // 7. Metrics
   const totalDistanceKm  = totalRouteDistanceKm(optimised, depot, config.returnToDepot ?? true);
   const totalServiceMin  = optimised.reduce((s, st) => s + (st.serviceMinutes ?? 3), 0);
+
+  // 7a. Payload overload warning (informational — does not change stop order)
+  if (config.vehiclePayloadKg) {
+    const estimatedLoadKg = optimised.length * 15; // rough 15 kg per parcel average
+    if (estimatedLoadKg > config.vehiclePayloadKg) {
+      warnings.push(
+        `Estimated load (${estimatedLoadKg}kg) may exceed vehicle payload ` +
+        `(${config.vehiclePayloadKg}kg) — verify before departure.`,
+      );
+    }
+  }
   const travelMin        = (totalDistanceKm / SPEED_KMH) * 60;
   const totalDurationMin = Math.round(totalServiceMin + travelMin);
   const completionEpoch  = config.shiftStartEpoch + totalDurationMin * 60;
