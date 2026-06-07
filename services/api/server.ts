@@ -47,6 +47,7 @@ import { podRoute } from './routes/pod.js';
 import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
 import { fcmTokenRoutes } from './routes/fcm-token.js';
+import { dispatcherRoutes } from './routes/dispatcher.js';
 import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
@@ -153,6 +154,7 @@ const start = async () => {
   await server.register(stopsRoutes);
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
+  await server.register(dispatcherRoutes);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
