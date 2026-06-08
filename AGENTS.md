@@ -305,6 +305,53 @@ confirmations it uses the crowd-sourced ground truth forever.
 
 ---
 
+
+
+## Phase 12 — Dispatcher Dashboard Web App (committed XXXXXX)
+
+### API changes
+
+**`services/db/auth-helpers.ts`:** `getDriverById()` now includes `plan` column in SELECT
+(`COALESCE(plan, 'free') AS plan`). Updated return type to include `plan: string`.
+
+**`api/middleware/authenticate.ts`:** `req.driver` interface extended with `planId: string`.
+Middleware sets `planId: driver.plan ?? 'free'` when populating `req.driver`.
+
+**`api/middleware/requireEnterprise.ts` (new):** Guards enterprise-only routes. Checks
+`req.driver.planId !== 'enterprise'` -> returns 403 with `code: 'ENTERPRISE_REQUIRED'`.
+Must be used AFTER `authenticateDriver` (uses `req.driver.planId`).
+
+**`api/routes/dispatcher-assign.ts` (new):** `dispatcherAssignRouter` with two routes:
+- `POST /api/dispatcher/assign` — UUID validation for routeId + driverId, checks route
+  status = 'active', checks driver exists + active, inserts into `route_assignments`,
+  broadcasts live alert via `broadcastAlert()`, returns 201 with assignment record.
+- `GET /api/dispatcher/drivers` — Returns pro/enterprise active drivers for the
+  assign dropdown. Uses `requireEnterprise` middleware.
+
+**`api/routes/dispatcher.ts`:** `/alerts/stream` (SSE) now authenticates via
+`req.query.token` (EventSource cannot send Authorization headers). Calls
+`verifyAccessToken(token)` — 401 if missing or invalid. Import added at top of file.
+
+**`api/index.ts`:** `dispatcherAssignRouter` registered at `/api/dispatcher` alongside
+`dispatcherRouter` (both under `authenticateDriver, requireRole('dispatcher')` guard).
+`requireEnterprise` applied inside router handlers for per-endpoint control.
+
+**`migrations/007_dispatcher_assignments.sql` (new):** `route_assignments` table with
+`route_id`, `driver_id`, `assigned_by`, `assigned_at`, `note`, `status` columns. Indexes
+on `driver_id` and `route_id`.
+
+### Dispatcher Dashboard Web App
+
+**`apps/dispatcher-dashboard/`** — Standalone Vite + React + TypeScript app (port 5173 dev).
+
+Key files: `src/api.ts`, `src/types.ts`, `src/hooks/useAlerts.ts` (SSE + polling fallback),
+`src/hooks/useStats.ts`, `src/hooks/useRoutes.ts`, `src/hooks/useDrivers.ts`,
+`src/pages/Login.tsx`, `src/pages/Dashboard.tsx`, `src/components/FleetMap.tsx` (CartoDB
+dark tiles + fixed marker icons), `src/components/KpiBar.tsx`, `src/components/AlertPanel.tsx`,
+`src/components/RouteList.tsx`, `src/components/AssignModal.tsx` (shows "Enterprise plan
+required" on 403/empty drivers).
+
+
 ## 4. Codebase Map (key paths)
 
 ```
