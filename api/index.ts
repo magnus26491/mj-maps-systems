@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
 import { authRouter } from './routes/auth';
+import { authRegisterRouter } from './routes/auth-register';
 import { planRouter } from './routes/plan';
 import { turnCheckRouter } from './routes/turn-check';
 import { replanRouter } from './routes/replan';
@@ -18,6 +19,7 @@ import { dispatcherRouter } from './routes/dispatcher';
 import { pinsRouter } from './routes/pins';
 import { optimiseRouter } from './routes/optimise';
 import { pafRouter } from './routes/paf';
+import { billingRouter } from './routes/billing';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -67,8 +69,10 @@ app.get('/health', async (_req, res) => {
 });
 
 // ── Public routes ───────────────────────────────────────────────────────────────
-app.use('/api/auth', authRouter); // login, refresh, logout — no auth required
-app.use('/api/v1/pins', pinsRouter); // GET /lookup is public; POST /confirm requires auth via router
+app.use('/api/auth',       authRouter);        // login, refresh, logout — no auth required
+app.use('/api/v1/auth',    authRegisterRouter); // register — no auth required
+app.use('/api/v1/pins',    pinsRouter);        // GET /lookup is public; POST /confirm requires auth via router
+app.use('/api/v1/billing', billingRouter);     // webhook is public; checkout+status are auth-gated inside
 
 // ── Protected routes (all require valid JWT) ─────────────────────────────────
 app.use('/api/plan',          authenticateDriver, planRouter);

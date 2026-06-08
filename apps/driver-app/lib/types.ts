@@ -4,6 +4,8 @@
  * Verified against: dispatcher.ts routes, driver-api.ts, vehicles.ts, pod.ts
  */
 
+export type PlanId = 'free' | 'pro' | 'enterprise';
+
 export interface Stop {
   id:               string;
   sequence:         number;
@@ -45,6 +47,20 @@ export interface Vehicle {
   wucPerStop: number;
 }
 
+export interface VehicleSpec {
+  id:          string;
+  make:        string;
+  model:       string;
+  year:        number;
+  heightM:     number;
+  lengthM:     number;
+  widthM:      number;
+  gvwKg:       number;
+  payloadKg:   number;
+  hazmat:      boolean;
+  profileKey: string;
+}
+
 export interface Alert {
   level:   'red' | 'amber' | 'blue';
   type:    string;
@@ -61,11 +77,13 @@ export interface AccessBrief {
 }
 
 export interface User {
-  id:     string;
-  name:   string;
-  email:  string;
-  role:   string;
-  planId: string;
+  id:             string;
+  name:           string;
+  email:          string;
+  role:           string;
+  planId:         PlanId;
+  trialEndsAt?:   string;
+  planExpiresAt?: string;
 }
 
 export interface AuthResponse {
@@ -91,4 +109,12 @@ export interface QueuedEvent {
 export interface ServerMessage {
   type: string;
   [key: string]: unknown;
+}
+
+export interface SavedRoute {
+  id:          string;
+  name:        string;
+  stops:       Stop[];
+  createdAt:   string;
+  lastUsedAt?: string;
 }

@@ -28,6 +28,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
+import { usePlan } from '../lib/usePlan';
+import { useAuthStore } from '../lib/auth';
 import { BackgroundLocationDisclosure } from '../components/BackgroundLocationDisclosure';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
 import { parseStopsCsv } from '../utils/parseStopsCsv';
@@ -51,6 +53,7 @@ export default function ShiftStartScreen() {
   const { colors } = useTheme();
   const vehicle      = useShiftStore(s => s.vehicleId);
   const startShift   = useShiftStore(s => s.startShift);
+  const { canUse, isTrialing } = usePlan();
 
   const [rawInput, setRawInput]     = useState('');
   const [stops, setStops]           = useState<RawStop[]>([]);
@@ -257,6 +260,28 @@ export default function ShiftStartScreen() {
         >
           <Text style={[styles.heading, { color: colors.text }]}>Start Shift</Text>
 
+          {/* ── Trial awareness banner ─────────────────────────────────── */}
+          {isTrialing() && (() => {
+            const user = useAuthStore.getState().user;
+            if (!user?.trialEndsAt) return null;
+            const daysLeft = Math.ceil(
+              (new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+            );
+            if (daysLeft > 3) return null;
+            return (
+              <TouchableOpacity
+                style={[styles.trialBanner, { backgroundColor: '#f59e0b22' }]}
+                onPress={() => router.push('/(auth)/plans')}
+                accessibilityRole="button"
+                accessibilityLabel={`Your free trial ends in ${daysLeft} days`}
+              >
+                <Text style={[styles.trialBannerText, { color: '#f59e0b' }]}>
+                  ⚠️  Your free trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
+
           {/* ── Vehicle ──────────────────────────────────────────── */}
           <TouchableOpacity
             style={[styles.card, { backgroundColor: colors.surface }, !vehicle && { borderColor: colors.amber, borderWidth: 1 }]}
@@ -266,6 +291,29 @@ export default function ShiftStartScreen() {
             <Text style={[styles.cardLabel, { color: colors.subtext }]}>Vehicle</Text>
             <Text style={[styles.cardValue, { color: colors.text }]}>
               {vehicle ? vehicle.replace(/_/g, ' ').toUpperCase() : 'Tap to select ›'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* ── Saved Routes (Pro gate) ─────────────────────────── */}
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: colors.surface }]}
+            onPress={() => {
+              if (canUse('saved_routes')) {
+                router.push('/saved-routes');
+              } else {
+                Alert.alert(
+                  'Saved Routes is a Pro feature',
+                  'Upgrade to save and reuse your routes.',
+                  [{ text: 'View Plans', onPress: () => router.push('/(auth)/plans') }],
+                );
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Saved Routes"
+          >
+            <Text style={[styles.cardLabel, { color: colors.subtext }]}>Saved Routes</Text>
+            <Text style={[styles.cardValue, { color: canUse('saved_routes') ? colors.green : colors.subtext }]}>
+              {canUse('saved_routes') ? 'View saved routes ›' : 'Upgrade to Pro ›'}
             </Text>
           </TouchableOpacity>
 
@@ -369,6 +417,13 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 28, fontWeight: '800',
     color: '#e0eaf4', marginBottom: 4,
+  },
+  trialBanner: {
+    backgroundColor: '#f59e0b22', borderRadius: 10,
+    padding: 12, alignItems: 'center',
+  },
+  trialBannerText: {
+    fontSize: 14, fontWeight: '600',
   },
   card: {
     backgroundColor: '#1c2a37', borderRadius: 14,

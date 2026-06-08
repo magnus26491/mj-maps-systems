@@ -26,6 +26,7 @@ import {
   deleteSession,
 } from '../../services/db/auth-helpers';
 import { authenticateDriver } from '../middleware/authenticate';
+import { pool } from '../../services/db';
 
 export const authRouter = Router();
 
@@ -56,12 +57,25 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
+  // Load full plan + trial info
+  const driverRows = await pool.query<{
+    plan: string;
+    trial_ends_at: Date | null;
+    plan_expires_at: Date | null;
+  }>(
+    `SELECT plan, trial_ends_at, plan_expires_at FROM drivers WHERE id = $1`,
+    [driver.id],
+  );
+  const driverInfo = driverRows.rows[0];
+  const planId = driverInfo?.plan ?? 'free';
+  const trialEndsAt = driverInfo?.trial_ends_at?.toISOString() ?? undefined;
+
   // New API: signTokenPair({ userId, role, tier, planId })
   const tokens = signTokenPair({
     userId: driver.id,
     role:   driver.role as 'driver' | 'dispatcher' | 'admin',
     tier:   'pro', // TODO: pull from users table when migrated
-    planId: (driver as { plan_id?: string }).plan_id ?? 'navigation',
+    planId,
   });
 
   // Store refresh token hash in DB
@@ -77,11 +91,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     accessToken:  tokens.accessToken,
     refreshToken: tokens.refreshToken,
     driver: {
-      id:       driver.id,
-      name:     driver.name,
-      email:    driver.email,
-      role:     driver.role,
-      vehicleId: driver.vehicle_id,
+      id:           driver.id,
+      name:         driver.name,
+      email:        driver.email,
+      role:         driver.role,
+      vehicleId:    driver.vehicle_id,
+      planId,
+      trialEndsAt,
     },
   });
 });

@@ -49,6 +49,16 @@ export const apiLogin = (email: string, password: string) =>
     body:    JSON.stringify({ email, password }),
   });
 
+// ── Auth (legacy format — keep for existing callers) ──────────────────────────
+export const apiLoginLegacy = (email: string, password: string) =>
+  apiFetch<{ success: boolean; accessToken: string; refreshToken: string; driver: User }>(
+    '/api/auth/login',
+    {
+      method:  'POST',
+      body:    JSON.stringify({ email, password }),
+    },
+  );
+
 export const apiMe = () =>
   apiFetch<{ ok: boolean; data: User }>('/api/v1/auth/me');
 
