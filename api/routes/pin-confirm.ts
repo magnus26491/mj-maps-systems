@@ -43,7 +43,7 @@ pinConfirmRouter.post(
         return;
       }
       const stop = stopResult.rows[0];
-      const driverId = req.driver?.id;
+const driverId = req.driver?.id;
       if (stop.driver_id !== driverId) {
         res.status(403).json({ success: false, error: 'Not authorized to confirm this stop.' });
         return;
@@ -87,4 +87,8 @@ pinConfirmRouter.post(
       res.status(500).json({ success: false, error: msg });
     }
   },
+<<<<<<< HEAD
 );
+=======
+);
+>>>>>>> 5dc590e (feat(pin-confirm): driver pin verification loop — community accuracy (Sprint 4))
