@@ -150,3 +150,24 @@ export const apiGetDriverRoute = (routeId: string) =>
   apiFetch<{ ok: boolean; data: RouteDetail }>(
     `/api/v1/driver/routes/${encodeURIComponent(routeId)}`,
   );
+
+// ── Generic API client (for DeleteAccountModal) ─────────────────────────────
+interface ApiClient {
+  delete: (path: string, token: string | null) => Promise<{ ok: boolean; json: () => Promise<{ message?: string }> }>;
+}
+
+export const api: ApiClient = {
+  delete: async (path: string, token: string | null) => {
+    const res = await fetch(`${BASE}${path}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    return {
+      ok: res.ok,
+      json: () => res.json(),
+    };
+  },
+};

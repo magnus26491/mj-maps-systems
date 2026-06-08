@@ -373,9 +373,6 @@ export default function ShiftStartScreen() {
               placeholderTextColor={colors.subtext}
               value={rawInput}
               onChangeText={setRawInput}
-              multiline
-              numberOfLines={6}
-              placeholder={'One address per line, or paste CSV:\nAddress, Notes, Parcels'}
               autoCorrect={false}
               autoCapitalize="none"
               accessibilityLabel="Stop addresses input"

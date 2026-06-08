@@ -18,7 +18,7 @@ import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, Keyboard,
 } from 'react-native';
-import { normalisePostcode, resolvePostcode, type AddressCandidate } from '../../../services/postcode-resolver/index.js';
+import { normalisePostcode, resolvePostcode, type AddressCandidate } from '../../../../services/postcode-resolver/index';
 
 interface ScannerInputProps {
   geoapifyKey: string;

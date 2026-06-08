@@ -26,13 +26,13 @@ function uuid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function isCritical(type: string): boolean {
-  return [
-    DriverEventType.STOP_COMPLETED,
-    DriverEventType.STOP_FAILED,
-    DriverEventType.ROUTE_STARTED,
-    DriverEventType.ROUTE_COMPLETED,
-  ].includes(type as DriverEventType);
+function isCritical(type: DriverEventType): boolean {
+  return (
+    type === DriverEventType.STOP_COMPLETED ||
+    type === DriverEventType.STOP_FAILED ||
+    type === DriverEventType.ROUTE_STARTED ||
+    type === DriverEventType.ROUTE_COMPLETED
+  );
 }
 
 async function readQueue(): Promise<QueuedEvent[]> {
@@ -49,7 +49,7 @@ async function writeQueue(queue: QueuedEvent[]): Promise<void> {
 }
 
 export async function enqueue(
-  type:    string,
+  type:    DriverEventType,
   payload: Record<string, unknown>,
 ): Promise<void> {
   if (type === DriverEventType.APPROACH_BRIEF) return;

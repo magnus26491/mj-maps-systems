@@ -21,7 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useShiftStore } from '../store/shift';
+import { useShiftStore, DeliveryStop } from '../store/shift';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { isPodAvailable, capturePod } from '../features/pod';
 import { SlideToConfirm } from '../components/SlideToConfirm';
@@ -37,10 +37,11 @@ function StopDeliveryInner() {
   const completeStop = useShiftStore(s => s.completeStop);
   const failStop     = useShiftStore(s => s.failStop);
   const driverId     = useShiftStore(s => s.driverId);
+  const stops        = useShiftStore(s => s.stops);
 
   const { enqueue } = useOfflineQueue();
 
-  const stop = shift?.stops.find(s => s.id === stopId);
+  const stop = stops.find((s: DeliveryStop) => s.id === stopId);
 
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -116,7 +117,7 @@ function StopDeliveryInner() {
         {/* ── Shift Progress ────────────────────────────────────── */}
         <ShiftProgressBar
           current={stop.index ?? 0}
-          total={shift?.stops.length ?? 1}
+          total={stops.length || 1}
         />
 
         {/* Stop header */}

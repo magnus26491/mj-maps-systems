@@ -57,11 +57,6 @@ jest.mock('expo-sqlite', () => ({
   }),
 }));
 
-// expo/fetch
-jest.mock('expo/fetch', () => ({
-  fetch: jest.fn().mockResolvedValue({ ok: true, status: 200 }),
-}));
-
 // react-native-widget-extension
 jest.mock('react-native-widget-extension', () => ({
   areActivitiesEnabled: jest.fn().mockReturnValue(false),
@@ -142,3 +137,46 @@ jest.mock('react-native-screens', () => ({
 jest.mock('@amwebexpert/react-native-sign-here', () => ({
   default: jest.fn(),
 }));
+
+// react-native-maps
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const View = require('react-native/Libraries/Components/View/View');
+  const MockMapView = (props) => React.createElement(View, props);
+  MockMapView.Animated = (props) => React.createElement(View, props);
+  const Polyline  = (props) => React.createElement(View, props);
+  const Marker    = (props) => React.createElement(View, props);
+  const Callout   = (props) => React.createElement(View, props);
+  return {
+    __esModule: true,
+    default: MockMapView,
+    Polyline, Marker, Callout,
+    PROVIDER_DEFAULT: null,
+    PROVIDER_GOOGLE: 'google',
+  };
+});
+
+
+// expo-clipboard
+jest.mock('expo-clipboard', () => ({
+  getStringAsync:    jest.fn().mockResolvedValue(''),
+  setStringAsync:    jest.fn().mockResolvedValue(undefined),
+  hasStringAsync:    jest.fn().mockResolvedValue(false),
+}));
+
+
+// expo-document-picker
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
+
+
+// expo-secure-store
+jest.mock('expo-secure-store', () => {
+  const store = {};
+  return {
+    setItemAsync:    jest.fn(async (key, val) => { store[key] = val; }),
+    getItemAsync:    jest.fn(async (key) => store[key] ?? null),
+    deleteItemAsync: jest.fn(async (key) => { delete store[key]; }),
+  };
+});

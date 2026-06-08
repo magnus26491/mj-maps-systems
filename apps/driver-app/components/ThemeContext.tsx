@@ -20,6 +20,11 @@ export const DARK_THEME = {
   redBg:       '#2b1111',
   blue:        '#4fc3f7',
   blueAlt:     '#1565c0',
+  white:       '#ffffff',
+  gray:        '#9ca3af',
+  grayDark:    '#374151',
+  yellow:      '#fbbf24',
+  yellowText:  '#fef3c7',
 };
 
 export const LIGHT_THEME = {
@@ -37,6 +42,11 @@ export const LIGHT_THEME = {
   redBg:       '#ffcdd2',
   blue:        '#1565c0',
   blueAlt:     '#1976d2',
+  white:       '#1a2733',
+  gray:        '#6b7280',
+  grayDark:    '#374151',
+  yellow:      '#f59e0b',
+  yellowText:  '#451a03',
 };
 
 export type Theme = typeof DARK_THEME;

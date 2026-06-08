@@ -97,7 +97,7 @@ function getDeliveryStore() {
 
 TaskManager.defineTask(GEOFENCE_TASK, ({ data, error }) => {
   if (error) return;
-  const { eventType, region } = data as { eventType: string; region: { identifier: string } };
+  const { eventType, region } = data as { eventType: Location.LocationGeofencingEventType; region: { identifier: string } };
   if (eventType === Location.GeofencingEventType.Enter) {
     getDeliveryStore().onApproachingStop(region.identifier);
   }

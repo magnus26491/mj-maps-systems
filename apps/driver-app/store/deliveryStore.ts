@@ -12,8 +12,8 @@
 import { create } from 'zustand';
 import * as Haptics from 'expo-haptics';
 import { enqueuePod } from '../lib/podOutbox';
-import { startShiftActivity, updateShiftActivity, endShiftActivity } from '../../modules/liveActivity';
-import { showShiftProgressNotification, dismissShiftProgressNotification } from '../../modules/shiftNotification';
+import { startShiftActivity, updateShiftActivity, endShiftActivity } from '../modules/liveActivity';
+import { showShiftProgressNotification, dismissShiftProgressNotification } from '../modules/shiftNotification';
 
 export type DeliveryPhase = 'EN_ROUTE' | 'ARRIVING' | 'AT_STOP';
 

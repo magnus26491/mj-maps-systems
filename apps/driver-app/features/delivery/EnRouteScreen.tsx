@@ -25,6 +25,7 @@ import {
   MiniMap,
   PlusCodeChip,
   AccessNotesCard,
+  COLORS,
 } from './components';
 
 interface EnRouteScreenProps {
@@ -58,7 +59,7 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
   if (!currentStop) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-        <TextStyles.address>No stops remaining</TextStyles.address>
+        <Text style={TextStyles.address}>No stops remaining</Text>
       </View>
     );
   }
@@ -124,7 +125,7 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
 
 interface StopDetailsSheetProps {
   stop: StopPoint;
-  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal>;
 }
 
 export function StopDetailsSheet({ stop, bottomSheetRef }: StopDetailsSheetProps) {
@@ -140,7 +141,7 @@ export function StopDetailsSheet({ stop, bottomSheetRef }: StopDetailsSheetProps
     >
       <View style={detailsStyles.container}>
         {/* Full address */}
-        <TextStyles.address style={detailsStyles.address}>{stop.address}</TextStyles.address>
+        <Text style={[TextStyles.address, detailsStyles.address]}>{stop.address}</Text>
 
         {/* Plus code */}
         {stop.plusCode && (
@@ -161,8 +162,8 @@ export function StopDetailsSheet({ stop, bottomSheetRef }: StopDetailsSheetProps
         {/* Access notes */}
         {accessNotes && (
           <View style={detailsStyles.accessNotes}>
-            <TextStyles.label style={detailsStyles.label}>ACCESS NOTES</TextStyles.label>
-            <TextStyles.body>{accessNotes}</TextStyles.body>
+            <Text style={[TextStyles.label, detailsStyles.label]}>ACCESS NOTES</Text>
+            <Text style={TextStyles.body}>{accessNotes}</Text>
           </View>
         )}
       </View>

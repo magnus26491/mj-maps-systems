@@ -29,18 +29,12 @@ export async function showShiftProgressNotification(
   await Notifications.scheduleNotificationAsync({
     identifier: NOTIF_ID,
     content: {
-      title:   `MJ Maps · Stop ${stopNumber} of ${totalStops}`,
-      body:    streetName,
-      data:    { stopNumber, totalStops },
-      sticky:  true,
-      android: {
-        channelId:   CHANNEL_ID,
-        ongoing:     true,
-        progress:    { max: totalStops, current: stopNumber, indeterminate: false },
-        smallIcon:   'notification_icon',
-        color:       '#4fc3f7',
-        priority:    Notifications.AndroidNotificationPriority.LOW,
-      },
+      title:    `MJ Maps · Stop ${stopNumber} of ${totalStops}`,
+      body:     streetName,
+      data:     { stopNumber, totalStops },
+      sticky:   true,
+      priority: 'default',
+      color:    '#4fc3f7',
     },
     trigger: null,
   });

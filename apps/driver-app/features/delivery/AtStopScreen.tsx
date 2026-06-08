@@ -24,6 +24,7 @@ import {
   PinConfirmCard,
   FailureReasonSheet,
   Badge,
+  COLORS,
 } from './components';
 
 interface PodCaptureState {
@@ -33,7 +34,7 @@ interface PodCaptureState {
 }
 
 interface AtStopScreenProps {
-  failureSheetRef: React.RefObject<BottomSheetModal | null>;
+  failureSheetRef: React.RefObject<BottomSheetModal>;
 }
 
 export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
@@ -85,7 +86,7 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
   if (!currentStop) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-        <TextStyles.body>No current stop</TextStyles.body>
+        <Text style={TextStyles.body}>No current stop</Text>
       </View>
     );
   }
@@ -150,7 +151,7 @@ export function AtStopScreen({ failureSheetRef }: AtStopScreenProps) {
 // ─── Failure Reason Bottom Sheet ───────────────────────────────────────────────
 
 interface FailureSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal>;
   onSelect: (reason: string) => void;
 }
 
@@ -193,7 +194,7 @@ export function PinCorrectionScreen({ stop, onSave, onCancel }: PinCorrectionPro
 
   return (
     <View style={[styles.container, { backgroundColor: COLORS.background }]}>
-      <TextStyles.address style={styles.pinTitle}>Drag the pin to correct position</TextStyles.address>
+      <Text style={[TextStyles.address, styles.pinTitle]}>Drag the pin to correct position</Text>
 
       <MapView
         style={styles.pinMap}

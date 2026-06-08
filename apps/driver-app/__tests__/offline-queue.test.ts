@@ -2,7 +2,7 @@
  * useOfflineQueue — unit tests
  * Tests the queue accumulation and flush logic in isolation.
  */
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 
 // Mock NetInfo

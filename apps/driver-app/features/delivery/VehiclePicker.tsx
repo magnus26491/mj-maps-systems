@@ -8,7 +8,7 @@ import { useVehicleStore, VEHICLE_OPTIONS, VehicleProfile } from '../../store/ve
 import { COLORS, TextStyles } from './components';
 
 interface VehiclePickerProps {
-  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal>;
   onSelect: (profile: VehicleProfile) => void;
 }
 
@@ -23,7 +23,7 @@ export function VehiclePicker({ bottomSheetRef, onSelect }: VehiclePickerProps) 
       handleIndicatorStyle={{ backgroundColor: COLORS.grayDark }}
     >
       <BottomSheetScrollView contentContainerStyle={pickerStyles.container}>
-        <TextStyles.address style={pickerStyles.title}>Select your vehicle</TextStyles.address>
+        <Text style={[TextStyles.address, pickerStyles.title]}>Select your vehicle</Text>
 
         <View style={pickerStyles.options}>
           {VEHICLE_OPTIONS.map((option) => {
@@ -56,7 +56,7 @@ export function VehiclePicker({ bottomSheetRef, onSelect }: VehiclePickerProps) 
 // ─── Settings Bottom Sheet ────────────────────────────────────────────────────
 
 interface SettingsSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal>;
   onChangeVehicle: () => void;
   onEndShift: () => void;
 }
@@ -74,7 +74,7 @@ export function SettingsSheet({
       handleIndicatorStyle={{ backgroundColor: COLORS.grayDark }}
     >
       <View style={settingsStyles.container}>
-        <TextStyles.address style={settingsStyles.title}>Settings</TextStyles.address>
+        <Text style={[TextStyles.address, settingsStyles.title]}>Settings</Text>
 
         <TouchableOpacity style={settingsStyles.row} onPress={onChangeVehicle}
           accessibilityRole="button" accessibilityLabel="Change vehicle">

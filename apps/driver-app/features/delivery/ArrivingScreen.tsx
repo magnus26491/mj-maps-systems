@@ -79,7 +79,7 @@ export function ArrivingScreen({ onImHere }: ArrivingScreenProps) {
   if (!currentStop?.pin) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <TextStyles.body>Loading location...</TextStyles.body>
+        <Text style={TextStyles.body}>Loading location...</Text>
       </View>
     );
   }

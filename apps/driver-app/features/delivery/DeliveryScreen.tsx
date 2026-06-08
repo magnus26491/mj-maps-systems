@@ -37,6 +37,7 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   const vehicleProfile = useVehicleStore(s => s.vehicleProfile);
   const loadVehicleProfile = useVehicleStore(s => s.loadVehicleProfile);
   const setVehicleProfile = useVehicleStore(s => s.setVehicleProfile);
+  const stops = useDeliveryStore(s => s.enrichedRoute?.stops ?? []);
 
   // Refs for bottom sheets
   const detailsSheetRef = useRef<BottomSheetModal>(null);
@@ -85,9 +86,9 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
     return (
       <ThemeProvider>
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-        <StatusBar style="light" />
+        <StatusBar barStyle="light-content" />
         <View style={styles.pickerWrapper}>
-          <TextStyles.address style={styles.pickerTitle}>Select your vehicle to start</TextStyles.address>
+          <Text style={[TextStyles.address, styles.pickerTitle]}>Select your vehicle to start</Text>
           <VehiclePicker
             bottomSheetRef={vehiclePickerRef}
             onSelect={async (profile) => {
@@ -135,15 +136,6 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
       ],
     );
   }, [endShift]);
-
-  const handlePinConfirm = useCallback((correct: boolean, correctedLat?: number, correctedLng?: number) => {
-    if (!correct && correctedLat !== undefined && correctedLng !== undefined) {
-      setShowPinCorrection(true);
-    } else {
-      // Advance to next stop
-      useDeliveryStore.getState().dismissPinConfirm();
-    }
-  }, []);
 
   const handlePinCorrectionSave = useCallback((lat: number, lng: number) => {
     useDeliveryStore.getState().savePinCorrection(lat, lng);
@@ -205,7 +197,7 @@ export function DeliveryScreen({}: DeliveryScreenProps) {
   return (
     <ThemeProvider>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style="light" />
+      <StatusBar barStyle="light-content" />
 
       {/* Top bar with settings */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
