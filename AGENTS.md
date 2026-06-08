@@ -37,12 +37,20 @@ mobile app (not in this repo). Core capabilities:
 
 ## 2. Current Build Status
 
-**Build: ✅ PASSING (as of 409872c)**
+**Build: ✅ PASSING (as of 05bdd9e, Phase 9)**
 
 The following fixes were applied to make `tsc` pass:
 1. Import paths in `api/build-planned-route.ts` fixed (was pointing to wrong paths)
 2. React Native packages excluded from Node.js tsconfig (offline-cache, sync-queue, driver-app)
 3. Type annotations added to `services/postcode-resolver/index.ts` for API responses
+
+**Known pre-existing TypeScript errors (not introduced by Phase 9):**
+- `apps/driver-app/app/shift-start.tsx(376)`: duplicate `multiline` attribute (Phase 8 source)
+- `apps/driver-app/app/stop-delivery.tsx`: `stops` field on `Shift` type mismatch
+- `apps/driver-app/app/vehicle-select.tsx(30)`: wrong arg count to `useVehicleStore`
+- `apps/driver-app/features/delivery/*.tsx`: `TextStyles` JSX type errors
+- `apps/driver-app/components/*.tsx`: accessibility role type errors
+- Test files: missing `@testing-library/react-hooks`
 
 ### Confirmed already-correct files (do not re-edit)
 - `services/osm-client/index.ts` — exports `fetchRoadsNear`, `getBestRoadSegment`,
@@ -217,6 +225,28 @@ if (verified.rows.length > 0) {
 
 This means each address only ever gets geocoded once via Geoapify — after 3 driver
 confirmations it uses the crowd-sourced ground truth forever.
+
+---
+
+## Phase 9 — Plans, Registration, Billing, Feature Gates (committed 05bdd9e)
+
+**Plan system:** `free` | `pro` | `enterprise` — stored in `drivers.plan`, loaded into JWT and returned in login response.
+
+**Feature gates** (`lib/usePlan.ts`): `canUse(feature)` — Pro-gated features include `saved_routes`, `paf_lookup`, `csv_import`, `route_optimise`, `dark_mode`, `pod_capture`, `driving_mode_lock`, `live_activity`. Enterprise-only: `fleet_dispatch`, `dispatcher_dashboard`, `route_assignment`, `fleet_tracking`, `fleet_analytics`, `pod_export`, `bulk_stop_upload`, `time_windows`, `priority_stops`, `custom_pod_branding`, `multi_depot`, `admin_panel`.
+
+**New API routes** (all under `api/routes/`):
+- `auth-register.ts`: `POST /api/v1/auth/register` — bcrypt hash, 14-day trial, idempotent by email
+- `billing.ts`: `POST /api/v1/billing/checkout` (auth), `GET /api/v1/billing/status` (auth), `POST /api/v1/billing/webhook` (Stripe sig)
+- `auth.ts` login response now includes `planId` and `trialEndsAt`
+
+**New driver-app files** (all under `apps/driver-app/`):
+- `lib/usePlan.ts`: `usePlan()` hook + `getPlan()` standalone selector
+- `lib/savedRoutes.ts`: SQLite CRUD for saved-route persistence
+- `components/PlanGate.tsx`: upgrade prompt component
+- `app/(auth)/plans.tsx`: pricing page (Pro £9.99 + Enterprise)
+- `app/(auth)/register.tsx`: self-registration form + auto-checkout
+- `app/index.tsx`: unauthenticated → `/plans` redirect
+- `app/shift-start.tsx`: saved-routes button (Pro gate) + trial banner (≤3 days left)
 
 ---
 
