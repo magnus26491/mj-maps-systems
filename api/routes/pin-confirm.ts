@@ -87,12 +87,4 @@ pinConfirmRouter.post(
       res.status(500).json({ success: false, error: msg });
     }
   },
-<<<<<<< HEAD
-<<<<<<< HEAD
 );
-=======
-);
->>>>>>> 5dc590e (feat(pin-confirm): driver pin verification loop — community accuracy (Sprint 4))
-=======
-);
->>>>>>> be7774f (fix(pin-confirm): use req.driver.id instead of req.user.id)

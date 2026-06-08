@@ -350,6 +350,54 @@ dark tiles + fixed marker icons), `src/components/KpiBar.tsx`, `src/components/A
 required" on 403/empty drivers).
 
 
+
+
+## Phase 13 — Live Fleet Tracking (committed XXXXXX)
+
+### Backend
+
+**`migrations/008_driver_locations.sql` (new):** `driver_locations` table with PRIMARY KEY
+on `driver_id` (one row per driver, upserted on each ping). Columns: `driver_id`, `route_id`,
+`lat`, `lng`, `heading`, `speed_kmh`, `recorded_at`. Index on `route_id`.
+
+**`api/routes/location.ts` (new):** `locationRouter` — POST / handler:
+- Validates lat (-90..90) and lng (-180..180), returns 400 on invalid
+- Uses `req.driver.id` (NOT `req.user`)
+- Upserts `driver_locations` table with ON CONFLICT DO UPDATE
+- Mirrors to Redis key `driver:loc:{driverId}` with 60s TTL (non-fatal on Redis failure)
+- Returns 204 No Content
+
+**`api/index.ts`:** Registered `locationRouter` at `/api/v1/location` with a separate
+`locationLimiter` (300 req/min, above the 200 req/min `apiLimiter`). Must be mounted
+BEFORE the 404 handler.
+
+**`api/routes/dispatcher.ts`:** GET /routes now batch-reads live locations from Redis:
+1. Collects all `driverId` values from DB rows
+2. Calls `redis.mget(...keys)` where keys are `driver:loc:{id}`
+3. Falls back to `currentLat: 0, currentLon: 0, lastPing: null` on Redis error
+4. `lastPing` now allows null (was hardcoded to `new Date().toISOString()`)
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `getLocationStreamUrl()` returning
+`/api/dispatcher/locations/stream?token={token}` (Phase 14 SSE-ready hook point).
+
+**`apps/dispatcher-dashboard/src/hooks/useRoutes.ts`:** `refreshInterval` changed from
+15_000 to 10_000 (same cadence as driver GPS pings).
+
+**`apps/dispatcher-dashboard/src/components/FleetMap.tsx`:** Complete rewrite:
+- Removed declarative `<Marker>` JSX (caused re-render flicker)
+- Added `<LiveMarkers routes={routes} />` component inside `<MapContainer>`
+- Uses `useMap()` + imperative `L.marker()` + `markersRef` Map
+- `markersRef.current.get(id)!.setLatLng(pos).setIcon(icon)` updates in-place
+- Stale markers removed on routeId no longer present
+- `makeIcon(status)` — DivIcon with colour: green (<30s), amber (30s-120s), grey (>120s/offline)
+- `timeAgo()` helper for "Last seen: Xs ago" popup text
+- Popup shows driverName, vehicleLabel, completed/total stops, lastSeen, heading
+
+**`apps/dispatcher-dashboard/src/types.ts`:** `Route.lastPing` changed to `string | null`.
+
+
 ## 4. Codebase Map (key paths)
 
 ```

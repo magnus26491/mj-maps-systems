@@ -72,9 +72,14 @@ export async function assignRoute(routeId: string, driverId: string, note?: stri
   });
 }
 
-// ── SSE URL helper ───────────────────────────────────────────────────────────
+// ── SSE URL helpers ──────────────────────────────────────────────────────────
 
 export function getAlertStreamUrl(): string {
   const token = localStorage.getItem(TOKEN_KEY) ?? '';
   return `/api/dispatcher/alerts/stream?token=${encodeURIComponent(token)}`;
+}
+
+export function getLocationStreamUrl(): string {
+  const token = localStorage.getItem(TOKEN_KEY) ?? '';
+  return `/api/dispatcher/locations/stream?token=${encodeURIComponent(token)}`;
 }

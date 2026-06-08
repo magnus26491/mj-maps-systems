@@ -52,16 +52,40 @@ dispatcherRouter.get('/routes', async (_req, res) => {
       LIMIT 50
     `);
 
-    // Hydrate stops from raw_result JSONB, merge live stop statuses
+    // Batch read live locations from Redis
+    const locMap = new Map<string, { lat: number; lng: number; recordedAt: string }>();
+    if (rows.length > 0) {
+      const keys = rows
+        .map((r: Record<string, unknown>) => r.driverId as string)
+        .filter(Boolean)
+        .map(id => `driver:loc:${id}`);
+      try {
+        const values = await redis.mget(...keys);
+        for (let i = 0; i < values.length; i++) {
+          if (values[i]) {
+            try {
+              const loc = JSON.parse(values[i]!) as { lat: number; lng: number; recordedAt: string };
+              const driverId = rows[i]!.driverId as string;
+              locMap.set(driverId, { lat: loc.lat, lng: loc.lng, recordedAt: loc.recordedAt });
+            } catch { /* skip malformed JSON */ }
+          }
+        }
+      } catch (err) {
+        console.warn('[dispatcher] Redis mget failed, falling back to 0,0:', err);
+      }
+    }
+
+    // Hydrate stops from raw_result JSONB, merge live GPS positions
     const routes = rows.map((row: Record<string, unknown>) => {
       const raw = row.rawResult as { stops?: unknown[] } | null;
+      const loc = locMap.get(row.driverId as string);
       return {
         ...row,
         rawResult: undefined,
-        vehicleLabel: row.vehicleId,   // TODO: map via VEHICLE_PROFILES
-        currentLat: 0,                  // TODO: from GPS ping table
-        currentLon: 0,
-        lastPing: new Date().toISOString(),
+        vehicleLabel: row.vehicleId,
+        currentLat: loc?.lat ?? 0,
+        currentLon: loc?.lng ?? 0,
+        lastPing: loc?.recordedAt ?? null,
         stops: raw?.stops ?? [],
       };
     });
