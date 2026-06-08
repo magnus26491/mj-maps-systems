@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Vibration, Platform,
+  Animated, Vibration, Platform, Linking, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -150,6 +150,31 @@ function HudInner() {
             </Text>
           )}
         </View>
+
+        {/* Navigate button */}
+        <TouchableOpacity
+          style={styles.navBtn}
+          onPress={() => {
+            if (currentStop.lat != null && currentStop.lng != null) {
+              router.push({ pathname: '/navigation', params: { stopId: currentStop.id } });
+            } else {
+              Alert.alert('No pin', 'This stop has no GPS pin. Navigate manually or tap to search.');
+            }
+          }}
+          accessibilityLabel="Navigate to stop"
+          accessibilityRole="button"
+        >
+          <Text style={styles.navBtnText}>🗺 Navigate →</Text>
+        </TouchableOpacity>
+
+        {/* Google Maps escape hatch */}
+        <TouchableOpacity
+          onPress={() => Linking.openURL(
+            `https://maps.google.com/?daddr=${encodeURIComponent(currentStop.address)}`,
+          )}
+        >
+          <Text style={styles.gmapsLink}>Open in Google Maps ↗</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={{ flex: 1 }} />
@@ -241,6 +266,13 @@ const styles = StyleSheet.create({
   stopNotes:   { fontSize: 15, marginTop: 8, lineHeight: 22 },
   stopMeta:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   metaItem:    { fontSize: 16 },
+  navBtn: {
+    backgroundColor: '#4fc3f7', borderRadius: 12,
+    height: 52, alignItems: 'center', justifyContent: 'center',
+    marginTop: 12,
+  },
+  navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0f1923' },
+  gmapsLink:   { fontSize: 13, color: '#607080', textDecorationLine: 'underline', marginTop: 8 },
   actions: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 12, paddingBottom: 16, paddingTop: 12,
