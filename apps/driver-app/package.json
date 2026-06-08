@@ -16,11 +16,13 @@
     "@amwebexpert/react-native-sign-here": "latest",
     "@gorhom/bottom-sheet": "^4.6.4",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/datetimepicker": "^9.1.0",
     "@react-native-community/netinfo": "^12.0.1",
     "@tanstack/react-query": "^5.50.0",
     "expo": "~51.0.0",
     "expo-background-fetch": "~12.0.1",
     "expo-camera": "^56.0.7",
+    "expo-document-picker": "^56.0.4",
     "expo-file-system": "~17.0.1",
     "expo-haptics": "~13.0.1",
     "expo-image-picker": "^56.0.16",
@@ -41,10 +43,10 @@
     "react-native-reanimated": "~3.10.1",
     "react-native-safe-area-context": "4.10.1",
     "react-native-screens": "3.31.1",
-    "react-native-widget-extension": "latest",
     "react-native-svg": "latest",
-    "zustand": "^4.5.4",
-    "zod": "^3.23.8"
+    "react-native-widget-extension": "latest",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

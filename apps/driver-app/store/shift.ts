@@ -40,17 +40,25 @@ export interface Shift {
 
 interface EtaMap { [stopId: string]: string; }
 
+export interface Vehicle {
+  id:        string;
+  profileKey: string;
+  label:     string;
+}
+
 interface ShiftState {
   // ── Auth / identity ──────────────────────────────────────────────────────
   token:       string | null;
   driverId:    string | null;
   vehicleId:   string | null;
+  vehicle:     Vehicle | null;
   setAuth:     (token: string, driverId: string) => void;
 
   // ── Shift ─────────────────────────────────────────────────────────────────
   isActive:    boolean;
   shift:       Shift | null;
   stops:       DeliveryStop[];
+  stagedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[];
   currentStop: DeliveryStop | null;
   nextStop:    DeliveryStop | null;
   wsConnected: boolean;
@@ -62,6 +70,8 @@ interface ShiftState {
   failStop:        () => void;
   setStops:        (stops: DeliveryStop[]) => void;
   updateStopAlert: (stopId: string, alert: 'GREEN' | 'AMBER' | 'RED') => void;
+  setStagedStops:   (stops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[]) => void;
+  clearStagedStops: () => void;
 
   // ── Live update actions (from WebSocket) ─────────────────────────────────
   applyReorder:     (orderedStops: DeliveryStop[]) => void;
@@ -83,16 +93,18 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   token:    null,
   driverId: null,
   vehicleId: null,
+  vehicle:   null,
 
   setAuth: (token, driverId) => set({ token, driverId }),
 
   // Shift state
-  isActive:    false,
-  shift:       null,
-  stops:       [],
-  currentStop: null,
-  nextStop:    null,
-  wsConnected: false,
+  isActive:     false,
+  shift:        null,
+  stops:        [],
+  stagedStops:  [],
+  currentStop:  null,
+  nextStop:     null,
+  wsConnected:  false,
 
   setWsConnected: (connected) => set({ wsConnected: connected }),
 
@@ -224,4 +236,8 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
       ? { ...s.nextStop, etaLabel: etas[s.nextStop.id] ?? s.nextStop.etaLabel }
       : null,
   })),
+
+  // ── stagedStops actions ────────────────────────────────────────────────────
+  setStagedStops: (stops) => set({ stagedStops: stops }),
+  clearStagedStops: () => set({ stagedStops: [] }),
 }));

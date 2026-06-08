@@ -24,6 +24,8 @@ import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
 import { BackgroundLocationDisclosure } from '../components/BackgroundLocationDisclosure';
@@ -79,6 +81,24 @@ export default function ShiftStartScreen() {
     setStops(parsed);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [rawInput]);
+
+  // ── File pick import ─────────────────────────────────────────────────────
+  const handleFilePick = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/plain', 'application/octet-stream'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const text = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      const parsed = parseStopsCsv(text);
+      if (!parsed.length) return Alert.alert('No stops found', 'Check CSV format.');
+      setStops(parsed);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert('Import failed', 'Could not read the file.');
+    }
+  }, []);
 
   // ── Get current GPS as depot ──────────────────────────────────────────────
   const handleUseCurrentLocation = useCallback(async () => {
@@ -139,7 +159,11 @@ export default function ShiftStartScreen() {
         );
       }
 
-      router.replace('/hud');
+      useShiftStore.getState().setStagedStops(stops as any);
+      router.push({
+        pathname: '/route-review',
+        params: { departureEpochMs: String(Date.now()) },
+      });
     } catch {
       // No signal — use greedy fallback silently
       startShift(
@@ -153,7 +177,11 @@ export default function ShiftStartScreen() {
         })),
         vehicle!,
       );
-      router.replace('/hud');
+      useShiftStore.getState().setStagedStops(stops as any);
+      router.push({
+        pathname: '/route-review',
+        params: { departureEpochMs: String(Date.now()) },
+      });
     } finally {
       setLoading(false);
     }
@@ -258,6 +286,14 @@ export default function ShiftStartScreen() {
           {/* ── Stop import ──────────────────────────────────────── */}
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <Text style={[styles.cardLabel, { color: colors.subtext }]}>Stops</Text>
+            <TouchableOpacity
+              style={styles.planRouteBtn}
+              onPress={() => router.push('/route-builder')}
+              accessibilityRole="button"
+              accessibilityLabel="Build route manually by searching addresses"
+            >
+              <Text style={styles.planRouteBtnText}>🗺️  Plan My Route →</Text>
+            </TouchableOpacity>
             <View style={styles.importRow}>
               <TouchableOpacity
                 style={styles.importBtn}
@@ -268,20 +304,19 @@ export default function ShiftStartScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.importBtn}
+                onPress={handleFilePick}
+                accessibilityRole="button"
+              >
+                <Text style={styles.importBtnText}>📂 Upload CSV</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.importBtn}
                 onPress={handleTextImport}
                 accessibilityRole="button"
               >
                 <Text style={styles.importBtnText}>⚡ Parse</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[styles.locationBtn, { marginTop: 8 }]}
-              onPress={() => router.push('/route-builder')}
-              accessibilityRole="button"
-              accessibilityLabel="Build route manually by searching addresses"
-            >
-              <Text style={styles.locationBtnText}>🗺️  Build Route Manually</Text>
-            </TouchableOpacity>
             <TextInput
               style={styles.textInput}
               multiline
@@ -349,6 +384,12 @@ const styles = StyleSheet.create({
   },
   locationBtnText: { color: '#4fc3f7', fontSize: 15, fontWeight: '600' },
   importRow:       { flexDirection: 'row', gap: 10 },
+  planRouteBtn: {
+    backgroundColor: '#4fc3f7', borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center', minHeight: 60,
+    marginBottom: 10,
+  },
+  planRouteBtnText: { color: '#0f1923', fontSize: 17, fontWeight: '800' },
   importBtn: {
     flex: 1, backgroundColor: '#253545', borderRadius: 10,
     paddingVertical: 12, alignItems: 'center', minHeight: 44,
