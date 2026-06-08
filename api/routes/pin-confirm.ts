@@ -43,7 +43,7 @@ pinConfirmRouter.post(
         return;
       }
       const stop = stopResult.rows[0];
-      const driverId = (req as any).user?.id;
+      const driverId = req.driver?.id;
       if (stop.driver_id !== driverId) {
         res.status(403).json({ success: false, error: 'Not authorized to confirm this stop.' });
         return;

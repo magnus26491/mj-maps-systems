@@ -22,6 +22,7 @@ declare global {
         email: string;
         role: string;
         vehicleId: string;
+        planId: string;
       };
     }
   }
@@ -60,6 +61,7 @@ export async function authenticateDriver(
     email: driver.email,
     role: driver.role,
     vehicleId: driver.vehicle_id,
+    planId: driver.plan ?? 'free',
   };
 
   next();

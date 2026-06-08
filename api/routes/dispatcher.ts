@@ -12,6 +12,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../../services/db';
 import { redis } from '../../services/cache';
+import { verifyAccessToken } from '../../services/auth';
 
 export const dispatcherRouter = Router();
 
@@ -152,6 +153,12 @@ dispatcherRouter.get('/stats', async (_req, res) => {
 
 // ── GET /api/dispatcher/alerts/stream (SSE) ─────────────────────────────────
 dispatcherRouter.get('/alerts/stream', (req, res) => {
+  // Auth via query param (EventSource cannot send Authorization headers)
+  const token = req.query.token as string | undefined;
+  if (!token) { res.status(401).end(); return; }
+  const payload = verifyAccessToken(token);
+  if (!payload) { res.status(401).end(); return; }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');

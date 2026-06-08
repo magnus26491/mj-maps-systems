@@ -22,6 +22,7 @@ import { pafRouter } from './routes/paf';
 import { billingRouter } from './routes/billing';
 import { pinConfirmRouter } from './routes/pin-confirm';
 import { vehicleSpecsRouter } from './routes/vehicle-specs';
+import { dispatcherAssignRouter } from './routes/dispatcher-assign';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -84,7 +85,7 @@ app.use('/api/stop-pin',      authenticateDriver, stopPinRouter);
 app.use('/api/stop-feedback', authenticateDriver, stopFeedbackRouter);
 
 // Dispatcher + admin only
-app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dispatcherRouter);
+app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dispatcherRouter, dispatcherAssignRouter);
 
 // Optimise and PAF routes (v1)
 app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);

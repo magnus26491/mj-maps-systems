@@ -60,9 +60,10 @@ export async function getDriverById(id: string): Promise<{
   role: string;
   vehicle_id: string;
   active: boolean;
+  plan: string;
 } | null> {
   const { rows } = await pool.query(
-    `SELECT id, name, email, role, vehicle_id, active FROM drivers WHERE id = $1`,
+    `SELECT id, name, email, role, vehicle_id, active, COALESCE(plan, 'free') AS plan FROM drivers WHERE id = $1`,
     [id],
   );
   return rows[0] ?? null;
