@@ -305,9 +305,6 @@ confirmations it uses the crowd-sourced ground truth forever.
 
 ---
 
-<<<<<<< HEAD
-
-
 ## Phase 12 — Dispatcher Dashboard Web App (committed XXXXXX)
 
 ### API changes
