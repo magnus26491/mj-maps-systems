@@ -1,7 +1,7 @@
 /**
  * ShiftStart screen — smoke tests for CSV parsing and start-shift logic.
  */
-import { parseStopsCsv } from '../app/shift-start';
+import { parseStopsCsv } from '../utils/parseStopsCsv';
 
 // parseStopsCsv is exported for testing — add export to shift-start.tsx if not already.
 describe('parseStopsCsv', () => {

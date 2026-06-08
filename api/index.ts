@@ -16,6 +16,8 @@ import { stopPinRouter } from './routes/stop-pin';
 import { stopFeedbackRouter } from './routes/stop-feedback';
 import { dispatcherRouter } from './routes/dispatcher';
 import { pinsRouter } from './routes/pins';
+import { optimiseRouter } from './routes/optimise';
+import { pafRouter } from './routes/paf';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -77,6 +79,10 @@ app.use('/api/stop-feedback', authenticateDriver, stopFeedbackRouter);
 
 // Dispatcher + admin only
 app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dispatcherRouter);
+
+// Optimise and PAF routes (v1)
+app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);
+app.use('/api/v1/paf',        authenticateDriver, pafRouter);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found.' }));

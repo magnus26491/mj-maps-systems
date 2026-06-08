@@ -28,34 +28,13 @@ import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
 import { BackgroundLocationDisclosure } from '../components/BackgroundLocationDisclosure';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
+import { parseStopsCsv } from '../utils/parseStopsCsv';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface RawStop {
   address: string;
   notes?: string;
   parcelCount?: number;
-}
-
-// ─── CSV parser — tolerant of real-world export formats ───────────────────────
-function parseStopsCsv(raw: string): RawStop[] {
-  const lines = raw
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean);
-
-  // Skip header row if first cell looks like a label
-  const startIdx = /^address|^stop|^location/i.test(lines[0] ?? '') ? 1 : 0;
-
-  return lines.slice(startIdx).map(line => {
-    const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-    return {
-      address:     cols[0] ?? '',
-      notes:       cols[1] ?? undefined,
-      parcelCount: cols[2] ? Number(cols[2]) || 1 : 1,
-    };
-  }).filter(s => s.address.length > 2);
 }
 
 // ─── Greedy nearest-neighbour fallback (no-signal route ordering) ─────────────
