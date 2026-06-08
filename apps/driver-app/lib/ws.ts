@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { refreshAccessToken } from './auth';
 import { enqueue } from './offline-queue';
-import { ServerMessageType } from '../constants/events';
+import { ServerMessageType, DriverEventType } from '../constants/events';
 import type { ServerMessage } from './types';
 
 const WS_BASE = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000')
@@ -106,7 +106,7 @@ export function useDriverWs({
   }, [driverId, routeId]);
 
   const sendEvent = useCallback(
-    async (type: string, payload: Record<string, unknown>) => {
+    async (type: DriverEventType, payload: Record<string, unknown>) => {
       const fullPayload = { type, driverId, routeId, ...payload };
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify(fullPayload));

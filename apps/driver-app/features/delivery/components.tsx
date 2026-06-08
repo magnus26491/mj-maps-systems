@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  AccessibilityRole,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Linking from 'expo-linking';
@@ -201,7 +202,7 @@ interface BottomButtonProps {
   onPress:  () => void;
   variant?: 'primary' | 'secondary' | 'danger' | 'slide';
   disabled?: boolean;
-  accessibilityRole?: string;
+  accessibilityRole?: AccessibilityRole;
   accessibilityLabel?: string;
   accessibilityHint?: string;
 }

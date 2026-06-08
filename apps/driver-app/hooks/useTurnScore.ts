@@ -39,7 +39,7 @@ async function fetchTurnScore(
 
 export function useTurnScore(
   stop: DeliveryStop | null,
-  vehicleId: string | undefined,
+  vehicleId: string | null | undefined,
 ): TurnScoreResult {
   const [token, setToken] = useState<string>('');
 
@@ -53,9 +53,14 @@ export function useTurnScore(
 
   const { data } = useQuery({
     queryKey:         ['turn-score', stop?.id, vehicleId],
-    queryFn:          () => fetchTurnScore(stop!.lat, stop!.lng, vehicleId!, token),
+    queryFn:          () => {
+      const lat = stop?.lat;
+      const lng = stop?.lng;
+      if (lat === undefined || lng === undefined) throw new Error('missing lat/lng');
+      return fetchTurnScore(lat, lng, vehicleId!, token);
+    },
     enabled,
-    refetchInterval:  distM < 500 ? 2000 : 5000,
+    refetchInterval:  (distM ?? 9999) < 500 ? 2000 : 5000,
     placeholderData:  { score: null, alert: 'GREEN' as const, reason: null },
     staleTime:        10_000,
   });

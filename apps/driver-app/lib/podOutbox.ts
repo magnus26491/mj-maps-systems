@@ -13,7 +13,6 @@
  */
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system';
-import { fetch as expoFetch } from 'expo/fetch';
 
 const DB_NAME = 'mj_pod_outbox.db';
 const TABLE   = 'pod_outbox';
@@ -136,12 +135,18 @@ async function uploadPodEntry(entry: OutboxEntry, apiBaseUrl: string): Promise<v
   if (entry.signatureSvg)  form.append('signatureSvg',  entry.signatureSvg);
 
   if (entry.photoUri) {
-    // Use expo-file-system File object — avoids base64 overhead
-    const file = new FileSystem.File(entry.photoUri);
-    form.append('photo', file as unknown as Blob, `pod_${entry.stopId}.jpg`);
+    // Append photo as a blob using the URI
+    const photoData = await FileSystem.readAsStringAsync(entry.photoUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    form.append('photo', {
+      uri:  entry.photoUri,
+      name: `pod_${entry.stopId}.jpg`,
+      type: 'image/jpeg',
+    } as unknown as Blob);
   }
 
-  const response = await expoFetch(`${apiBaseUrl}/api/v1/pod`, {
+  const response = await fetch(`${apiBaseUrl}/api/v1/pod`, {
     method:  'POST',
     body:    form,
   });

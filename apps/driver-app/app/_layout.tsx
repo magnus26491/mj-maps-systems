@@ -78,9 +78,10 @@ function FcmRegistrar({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const perms = await Notifications.requestPermissionsAsync();
-        if (perms.status === 'granted') {
+        const granted = (perms as any).granted === true || (perms as any).status === 'granted';
+        if (granted) {
           const { data } = await Notifications.getExpoPushTokenAsync();
-          await apiRegisterFcmToken(data);
+          await apiRegisterFcmToken(data ?? '');
         }
       } catch { /* non-fatal */ }
     })();
