@@ -20,6 +20,8 @@ import { pinsRouter } from './routes/pins';
 import { optimiseRouter } from './routes/optimise';
 import { pafRouter } from './routes/paf';
 import { billingRouter } from './routes/billing';
+import { pinConfirmRouter } from './routes/pin-confirm';
+import { vehicleSpecsRouter } from './routes/vehicle-specs';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -87,6 +89,8 @@ app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dis
 // Optimise and PAF routes (v1)
 app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);
 app.use('/api/v1/paf',        authenticateDriver, pafRouter);
+app.use('/api/v1/stops',      authenticateDriver, pinConfirmRouter);
+app.use('/api/v1/vehicle-specs', authenticateDriver, vehicleSpecsRouter);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found.' }));

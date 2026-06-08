@@ -250,6 +250,61 @@ confirmations it uses the crowd-sourced ground truth forever.
 
 ---
 
+## Phase 10 — Navigation, Voice, Vehicle Specs & Saved Routes (committed XXXXXX)
+
+### API changes
+
+**Sprint 1 (already done before Phase 10):** Redis 90-day geocache on `resolveAddress()` in `services/property-engine/src/resolver.ts`.
+
+**Sprint 2 (already done before Phase 10):** Plus Codes via `open-location-code` — `applyPinToStop()` in `services/pin-resolver/index.ts` encodes every resolved pin.
+
+**Sprint 3 (already done before Phase 10):** `approachBearing: incomingBearing` added to the `turn` object in `services/osm/road-enricher.ts`.
+
+**Sprint 4 (new):**
+- `migrations/006_pin_verification.sql`: adds `pin_verified`, `pin_verify_count`, `pin_corrected_lat`, `pin_corrected_lng`, `pin_verified_at`, `normalised_address` columns to `stops` table
+- `api/routes/pin-confirm.ts`: `POST /api/v1/stops/:stopId/confirm-pin` — driver pin confirmation loop, 3 confirmations → verified → Redis cache invalidated
+- `services/property-engine/src/resolver.ts`: DB verified-pin lookup at top of `resolveAddress()` — community ground truth from `stops` table overrides all automated sources
+- `services/property-engine/src/types.ts`: added `'community_verified'` to `PropertyPin.source` union
+- `api/routes/vehicle-specs.ts`: `GET /api/v1/vehicle-specs` — returns all vehicle specs from DB with snake_case → camelCase mapping
+- `api/index.ts`: registered both new routes at `/api/v1/stops` and `/api/v1/vehicle-specs`
+
+### Driver app changes
+
+**`app/vehicle-select.tsx` (full rebuild):**
+- Loads specs from `GET /api/v1/vehicle-specs` on mount
+- Falls back to `FALLBACK_SPECS` (4 vans) if API unavailable
+- Cards show: make model + year, height/weight/length icons
+- Stores `profileKey` (e.g. `TRANSIT_LWB_GB`) in shift store — what the optimiser uses
+
+**`lib/navigation.ts` (new):**
+- `fetchNavRoute()`, `formatDistance()`, `formatDuration()`, `maneuverArrow()` exported
+
+**`hooks/useNavigation.ts` (new):**
+- `useNavigation()` hook — fetches route from Geoapify, tracks GPS, advances step at 30m, speaks at 200m via `expo-speech`
+
+**`app/navigation.tsx` (new):**
+- Full turn-by-turn screen launched from HUD or stop-delivery
+- Shows `MapView` with polyline + destination marker
+- Instruction banner with arrow + distance (green urgent when < 50m)
+- "🔊 Repeat" and "✓ Arrived" action buttons
+- "Open in Google Maps" escape hatch on error
+
+**`app/hud.tsx` (updated):**
+- Added "🗺 Navigate →" button to stop card (height 52, blue)
+- Added "Open in Google Maps ↗" text link below address
+
+**`app/saved-routes.tsx` (new):**
+- Lists saved routes from SQLite, loads into staged stops, delete with confirmation
+
+**`app/route-builder.tsx` (updated):**
+- Added "💾" save button in header (shown when stops > 0)
+- Save modal with TextInput, saves to SQLite via `saveRoute()`
+- 10-route limit enforced on Pro plan (Enterprise: unlimited)
+
+**`.env.example`:** Added `GEOAPIFY_API_KEY` and `EXPO_PUBLIC_GEOAPIFY_KEY` entries.
+
+---
+
 ## 4. Codebase Map (key paths)
 
 ```

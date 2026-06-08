@@ -1,64 +1,158 @@
 /**
- * Vehicle Selector Screen
- * Large touch targets (min 56px), bottom-anchored CTA.
- * One-handed operation — driver picks vehicle at shift start.
+ * Vehicle Selector Screen — DB-driven
+ *
+ * Loads vehicle specs from /api/v1/vehicle-specs (authenticated).
+ * Falls back to hardcoded FALLBACK_SPECS if API unavailable (offline resilience).
+ *
+ * Stores profileKey (e.g. 'TRANSIT_LWB_GB') in the shift store, NOT the DB id.
+ * profileKey is what the route optimiser uses.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
+import type { VehicleSpec } from '../lib/types';
 
-const VEHICLES = [
-  { id: 'car_estate', label: 'Car / Estate',   sub: 'Small delivery · up to 4m',       icon: '🚗' },
-  { id: 'van_swb',    label: 'SWB Van',         sub: 'Transit Connect · up to 4.5m',    icon: '🚐' },
-  { id: 'van_lwb',    label: 'LWB Van',         sub: 'Transit LWB · up to 5.5m',        icon: '🚐' },
-  { id: 'luton',      label: 'Luton Van',       sub: 'Box body · up to 6.5m',           icon: '🛻' },
-  { id: 'hgv_75t',    label: '7.5t HGV',        sub: 'Two-axle rigid · up to 8m',       icon: '🚚' },
-  { id: 'hgv_18t',    label: '18t Rigid',       sub: 'Three-axle rigid · up to 10m',    icon: '🚚' },
-  { id: 'artic',      label: 'Articulated',     sub: 'Semi-trailer · up to 16.5m',      icon: '🛻' },
-] as const;
+const FALLBACK_SPECS: VehicleSpec[] = [
+  {
+    id:         'vs-transit-lwb',
+    make:       'Ford',
+    model:      'Transit LWB',
+    year:       2023,
+    heightM:    2.77,
+    lengthM:    5.98,
+    widthM:     2.05,
+    gvwKg:      3500,
+    payloadKg:  1400,
+    hazmat:     false,
+    profileKey: 'TRANSIT_LWB_GB',
+  },
+  {
+    id:         'vs-transit-swb',
+    make:       'Ford',
+    model:      'Transit SWB',
+    year:       2023,
+    heightM:    2.77,
+    lengthM:    4.97,
+    widthM:     2.05,
+    gvwKg:      3500,
+    payloadKg:  1235,
+    hazmat:     false,
+    profileKey: 'TRANSIT_SWB_GB',
+  },
+  {
+    id:         'vs-sprinter-lwb',
+    make:       'Mercedes',
+    model:      'Sprinter LWB',
+    year:       2023,
+    heightM:    2.80,
+    lengthM:    6.95,
+    widthM:     2.07,
+    gvwKg:      3500,
+    payloadKg:  1387,
+    hazmat:     false,
+    profileKey: 'SPRINTER_LWB_GB',
+  },
+  {
+    id:         'vs-transit-custom',
+    make:       'Ford',
+    model:      'Transit Custom',
+    year:       2023,
+    heightM:    1.96,
+    lengthM:    4.97,
+    widthM:     1.97,
+    gvwKg:      2800,
+    payloadKg:  900,
+    hazmat:     false,
+    profileKey: 'TRANSIT_CUSTOM_GB',
+  },
+];
 
 export default function VehicleSelectScreen() {
-  const [selected, setSelected] = useState<string | null>(null);
-  const startShift = useShiftStore(s => s.startShift);
+  const [specs,    setSpecs]    = useState<VehicleSpec[]>([]);
+  const [selected,  setSelected]  = useState<string | null>(null);   // profileKey
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = useAuthStore.getState().token;
+    const API   = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
+
+    fetch(`${API}/api/v1/vehicle-specs`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok && Array.isArray(data.data)) {
+          setSpecs(data.data);
+        } else {
+          setSpecs(FALLBACK_SPECS);
+        }
+      })
+      .catch(() => {
+        setError('Could not load vehicles. Using defaults.');
+        setSpecs(FALLBACK_SPECS);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const confirm = () => {
     if (!selected) return;
-    startShift(selected);
-    router.replace('/hud');
+    useShiftStore.getState().vehicleId = selected;
+    router.back();
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#4fc3f7" />
+          <Text style={styles.loadingText}>Loading vehicles…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
+        {error && <Text style={styles.errorBanner}>{error}</Text>}
         <Text style={styles.title}>What are you driving today?</Text>
         <Text style={styles.sub}>
-          MJ Maps optimises your route and turn warnings for your vehicle size.
+          Route and turn warnings are optimised for your vehicle size.
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {VEHICLES.map(v => (
+        {specs.map(spec => (
           <TouchableOpacity
-            key={v.id}
-            style={[styles.card, selected === v.id && styles.cardSelected]}
-            onPress={() => setSelected(v.id)}
+            key={spec.id}
+            style={[styles.card, selected === spec.profileKey && styles.cardSelected]}
+            onPress={() => setSelected(spec.profileKey)}
             activeOpacity={0.75}
             accessibilityRole="radio"
-            accessibilityState={{ selected: selected === v.id }}
-            accessibilityLabel={v.label}
+            accessibilityState={{ selected: selected === spec.profileKey }}
+            accessibilityLabel={`${spec.make} ${spec.model}`}
           >
-            <Text style={styles.cardIcon}>{v.icon}</Text>
-            <View style={styles.cardText}>
-              <Text style={[styles.cardLabel, selected === v.id && styles.cardLabelSelected]}>
-                {v.label}
-              </Text>
-              <Text style={styles.cardSub}>{v.sub}</Text>
+            <View style={styles.cardMain}>
+              <View style={styles.cardTop}>
+                <Text style={[styles.cardLabel, selected === spec.profileKey && styles.cardLabelSelected]}>
+                  {spec.make} {spec.model}
+                </Text>
+                <Text style={styles.cardYear}>{spec.year}</Text>
+              </View>
+              <View style={styles.cardMeta}>
+                <Text style={styles.cardMetaItem}>🏔 {spec.heightM}m</Text>
+                <Text style={styles.cardMetaItem}>⚖️ {(spec.gvwKg / 1000).toFixed(1)}t</Text>
+                <Text style={styles.cardMetaItem}>📏 {spec.lengthM}m</Text>
+              </View>
             </View>
-            {selected === v.id && (
+            {selected === spec.profileKey && (
               <View style={styles.check}>
                 <Text style={styles.checkMark}>✓</Text>
               </View>
@@ -73,9 +167,9 @@ export default function VehicleSelectScreen() {
           onPress={confirm}
           disabled={!selected}
           accessibilityRole="button"
-          accessibilityLabel="Start shift"
+          accessibilityLabel="Confirm vehicle and continue"
         >
-          <Text style={styles.ctaText}>Start Shift</Text>
+          <Text style={styles.ctaText}>Confirm Vehicle →</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -84,25 +178,31 @@ export default function VehicleSelectScreen() {
 
 const styles = StyleSheet.create({
   safe:              { flex: 1, backgroundColor: '#0f1923' },
+  center:            { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText:       { color: '#8fa0b0', marginTop: 12, fontSize: 15 },
   header:            { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
+  errorBanner:       { color: '#f59e0b', fontSize: 13, marginBottom: 8 },
   title:             { fontSize: 26, fontWeight: '700', color: '#ffffff', marginBottom: 6 },
   sub:               { fontSize: 15, color: '#8fa0b0', lineHeight: 22 },
   list:              { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   card: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#1c2a37', borderRadius: 14,
-    padding: 16, minHeight: 72,
+    padding: 16, minHeight: 80,
     borderWidth: 2, borderColor: 'transparent',
   },
   cardSelected:      { borderColor: '#4fc3f7', backgroundColor: '#1a2f3f' },
-  cardIcon:          { fontSize: 28, marginRight: 14 },
-  cardText:          { flex: 1 },
-  cardLabel:         { fontSize: 17, fontWeight: '600', color: '#c8d8e8' },
+  cardMain:          { flex: 1 },
+  cardTop:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardLabel:         { fontSize: 17, fontWeight: '700', color: '#c8d8e8' },
   cardLabelSelected: { color: '#4fc3f7' },
-  cardSub:           { fontSize: 13, color: '#607080', marginTop: 2 },
+  cardYear:          { fontSize: 13, color: '#607080' },
+  cardMeta:          { flexDirection: 'row', marginTop: 6, gap: 12 },
+  cardMetaItem:      { fontSize: 13, color: '#8fa0b0' },
   check: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: '#4fc3f7', alignItems: 'center', justifyContent: 'center',
+    marginLeft: 12,
   },
   checkMark:         { color: '#0f1923', fontWeight: '700', fontSize: 16 },
   footer: {

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Keyboard, Platform, FlatList,
+  ActivityIndicator, Alert, Keyboard, Platform, FlatList, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,6 +17,9 @@ import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
 import { useTheme } from '../components/ThemeContext';
 import { parseStopsCsv } from '../utils/parseStopsCsv';
+import { saveRoute, countSavedRoutes } from '../lib/savedRoutes';
+import { usePlan } from '../lib/usePlan';
+import type { Stop } from '../lib/types';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
@@ -54,6 +57,9 @@ export default function RouteBuilderScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const token = useShiftStore(s => (s as any).token ?? '');
+  const { plan } = usePlan();
+  const [saveModalVisible, setSaveModalVisible] = useState(false);
+  const [saveName,        setSaveName]         = useState('');
 
   const handlePafSearch = useCallback(async (q: string) => {
     const formatted = formatPC(q);
@@ -212,6 +218,40 @@ export default function RouteBuilderScreen() {
     });
   }, [stops, departureTime]);
 
+  const handleSaveRoute = useCallback(async () => {
+    const name = saveName.trim();
+    if (!name || !stops.length) return;
+
+    // Pro plan limit: 10 saved routes
+    const count = await countSavedRoutes();
+    if (plan !== 'enterprise' && count >= 10) {
+      Alert.alert(
+        'Route limit reached',
+        "You've reached the 10 route limit on Pro. Delete a saved route to add more.",
+      );
+      return;
+    }
+
+    const routeStops: Stop[] = stops.map((s, i) => ({
+      id:               s.id,
+      sequence:         i,
+      address:          s.address,
+      status:           'pending',
+      failureCode:      null,
+      accessNotes:      s.notes ?? null,
+      last50m:          null,
+      podPhotoUrl:      null,
+      pinLat:           s.lat || null,
+      pinLon:           s.lng || null,
+      fcmCustomerToken: null,
+    }));
+
+    await saveRoute(name, routeStops);
+    setSaveModalVisible(false);
+    setSaveName('');
+    Alert.alert('Route saved!', `"${name}" has been saved to your routes.`);
+  }, [stops, saveName, plan]);
+
   interface StopRowProps {
     item: LocalStop;
     drag: () => void;
@@ -281,6 +321,16 @@ export default function RouteBuilderScreen() {
           <Text style={[styles.backText, { color: colors.green }]}>‹ Back</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>Plan Route</Text>
+        {stops.length > 0 && (
+          <TouchableOpacity
+            onPress={() => { setSaveName(''); setSaveModalVisible(true); }}
+            style={styles.saveBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Save route"
+          >
+            <Text style={[styles.saveText, { color: colors.green }]}>💾</Text>
+          </TouchableOpacity>
+        )}
         {stops.length >= 2 && (
           <TouchableOpacity onPress={handleOptimise} disabled={optimising} style={styles.optimiseBtn}>
             {optimising
@@ -445,6 +495,54 @@ export default function RouteBuilderScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* SAVE ROUTE MODAL */}
+      <Modal
+        visible={saveModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSaveModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Save Route</Text>
+            <TextInput
+              style={[styles.modalInput, {
+                backgroundColor: colors.background, color: colors.text, borderColor: colors.border,
+              }]}
+              placeholder="Route name (e.g. Monday North Run)"
+              placeholderTextColor={colors.subtext}
+              value={saveName}
+              onChangeText={setSaveName}
+              autoFocus
+              maxLength={80}
+              returnKeyType="done"
+              onSubmitEditing={handleSaveRoute}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
+                onPress={() => setSaveModalVisible(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.subtext }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveBtn,
+                  { backgroundColor: saveName.trim() ? colors.green : colors.surface },
+                ]}
+                onPress={handleSaveRoute}
+                disabled={!saveName.trim()}
+              >
+                <Text style={[
+                  styles.modalSaveText,
+                  { color: saveName.trim() ? '#fff' : colors.subtext },
+                ]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -458,6 +556,8 @@ const styles = StyleSheet.create({
   title:           { flex: 1, fontSize: 18, fontWeight: '700' },
   optimiseBtn:     { paddingLeft: 12 },
   optimiseText:    { fontSize: 15, fontWeight: '700' },
+  saveBtn:         { paddingLeft: 12 },
+  saveText:        { fontSize: 18 },
   searchRow:       { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   searchInput:     { flex: 1, height: 56, borderRadius: 12, paddingHorizontal: 16,
                      fontSize: 16, borderWidth: 1 },
@@ -498,4 +598,17 @@ const styles = StyleSheet.create({
   footer:          { paddingHorizontal: 16, paddingTop: 10 },
   ctaBtn:          { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   ctaBtnText:      { color: '#fff', fontSize: 17, fontWeight: '800' },
+  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center',
+                     alignItems: 'center', padding: 24 },
+  modalCard:       { width: '100%', maxWidth: 400, borderRadius: 16, padding: 24 },
+  modalTitle:      { fontSize: 20, fontWeight: '700', marginBottom: 16 },
+  modalInput:      { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, height: 48,
+                     fontSize: 15, marginBottom: 16 },
+  modalActions:    { flexDirection: 'row', gap: 12 },
+  modalCancelBtn:  { flex: 1, height: 48, borderRadius: 10, borderWidth: 1,
+                     justifyContent: 'center', alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontWeight: '600' },
+  modalSaveBtn:    { flex: 1, height: 48, borderRadius: 10,
+                     justifyContent: 'center', alignItems: 'center' },
+  modalSaveText:   { fontSize: 15, fontWeight: '700' },
 });

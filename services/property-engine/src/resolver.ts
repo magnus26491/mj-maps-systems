@@ -13,6 +13,7 @@
 import type { PropertyPin, AddressLookupRequest, AddressLookupResult, PinConfidence } from './types';
 import { getCachedPin, setCachedPin } from '../../cache/index';
 import type { StopPin } from '../../stop-precision';
+import { pool } from '../../db/index';
 
 const GEOAPIFY_BASE = 'https://api.geoapify.com/v1/geocode';
 const GEOAPIFY_KEY  = process.env.GEOAPIFY_API_KEY ?? '';
@@ -143,6 +144,32 @@ export async function resolveAddress(
   const start = Date.now();
 
   const normalised = req.rawAddress.toLowerCase().replace(/\s+/g, ' ').trim();
+
+  // 0. DB verified-pin lookup — community ground truth overrides everything
+  try {
+    const db = await pool.query<{ lat: number; lng: number }>(
+      'SELECT pin_corrected_lat AS lat, pin_corrected_lng AS lng FROM stops WHERE normalised_address = $1 AND pin_verified = TRUE LIMIT 1',
+      [normalised],
+    );
+    if (db.rows.length > 0) {
+      return {
+        primary: {
+          uprn:             null,
+          lat:              db.rows[0].lat,
+          lng:              db.rows[0].lng,
+          confidence:       'HIGH' as PinConfidence,
+          source:           'community_verified',
+          formattedAddress: req.rawAddress,
+          notes:            null,
+          photoUrls:        [],
+          resolvedAt:       Date.now(),
+        },
+        alternatives: [],
+        resolvedIn:   0,
+      };
+    }
+  } catch { /* non-fatal — fall through to cache/API */ }
+
   const cached = await getCachedPin(normalised);
   if (cached) return { primary: cached as unknown as PropertyPin, alternatives: [], resolvedIn: 0 };
 
