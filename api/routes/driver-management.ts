@@ -16,6 +16,7 @@ import { pool } from '../../services/db';
 export const driverManagementRouter = Router();
 
 // ── GET /api/dispatcher/drivers ──────────────────────────────────────────────
+// Requires migration 014 (finished_at column)
 driverManagementRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(`

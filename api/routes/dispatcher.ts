@@ -115,6 +115,24 @@ dispatcherRouter.get('/routes/:id', async (req, res) => {
     if (rows.length === 0) { res.status(404).json({ error: 'Route not found' }); return; }
     const row = rows[0];
     const raw = row.raw_result as { stops?: unknown[] } | null;
+
+    let currentLat = 0;
+    let currentLon = 0;
+    let lastPing: string | null = null;
+    let heading: number | null = null;
+    if (row.driver_id) {
+      try {
+        const locRaw = await redis.get(`driver:loc:${row.driver_id}`);
+        if (locRaw) {
+          const loc = JSON.parse(locRaw) as { lat: number; lng: number; heading?: number | null; recordedAt: string };
+          currentLat = loc.lat;
+          currentLon = loc.lng;
+          lastPing = loc.recordedAt;
+          heading = loc.heading ?? null;
+        }
+      } catch { /* Redis unavailable — fall back to 0,0 */ }
+    }
+
     res.json({
       route: {
         routeId: row.id,
@@ -129,9 +147,10 @@ dispatcherRouter.get('/routes/:id', async (req, res) => {
         totalDistanceKm: row.total_distance_km ?? 0,
         estimatedCompletion: row.estimated_completion,
         shiftStart: row.shift_start,
-        currentLat: 0,
-        currentLon: 0,
-        lastPing: new Date().toISOString(),
+        currentLat,
+        currentLon,
+        lastPing,
+        heading,
         stops: raw?.stops ?? [],
       }
     });
