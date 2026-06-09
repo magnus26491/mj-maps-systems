@@ -1,3 +1,11 @@
+export interface Stop {
+  id: string;
+  address: string;
+  status: 'pending' | 'delivered' | 'failed';
+  podUrl: string | null;
+  podCapturedAt: string | null;
+}
+
 export interface Driver {
   id: string;
   name: string;
@@ -23,7 +31,7 @@ export interface Route {
   currentLon: number;
   lastPing: string | null;
   heading: number | null;
-  stops: unknown[];
+  stops: Stop[];
 }
 
 export interface Alert {

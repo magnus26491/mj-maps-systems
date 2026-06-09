@@ -2,34 +2,30 @@
  * services/storage/s3-client.ts
  * S3-compatible client for POD photo upload (works with AWS S3 and Cloudflare R2).
  */
-import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 
-const BUCKET   = process.env.POD_S3_BUCKET   ?? '';
-const REGION   = process.env.POD_S3_REGION   ?? 'auto';
-const ENDPOINT = process.env.POD_S3_ENDPOINT;
-const CDN_BASE = process.env.POD_CDN_BASE_URL ?? '';
+const BUCKET    = process.env.R2_BUCKET ?? '';
+const ENDPOINT  = process.env.R2_ENDPOINT;
+const CDN_BASE  = process.env.R2_PUBLIC_URL ?? '';
+const ACCESS_KEY = process.env.R2_ACCESS_KEY_ID ?? '';
+const SECRET_KEY = process.env.R2_SECRET_ACCESS_KEY ?? '';
 
 
-export const s3Configured = Boolean(
-  process.env.POD_S3_BUCKET &&
-  process.env.POD_S3_ACCESS_KEY &&
-  process.env.POD_S3_SECRET_KEY,
-);
+export const s3Configured = Boolean(BUCKET && ACCESS_KEY && SECRET_KEY);
 
 
 if (!s3Configured) {
-  console.warn('[storage] POD_S3_BUCKET / POD_S3_ACCESS_KEY / POD_S3_SECRET_KEY not set — POD upload disabled');
+  console.warn('[storage] R2_BUCKET / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY not set — POD upload disabled');
 }
 
 
 const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
-  region: REGION,
+  region: 'auto',
   credentials: {
-    accessKeyId:     process.env.POD_S3_ACCESS_KEY ?? '',
-    secretAccessKey: process.env.POD_S3_SECRET_KEY ?? '',
+    accessKeyId:     ACCESS_KEY,
+    secretAccessKey: SECRET_KEY,
   },
 };
 
@@ -95,4 +91,35 @@ export async function verifyObjectExists(objectKey: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+
+/**
+ * Upload a POD photo directly to R2/S3.
+ * Used by api/routes/pod.ts when the driver uploads a photo.
+ *
+ * @param driverId  - The driver's UUID
+ * @param stopId    - The stop's UUID
+ * @param buffer    - Raw file buffer (JPEG or PNG)
+ * @param mimeType  - 'image/jpeg' or 'image/png'
+ * @returns         - The public CDN URL of the uploaded object
+ */
+export async function uploadPod(
+  driverId: string,
+  stopId: string,
+  buffer: Buffer,
+  mimeType: string,
+): Promise<string> {
+  const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+  const key = `pod/${driverId}/${stopId}-${Date.now()}.${ext}`;
+
+  await s3.send(new PutObjectCommand({
+    Bucket:       BUCKET,
+    Key:          key,
+    Body:         buffer,
+    ContentType:  mimeType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+
+  return `${CDN_BASE}/${key}`;
 }

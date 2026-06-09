@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Route } from '../types';
+import PodModal from './PodModal';
 
 interface Props {
   routes: Route[];
@@ -7,63 +9,100 @@ interface Props {
 }
 
 export default function RouteList({ routes, isLoading, onAssign }: Props) {
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
+  const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
+
   if (isLoading) return <div style={{ color: '#64748b' }}>Loading routes...</div>;
   if (routes.length === 0) return <div style={{ color: '#64748b' }}>No active routes.</div>;
 
+  function toggleRoute(routeId: string) {
+    setExpandedRoutes(prev => {
+      const next = new Set(prev);
+      if (next.has(routeId)) next.delete(routeId); else next.add(routeId);
+      return next;
+    });
+  }
+
   return (
-    <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, overflow: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
-        <thead>
-          <tr style={{ background: '#1e293b', color: '#94a3b8' }}>
-            <th style={thStyle}>Driver</th>
-            <th style={thStyle}>Vehicle</th>
-            <th style={thStyle}>Progress</th>
-            <th style={thStyle}>Est. Completion</th>
-            <th style={thStyle}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {routes.map(route => {
-            const pct = route.totalStops > 0
-              ? Math.round((route.completedStops / route.totalStops) * 100)
-              : 0;
-            return (
-              <tr key={route.routeId} style={{ borderBottom: '1px solid #1e293b' }}>
-                <td style={tdStyle}>{route.driverName ?? 'Unassigned'}</td>
-                <td style={tdStyle}>{route.vehicleLabel}</td>
-                <td style={tdStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ background: '#1e293b', borderRadius: 4, height: 8, flex: 1, maxWidth: 100 }}>
-                      <div style={{ background: '#3b82f6', borderRadius: 4, height: 8, width: `${pct}%` }} />
-                    </div>
-                    <span style={{ color: '#64748b', minWidth: 40 }}>{pct}%</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {routes.map(route => {
+        const pct = route.totalStops > 0
+          ? Math.round((route.completedStops / route.totalStops) * 100)
+          : 0;
+        const expanded = expandedRoutes.has(route.routeId);
+
+        return (
+          <div key={route.routeId} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, overflow: 'hidden' }}>
+            {/* Route row */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0.75rem 1rem', gap: '1rem' }}>
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem', cursor: 'pointer', minWidth: 20 }}
+                onClick={() => toggleRoute(route.routeId)}>
+                {expanded ? '▼' : '▶'}
+              </span>
+              <div style={{ flex: 1 }}>
+                <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{route.driverName ?? 'Unassigned'}</span>
+                <span style={{ color: '#64748b', marginLeft: '0.5rem', fontSize: '0.875rem' }}>{route.vehicleLabel}</span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ background: '#1e293b', borderRadius: 4, height: 8, flex: 1, maxWidth: 80 }}>
+                    <div style={{ background: '#3b82f6', borderRadius: 4, height: 8, width: `${pct}%` }} />
                   </div>
-                  <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{route.completedStops}/{route.totalStops} stops</span>
-                </td>
-                <td style={tdStyle}>
-                  {route.estimatedCompletion
-                    ? new Date(route.estimatedCompletion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : '—'}
-                </td>
-                <td style={tdStyle}>
-                  <button
-                    onClick={() => onAssign(route.routeId)}
-                    style={{
-                      background: '#1e3a5f', border: '1px solid #3b82f6', borderRadius: 4,
-                      color: '#3b82f6', fontSize: '0.75rem', padding: '0.25rem 0.5rem', cursor: 'pointer',
-                    }}
-                  >
-                    Assign →
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{pct}%</span>
+                </div>
+                <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{route.completedStops}/{route.totalStops} stops</span>
+              </div>
+              <div style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                {route.estimatedCompletion
+                  ? new Date(route.estimatedCompletion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : '—'}
+              </div>
+              <button
+                onClick={() => onAssign(route.routeId)}
+                style={{
+                  background: '#1e3a5f', border: '1px solid #3b82f6', borderRadius: 4,
+                  color: '#3b82f6', fontSize: '0.75rem', padding: '0.25rem 0.5rem', cursor: 'pointer',
+                }}
+              >
+                Assign →
+              </button>
+            </div>
+
+            {/* Expanded stops section */}
+            {expanded && route.stops.length > 0 && (
+              <div style={{ borderTop: '1px solid #1e293b', background: '#0c1322', padding: '0.5rem 1rem 0.75rem' }}>
+                <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '0.5rem' }}>Stops</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {route.stops.map(stop => (
+                    <div key={stop.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{
+                        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                        background: stop.status === 'delivered' ? '#22c55e' : stop.status === 'failed' ? '#ef4444' : '#f59e0b',
+                      }} />
+                      <span style={{ flex: 1, color: '#94a3b8', fontSize: '0.875rem' }}>{stop.address}</span>
+                      {stop.podUrl && (
+                        <button
+                          onClick={() => setSelectedStopId(stop.id)}
+                          style={{
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1,
+                          }}
+                          title="View POD"
+                        >
+                          📷
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <PodModal stopId={selectedStopId} onClose={() => setSelectedStopId(null)} />
     </div>
   );
 }
 
-const thStyle: React.CSSProperties = { padding: '0.5rem', textAlign: 'left', fontWeight: 600 };
-const tdStyle: React.CSSProperties = { padding: '0.5rem', verticalAlign: 'middle' };

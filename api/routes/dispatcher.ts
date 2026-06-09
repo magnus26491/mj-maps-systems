@@ -7,12 +7,14 @@
  * GET  /api/dispatcher/alerts          — recent alerts (polling fallback)
  * GET  /api/dispatcher/alerts/stream   — SSE stream for live alerts
  * POST /api/dispatcher/alerts/:id/dismiss
+ * GET  /api/dispatcher/stops/:stopId/pod — POD photo for a stop (enterprise-gated)
  */
 
 import { Router, Request, Response } from 'express';
 import { pool } from '../../services/db';
 import { redis, createSubscriber } from '../../services/cache';
 import { verifyAccessToken } from '../../services/auth';
+import { requireEnterprise } from '../middleware/requireEnterprise';
 
 export const dispatcherRouter = Router();
 
@@ -294,4 +296,40 @@ dispatcherRouter.post('/alerts/:id/dismiss', async (req, res) => {
   // Mark stop as acknowledged — just note in Redis to avoid re-surfacing
   await redis.setex(`dismissed:${req.params.id}`, 60 * 60 * 4, '1');
   res.json({ success: true });
+});
+
+// ── GET /api/dispatcher/stops/:stopId/pod ───────────────────────────────────
+dispatcherRouter.get('/stops/:stopId/pod', requireEnterprise, async (req: Request, res: Response) => {
+  const { stopId } = req.params;
+
+  try {
+    const { rows } = await pool.query<{
+      pod_url: string | null;
+      pod_type: string | null;
+      pod_captured_at: Date | null;
+    }>(
+      `SELECT pod_url, pod_type, pod_captured_at FROM stops WHERE id = $1 LIMIT 1`,
+      [stopId],
+    );
+
+    if (!rows.length) {
+      res.status(404).json({ success: false, error: 'Stop not found.' });
+      return;
+    }
+
+    const stop = rows[0];
+    if (!stop.pod_url) {
+      res.status(404).json({ success: false, error: 'No proof of delivery captured for this stop.' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      podUrl: stop.pod_url,
+      podType: stop.pod_type ?? 'photo',
+      podCapturedAt: stop.pod_captured_at?.toISOString() ?? null,
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
 });

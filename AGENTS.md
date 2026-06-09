@@ -396,6 +396,83 @@ BEFORE the 404 handler.
 - Popup shows driverName, vehicleLabel, completed/total stops, lastSeen, heading
 
 **`apps/dispatcher-dashboard/src/types.ts`:** `Route.lastPing` changed to `string | null`.
+## Phase 15 — Proof of Delivery (POD) Capture (committed XXXXXX)
+
+### Backend
+
+**`migrations/009_pod.sql` (new):** Adds `pod_url` (TEXT), `pod_type` (TEXT CHECK IN
+('photo','signature')), `pod_captured_at` (TIMESTAMPTZ) columns to the `stops` table.
+No new table — POD is stored directly on the stop row.
+
+**`services/storage/s3-client.ts`:** Updated env var names from `POD_S3_*` to `R2_*`
+(`R2_ENDPOINT`, `R2_BUCKET`, `R2_PUBLIC_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`).
+Added `uploadPod(driverId, stopId, buffer, mimeType)` function that uploads directly to
+R2/S3 and returns the public CDN URL (`{CDN_BASE}/pod/{driverId}/{stopId}-{timestamp}.{ext}`).
+Cache-Control header set to `public, max-age=31536000, immutable` for CDN caching.
+File extension derived from `mimeType`: `image/png` → `png`, anything else → `jpg`.
+
+**`services/storage/index.ts` (new):** Re-exports `uploadPod` and `s3Configured` from
+`s3-client.ts` as the public API surface for `api/routes/pod.ts`.
+
+**`api/routes/pod.ts` (new):** `podRouter` with one endpoint:
+- `POST /api/v1/stops/:stopId/pod` — multipart/form-data upload, field name `photo`.
+  Uses `multer.memoryStorage()` (never writes to disk). 5 MB file size limit enforced
+  at the multer level. Only `image/jpeg` and `image/png` accepted — 400 for anything else.
+  Validates stop belongs to the authenticated driver's active route (404 if not found,
+  403 if driver_id mismatch). Calls `uploadPod()` after validation. Updates `stops` table:
+  `pod_url`, `pod_type = 'photo'`, `pod_captured_at = NOW()`. Returns 201 `{ success: true,
+  podUrl }`. Global error handler catches multer file-too-large and invalid MIME type
+  errors, returning 400 with the error message.
+
+**`api/routes/dispatcher.ts`:** Added `GET /api/dispatcher/stops/:stopId/pod`:
+- `requireEnterprise` middleware gates the endpoint (403 `ENTERPRISE_REQUIRED` if plan is
+  not enterprise)
+- Queries `pod_url`, `pod_type`, `pod_captured_at` from `stops` table
+- Returns 404 if stop not found or `pod_url` is null
+- Returns `{ success: true, podUrl, podType, podCapturedAt }` on success
+
+**`api/index.ts`:** Imported `podRouter` from `./routes/pod`. Mounted at
+`/api/v1/stops` alongside `pinConfirmRouter` (same prefix, different routes).
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/types.ts`:** Added `Stop` interface with `id`, `address`,
+`status: 'pending' | 'delivered' | 'failed'`, `podUrl: string | null`, `podCapturedAt: string | null`.
+Updated `Route.stops` from `unknown[]` to `Stop[]`.
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `apiFetch()` helper for consistent
+error handling (parses JSON, throws on non-2xx, extracts `code: 'ENTERPRISE_REQUIRED'` from
+403 responses). Added `getStopPod(stopId)` which calls `/api/dispatcher/stops/${stopId}/pod`
+and returns `{ podUrl, podType, podCapturedAt }`.
+
+**`apps/dispatcher-dashboard/src/components/PodModal.tsx` (new):**
+- Props: `stopId: string | null`, `onClose: () => void`
+- When `stopId` is not null, fetches `getStopPod(stopId)` on mount via `useEffect`
+- Shows loading spinner while fetching
+- On success: renders POD image full-width (`maxWidth: 100%`, `maxHeight: 70vh`) with
+  capture timestamp below ("Captured: {date}")
+- On 403/ENTERPRISE_REQUIRED: shows "Enterprise plan required" in red error box
+- On 404: shows "No proof of delivery captured for this stop." in red error box
+- Close button (`×`) in top-right corner, click on backdrop also calls `onClose`
+- Renders nothing when `stopId` is null (conditional return)
+
+**`apps/dispatcher-dashboard/src/components/RouteList.tsx`:** Complete rewrite:
+- Added expandable stop rows (▶/▼ toggle) with `useState` for `expandedRoutes` Set
+- Expanded section shows stop list with status dot (green=delivered, red=failed,
+  amber=pending) and 📷 button for stops with `podUrl`
+- Clicking 📷 opens `PodModal` with that stop's ID (`selectedStopId` state)
+- `PodModal` rendered at bottom of component with `onClose={() => setSelectedStopId(null)}`
+- Imports `useState` from React and `PodModal` from `./PodModal`
+
+### Configuration
+
+**`.env.example`:** Added R2 storage section with `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, `R2_BUCKET=mj-maps-pod`, `R2_PUBLIC_URL=https://pod.mj-maps.com`.
+Comments explain that R2 is S3-compatible and that API tokens are created in the
+Cloudflare R2 dashboard.
+
+**`package.json`:** Added `multer@^1.4.5-lts.1` to dependencies, `@types/multer@^1.4.11`
+to devDependencies. `@aws-sdk/client-s3` was already present.
 
 
 
