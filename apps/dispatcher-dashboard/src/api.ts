@@ -1,4 +1,4 @@
-import type { Alert, Driver, Route, Stats } from './types';
+import type { Alert, Driver, Route, Stats, RouteAnalyticsSummary, StopAnalyticsRow, AnalyticsSummary } from './types';
 
 const TOKEN_KEY = 'mj_dispatcher_token';
 
@@ -99,4 +99,35 @@ export function getLocationStreamUrl(): string {
 export async function getStopPod(stopId: string): Promise<{ podUrl: string; podType: string; podCapturedAt: string }> {
   const data = await apiFetch(`/api/dispatcher/stops/${stopId}/pod`) as { success: boolean; podUrl: string; podType: string; podCapturedAt: string };
   return { podUrl: data.podUrl, podType: data.podType, podCapturedAt: data.podCapturedAt };
+}
+
+// ── Analytics helpers ───────────────────────────────────────────────────────
+
+export async function getAnalyticsRoutes(params?: {
+  from?: string;
+  to?: string;
+  driverId?: string;
+  limit?: number;
+}): Promise<{ routes: RouteAnalyticsSummary[] }> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  if (params?.driverId) qs.set('driverId', params.driverId);
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const path = `/api/dispatcher/analytics/routes${qs.size ? `?${qs}` : ''}`;
+  return apiFetch(path) as Promise<{ routes: RouteAnalyticsSummary[] }>;
+}
+
+export async function getAnalyticsRoute(routeId: string): Promise<{
+  route: RouteAnalyticsSummary;
+  stops: StopAnalyticsRow[];
+}> {
+  return apiFetch(`/api/dispatcher/analytics/routes/${routeId}`) as Promise<{
+    route: RouteAnalyticsSummary;
+    stops: StopAnalyticsRow[];
+  }>;
+}
+
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  return apiFetch('/api/dispatcher/analytics/summary') as Promise<AnalyticsSummary>;
 }

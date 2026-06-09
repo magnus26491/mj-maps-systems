@@ -5,6 +5,7 @@ import KpiBar from '../components/KpiBar';
 import FleetMap from '../components/FleetMap';
 import RouteList from '../components/RouteList';
 import AlertPanel from '../components/AlertPanel';
+import AnalyticsPanel from '../components/AnalyticsPanel';
 import AssignModal from '../components/AssignModal';
 import { useStats } from '../hooks/useStats';
 import { useRoutes } from '../hooks/useRoutes';
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const { stats, isLoading: statsLoading } = useStats();
   const { routes, isLoading: routesLoading } = useRoutes();
   const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<'alerts' | 'analytics'>('alerts');
 
   useEffect(() => {
     if (!localStorage.getItem('mj_dispatcher_token')) {
@@ -63,8 +65,35 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        {/* Right: alert panel */}
-        <AlertPanel />
+        {/* Right: tabbed panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {/* Tab bar */}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => setRightTab('alerts')}
+              style={{
+                ...tabStyle,
+                background: rightTab === 'alerts' ? '#1e3a5f' : 'transparent',
+                color: rightTab === 'alerts' ? '#3b82f6' : '#64748b',
+                border: `1px solid ${rightTab === 'alerts' ? '#3b82f6' : '#1e293b'}`,
+              }}
+            >
+              Alerts
+            </button>
+            <button
+              onClick={() => setRightTab('analytics')}
+              style={{
+                ...tabStyle,
+                background: rightTab === 'analytics' ? '#1e3a5f' : 'transparent',
+                color: rightTab === 'analytics' ? '#3b82f6' : '#64748b',
+                border: `1px solid ${rightTab === 'analytics' ? '#3b82f6' : '#1e293b'}`,
+              }}
+            >
+              Analytics
+            </button>
+          </div>
+          {rightTab === 'alerts' ? <AlertPanel /> : <AnalyticsPanel />}
+        </div>
       </div>
 
       {/* Assign modal */}
@@ -74,3 +103,11 @@ export default function Dashboard() {
     </div>
   );
 }
+
+const tabStyle: React.CSSProperties = {
+  borderRadius: 6,
+  padding: '0.25rem 0.75rem',
+  fontSize: '0.875rem',
+  cursor: 'pointer',
+  fontWeight: 600,
+};

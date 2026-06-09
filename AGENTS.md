@@ -476,6 +476,72 @@ to devDependencies. `@aws-sdk/client-s3` was already present.
 
 
 
+## Phase 16 — Route Analytics & End-of-Shift Report (committed XXXXXX)
+
+### Backend
+
+**`migrations/010_route_analytics.sql` (new):** Adds `finished_at` (TIMESTAMPTZ),
+`actual_distance_km` (NUMERIC(8,2)), and `on_time` (BOOLEAN) columns to the `routes`
+table. Also creates `idx_routes_finished_at` — a partial index on `finished_at DESC`
+restricted to non-null rows, optimized for analytics date-range queries.
+
+**`api/routes/analytics.ts` (new):** `analyticsRouter` with three endpoints. All
+require `authenticateDriver` + `requireRole('dispatcher')` + `requireEnterprise`
+applied at the mount point (do NOT re-apply in this file):
+- `GET /api/dispatcher/analytics/routes` — paginated route summaries with date filter
+  (`from`/`to` ISO strings, defaults: 7 days ago to now), optional `driverId` filter,
+  `limit` param (default 20, max 100). Returns `podCount`, `redAlerts`, `amberAlerts`
+  aggregated via `COUNT ... FILTER (WHERE ...)` clauses.
+- `GET /api/dispatcher/analytics/routes/:routeId` — stop-level breakdown for a single
+  route. Returns 404 if route not found. Includes `hasPod` (boolean), `turnAlertLevel`,
+  `createdAt`, `podCapturedAt` for each stop.
+- `GET /api/dispatcher/analytics/summary` — fleet-wide KPIs for the current UTC day
+  (midnight to now). `podCaptureRate` and `onTimeRate` use `NULLIF(..., 0)` in SQL to
+  prevent division-by-zero.
+
+**`api/index.ts`:** Imported `analyticsRouter` and `requireEnterprise`. Registered
+`app.use('/api/dispatcher', authenticateDriver, requireRole('dispatcher'), requireEnterprise, analyticsRouter)`
+— sits alongside existing `dispatcherRouter` and `dispatcherAssignRouter` mounts.
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/types.ts`:** Added `RouteAnalyticsSummary`,
+`StopAnalyticsRow`, and `AnalyticsSummary` interfaces. All fields match the SQL
+column names with camelCase aliases.
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `apiFetch()` helper (already
+present). Added `getAnalyticsRoutes(params?)`, `getAnalyticsRoute(routeId)`,
+`getAnalyticsSummary()` — all use `apiFetch()` and build query strings via
+`URLSearchParams`.
+
+**`apps/dispatcher-dashboard/src/hooks/useAnalytics.ts` (new):** Fetches both
+`getAnalyticsSummary()` and `getAnalyticsRoutes({ limit: 20 })` in parallel via
+`Promise.all`. Handles cancellation via `cancelled` flag in cleanup. Returns
+`{ summary, routes, isLoading, error }`.
+
+**`apps/dispatcher-dashboard/src/components/AnalyticsPanel.tsx` (new):**
+- 2×2 KPI card grid: Routes completed, Delivery success %, POD capture rate, On-time rate
+- Additional stats row: avg completion time, red/amber alert counts
+- Route history table (last 20 routes) with columns: Driver, Stops, Failed, Alerts, POD,
+  Status, Shift. Row click opens `RouteDetailModal`.
+- Enterprise gate: checks for `ENTERPRISE_REQUIRED` error code → amber upgrade prompt
+- Loading state: "Loading analytics..." in muted text
+
+**`apps/dispatcher-dashboard/src/components/RouteDetailModal.tsx` (new):**
+- Fetches `getAnalyticsRoute(routeId)` on mount when `routeId` is not null
+- Title: "Route Detail — {driverName}"
+- Summary grid: Vehicle, Distance, Shift time range, On-time badge (✓/✗/—)
+- Stop list table with: Address, Status (colored dot), Alert (🔴/🟡/—), POD (📷/—), Time
+- Copied overlay/modal/closeBtn styles exactly from `PodModal.tsx` — no shared style module
+- Max width: 800px
+
+**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** Added `rightTab` state
+(`'alerts' | 'analytics'`, default `'alerts'`). Right column now renders a tab bar
+(Alerts / Analytics buttons) above either `<AlertPanel />` or `<AnalyticsPanel />`.
+Added `tabStyle` constant. Imports `AnalyticsPanel` from `../components/AnalyticsPanel`.
+
+
+
 
 ## Phase 14 — Driver Location SSE Stream (committed XXXXXX)
 
