@@ -66,19 +66,26 @@ export default function DriverDetailModal({ driverId, onClose }: Props) {
       return;
     }
 
+    let active = true;
     setLoading(true);
     setError(null);
     setDriverData(null);
 
     getDriver(driverId)
       .then(data => {
-        setDriverData(data);
-        setLoading(false);
+        if (active) {
+          setDriverData(data);
+          setLoading(false);
+        }
       })
       .catch(err => {
-        setError(err instanceof Error ? err.message : 'Failed to load driver details.');
-        setLoading(false);
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Failed to load driver details.');
+          setLoading(false);
+        }
       });
+
+    return () => { active = false; };
   }, [driverId]);
 
   if (!driverId) return null;

@@ -21,6 +21,7 @@ import {
 } from '../../services/auth';
 import {
   getDriverByEmail,
+  getDriverById,
   createSession,
   getSessionByTokenHash,
   deleteSession,
@@ -121,18 +122,21 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     return;
   }
 
-  // Load driver to get current role/tier
-  const driver = await getDriverByEmail(''); // stub — DB lookup by id needed
-  // TODO: update auth-helpers to have getDriverById and use it here
+  // Load driver to get current role/plan
+  const driver = await getDriverById(session.driver_id).catch(() => null);
+  if (!driver || !driver.active) {
+    res.status(401).json({ success: false, error: 'Driver account not found or inactive.', code: 'ACCOUNT_INACTIVE' });
+    return;
+  }
 
   // Rotate: delete old session, issue new token pair
   await deleteSession(tokenHash);
 
   const tokens = signTokenPair({
     userId: session.driver_id,
-    role:   'driver',  // TODO: pull from users table when migrated
-    tier:   'pro',
-    planId: 'navigation', // TODO: pull from users table when migrated
+    role:   driver.role as 'driver' | 'dispatcher' | 'admin',
+    tier:   'pro',    // TODO: pull real tier from billing when migrated
+    planId: driver.plan ?? 'free',
   });
 
   await createSession({

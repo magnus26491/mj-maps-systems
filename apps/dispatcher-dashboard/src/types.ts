@@ -103,6 +103,8 @@ export interface DriverRow {
   id: string;
   name: string;
   email: string;
+  planId: string;
+  vehicleId: string | null;
   role: 'driver' | 'dispatcher' | 'admin';
   isActive: boolean;
   lastSeenAt: string | null;

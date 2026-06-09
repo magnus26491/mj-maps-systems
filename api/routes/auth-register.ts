@@ -71,7 +71,8 @@ authRegisterRouter.post('/', async (req: Request, res: Response) => {
         trialEndsAt: row.trial_ends_at.toISOString(),
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[auth-register] insert failed:', err);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
