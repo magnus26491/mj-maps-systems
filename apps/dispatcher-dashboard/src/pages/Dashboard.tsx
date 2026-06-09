@@ -62,6 +62,7 @@ export default function Dashboard() {
               routes={routes}
               isLoading={routesLoading}
               onAssign={routeId => setAssignModalRouteId(routeId)}
+              onComplete={_routeId => { /* routes will refresh via SSE; no local state needed */ }}
             />
           </div>
         </div>

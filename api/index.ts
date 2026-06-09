@@ -26,6 +26,7 @@ import { podRouter } from './routes/pod';
 import { vehicleSpecsRouter } from './routes/vehicle-specs';
 import { locationRouter } from './routes/location';
 import { analyticsRouter } from './routes/analytics';
+import { stopCompleteRouter } from './routes/stop-complete';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -105,7 +106,7 @@ app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), req
 // Optimise and PAF routes (v1)
 app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);
 app.use('/api/v1/paf',        authenticateDriver, pafRouter);
-app.use('/api/v1/stops',      authenticateDriver, pinConfirmRouter, podRouter);
+app.use('/api/v1/stops',      authenticateDriver, pinConfirmRouter, podRouter, stopCompleteRouter);
 app.use('/api/v1/vehicle-specs', authenticateDriver, vehicleSpecsRouter);
 // Fleet GPS ping endpoint (high throughput — separate rate limiter)
 app.use('/api/v1/location',   locationLimiter, authenticateDriver, locationRouter);

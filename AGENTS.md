@@ -542,6 +542,67 @@ Added `tabStyle` constant. Imports `AnalyticsPanel` from `../components/Analytic
 
 
 
+## Phase 17 — Route Completion Engine (committed XXXXXX)
+
+### Backend
+
+**`services/route-completion/index.ts` (new):** Pure service function — no Express, no
+HTTP. Exports `maybeCompleteRoute(routeId): Promise<boolean>`:
+1. Loads route; returns `false` if not found or already `completed` (idempotency guard)
+2. Queries live stop counts (delivered/failed/pending) — returns `false` if any `pending > 0`
+3. Computes `finishedAt = NOW()`, `onTime = finishedAt <= estimated_completion` (null if
+   no estimate), `actualDistanceKm` via haversine accumulation from `driver_locations`
+   (falls back to `route.total_distance_km` if fewer than 2 GPS points)
+4. `UPDATE routes SET status='completed', finished_at, on_time, actual_distance_km,
+   completed_stops, failed_stops` — returns `true`
+5. Full `try/catch` — never throws; logs errors to `console.error('[route-completion]', err)`
+
+Haversine implementation is inline: `R = 6371`, all angles converted to radians,
+distance rounded to 2 decimal places.
+
+**`api/routes/stop-complete.ts` (new):** `stopCompleteRouter` for
+`POST /api/v1/stops/:stopId/complete`:
+- Validates `body.status` is `'delivered'` or `'failed'` → 400 otherwise
+- Loads stop → 404 if not found; 403 if `driver_id !== req.driver.id`; 400 if
+  `status !== 'pending'` (already actioned guard)
+- Updates stop status inline
+- Re-queries and stamps `completed_stops` and `failed_stops` on the parent route
+- Calls `maybeCompleteRoute(routeId)` — if `true`, calls `broadcastAlert({ type:
+  'route_completed', routeId, driverId, driverName: null, ts })`
+- Returns `200 { success: true, routeCompleted: boolean }`
+- `authenticateDriver` applied at the mount point — not re-applied here
+- Imports `broadcastAlert` from `'../routes/dispatcher'`
+
+**`api/routes/dispatcher.ts`:** Added `POST /api/dispatcher/routes/:routeId/complete`
+endpoint (inserted after the GET /alerts polling route, before POST /alerts/:id/dismiss):
+- Calls `maybeCompleteRoute(routeId)` directly
+- Returns `409` if `false` ("Route already completed or not found.")
+- Returns `200 { success: true }` if `true`, broadcasting `{ type: 'route_completed',
+  routeId, manual: true, ts }` via `broadcastAlert()`
+- Imports `maybeCompleteRoute` from `'../../services/route-completion'`
+
+**`api/index.ts`:** Imported `stopCompleteRouter` from `'./routes/stop-complete'`.
+Registered at `/api/v1/stops` alongside `pinConfirmRouter` and `podRouter`:
+`app.use('/api/v1/stops', authenticateDriver, pinConfirmRouter, podRouter, stopCompleteRouter)`.
+All three routers handle different sub-paths — no conflict.
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `forceCompleteRoute(routeId)` — calls
+`POST /api/dispatcher/routes/${routeId}/complete` via `apiFetch()`.
+
+**`apps/dispatcher-dashboard/src/components/RouteList.tsx`:** Added `onComplete?: (routeId:
+string) => void` prop. Added "✓ Complete" button (only when `route.status === 'active'`):
+green outline style, `marginLeft: '0.5rem'`. `handleComplete()` calls
+`forceCompleteRoute(routeId).then(() => onComplete?.(routeId)).catch(console.error)` —
+calls `onComplete` only on API success, logs on error, never throws. Imports
+`forceCompleteRoute` from `'../api'`.
+
+**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** Passes `onComplete` prop to
+`<RouteList>`: `onComplete={_routeId => { /* routes refresh via SSE */ }}`. No other
+changes.
+
+
 
 ## Phase 14 — Driver Location SSE Stream (committed XXXXXX)
 

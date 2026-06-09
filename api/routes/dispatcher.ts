@@ -15,6 +15,7 @@ import { pool } from '../../services/db';
 import { redis, createSubscriber } from '../../services/cache';
 import { verifyAccessToken } from '../../services/auth';
 import { requireEnterprise } from '../middleware/requireEnterprise';
+import { maybeCompleteRoute } from '../../services/route-completion';
 
 export const dispatcherRouter = Router();
 
@@ -289,6 +290,18 @@ dispatcherRouter.get('/alerts', async (req, res) => {
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+// ── POST /api/dispatcher/routes/:routeId/complete ───────────────────────────
+dispatcherRouter.post('/routes/:routeId/complete', async (req, res) => {
+  const { routeId } = req.params;
+  const completed = await maybeCompleteRoute(routeId);
+  if (!completed) {
+    res.status(409).json({ success: false, error: 'Route already completed or not found.' });
+    return;
+  }
+  broadcastAlert({ type: 'route_completed', routeId, manual: true, ts: new Date().toISOString() });
+  res.json({ success: true });
 });
 
 // ── POST /api/dispatcher/alerts/:id/dismiss ──────────────────────────────────

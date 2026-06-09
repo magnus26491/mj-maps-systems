@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import type { Route } from '../types';
 import PodModal from './PodModal';
+import { forceCompleteRoute } from '../api';
 
 interface Props {
   routes: Route[];
   isLoading: boolean;
   onAssign: (routeId: string) => void;
+  onComplete?: (routeId: string) => void;
 }
 
-export default function RouteList({ routes, isLoading, onAssign }: Props) {
+export default function RouteList({ routes, isLoading, onAssign, onComplete }: Props) {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
 
@@ -21,6 +23,12 @@ export default function RouteList({ routes, isLoading, onAssign }: Props) {
       if (next.has(routeId)) next.delete(routeId); else next.add(routeId);
       return next;
     });
+  }
+
+  function handleComplete(routeId: string) {
+    forceCompleteRoute(routeId)
+      .then(() => { onComplete?.(routeId); })
+      .catch(err => { console.error('[RouteList] forceCompleteRoute failed:', err); });
   }
 
   return (
@@ -57,6 +65,18 @@ export default function RouteList({ routes, isLoading, onAssign }: Props) {
                   ? new Date(route.estimatedCompletion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   : '—'}
               </div>
+              {route.status === 'active' && (
+                <button
+                  onClick={() => handleComplete(route.routeId)}
+                  style={{
+                    background: 'transparent', border: '1px solid #22c55e', color: '#22c55e',
+                    borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
+                    marginLeft: '0.5rem',
+                  }}
+                >
+                  ✓ Complete
+                </button>
+              )}
               <button
                 onClick={() => onAssign(route.routeId)}
                 style={{
