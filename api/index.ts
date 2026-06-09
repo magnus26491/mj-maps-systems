@@ -27,6 +27,7 @@ import { vehicleSpecsRouter } from './routes/vehicle-specs';
 import { locationRouter } from './routes/location';
 import { analyticsRouter } from './routes/analytics';
 import { stopCompleteRouter } from './routes/stop-complete';
+import { driverManagementRouter } from './routes/driver-management';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -102,6 +103,9 @@ app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dis
 
 // Dispatcher analytics (enterprise-gated)
 app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), requireEnterprise, analyticsRouter);
+
+// Driver management (dispatcher role required)
+app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), driverManagementRouter);
 
 // Optimise and PAF routes (v1)
 app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);

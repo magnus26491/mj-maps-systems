@@ -604,6 +604,89 @@ changes.
 
 
 
+## Phase 18 — Driver Management (committed XXXXXX)
+
+### Backend
+
+**`migrations/011_driver_status.sql` (new):** Adds `is_active` (BOOLEAN NOT NULL DEFAULT
+FALSE) and `last_seen_at` (TIMESTAMPTZ) columns to the `drivers` table. Also creates
+`idx_drivers_is_active` — a partial index on `is_active` restricted to TRUE rows,
+optimized for "find active drivers" queries.
+
+**`api/routes/driver-management.ts` (new):** `driverManagementRouter` with four endpoints.
+All require `authenticateDriver` + `requireRole('dispatcher')` applied at the mount
+point — do NOT re-apply middleware inside this file:
+- `GET /` — returns all drivers with live route context (activeRoutes, completedToday).
+  Counts use `COUNT(...)::integer` casts to handle Postgres bigint returns.
+- `GET /:driverId` — single driver + last 10 routes (ordered by shift_start DESC).
+  Returns 404 if driver not found.
+- `PATCH /:driverId` — dynamic SET clause built from allowlisted fields only
+  (`name`, `email`, `role`). Validates role against `['driver', 'dispatcher', 'admin']`
+  — 400 on invalid. Returns 400 "No valid fields to update." if none provided.
+  Returns 404 if driver not found.
+- `DELETE /:driverId` — checks for active routes first (409 if any), then deletes.
+  Returns 404 if driver not found.
+
+All four endpoints: full `try/catch`, `console.error('[driver-management]', err)`,
+500 `{ success: false, error: 'Internal server error.' }`.
+
+**`api/index.ts`:** Imported `driverManagementRouter` from `'./routes/driver-management'`.
+Registered: `app.use('/api/dispatcher', authenticateDriver, requireRole('dispatcher'),
+driverManagementRouter)` — placed immediately after the analytics mount. Mounts on the
+same path prefix as `dispatcherRouter` and `dispatcherAssignRouter` — no route conflict
+since each router handles its own sub-paths.
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/types.ts`:** Added `DriverRow`, `DriverDetail`,
+`DriverRouteRow` interfaces. `DriverRow` includes `activeRoutes` and `completedToday`
+(counts from today's completed routes). `DriverRouteRow` mirrors analytics stop-row
+style for route history.
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `getDispatcherDrivers()`,
+`getDriver(driverId)`, `updateDriver(driverId, fields)`, `deleteDriver(driverId)`.
+`getDispatcherDrivers` and `getDriver` use `apiFetch()`. `updateDriver` and `deleteDriver`
+use raw `fetch` with error body parsing (same pattern as `forceCompleteRoute`).
+Renamed the existing enterprise-gated `getDrivers()` function unchanged (used by
+`AssignModal`).
+
+**`apps/dispatcher-dashboard/src/hooks/useDrivers.ts`:** Replaced SWR implementation
+with manual `useState` + `useEffect` pattern matching `useStats` / `useRoutes`. Uses
+`refreshKey` counter state — `refresh()` increments it to trigger re-fetch. Cancels
+in-flight requests via `cancelled` flag. Returns `{ drivers, isLoading, error, refresh }`.
+
+**`apps/dispatcher-dashboard/src/components/DriversPanel.tsx` (new):**
+- State: `editingId`, `editFields` (name/email/role), `savingId`, `deletingId`,
+  `selectedDriverId`
+- Table with 6 columns: Name/Email, Role, Status, Routes Today, Last Seen, Actions
+- Name cell: clickable driver name opens `DriverDetailModal`; email in muted text below
+- Role badge: green pill for `driver`, blue for `dispatcher`/`admin`
+- Status: green dot if `isActive`, grey otherwise
+- Edit mode: replaces Name/Email and Role cells with inputs (name input, email input,
+  role `<select>`)
+- Save/Cancel buttons (disabled + opacity while saving); Delete button (red, disabled
+  while deleting)
+- `handleSave()` and `handleDelete()` both call `refresh()` on success
+- `DriversPanel` does NOT fetch directly — uses `useDrivers()` hook exclusively
+
+**`apps/dispatcher-dashboard/src/components/DriverDetailModal.tsx` (new):**
+- Fetches `getDriver(driverId)` on mount when `driverId` is not null; returns `null`
+  immediately otherwise
+- Title: "Driver — {driver.name}"
+- Summary grid (4 cols): Email, Role, Status (dot + label), Last Seen
+- Route history table (last 10): Date, Stops, Failed, Distance, On Time, Status
+  (✓/✗/— with colour coding; status badge same as RouteList)
+- Copied overlay/modal/closeBtn styles exactly from `RouteDetailModal.tsx` — no shared
+  style module. Max width: 700px
+
+**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** Added third tab button "Drivers"
+matching existing style. `rightTab` type expanded to `'alerts' | 'analytics' | 'drivers'`.
+Imported `DriversPanel` from `../components/DriversPanel`. Renders `<DriversPanel />`
+when `rightTab === 'drivers'` (chained ternary: alerts → AlertPanel, analytics →
+AnalyticsPanel, drivers → DriversPanel).
+
+
+
 ## Phase 14 — Driver Location SSE Stream (committed XXXXXX)
 
 ### Backend

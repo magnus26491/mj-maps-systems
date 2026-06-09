@@ -1,4 +1,4 @@
-import type { Alert, Driver, Route, Stats, RouteAnalyticsSummary, StopAnalyticsRow, AnalyticsSummary } from './types';
+import type { Alert, Driver, Route, Stats, RouteAnalyticsSummary, StopAnalyticsRow, AnalyticsSummary, DriverRow, DriverDetail, DriverRouteRow } from './types';
 
 const TOKEN_KEY = 'mj_dispatcher_token';
 
@@ -82,6 +82,50 @@ export async function assignRoute(routeId: string, driverId: string, note?: stri
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ routeId, driverId, note }),
   });
+}
+
+// ── Driver management helpers ────────────────────────────────────────────────
+
+export async function getDispatcherDrivers(): Promise<{ drivers: DriverRow[] }> {
+  return apiFetch('/api/dispatcher/drivers') as Promise<{ drivers: DriverRow[] }>;
+}
+
+export async function getDriver(driverId: string): Promise<{
+  driver: DriverDetail;
+  routes: DriverRouteRow[];
+}> {
+  return apiFetch(`/api/dispatcher/drivers/${driverId}`) as Promise<{
+    driver: DriverDetail;
+    routes: DriverRouteRow[];
+  }>;
+}
+
+export async function updateDriver(
+  driverId: string,
+  fields: { name?: string; email?: string; role?: string },
+): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/dispatcher/drivers/${driverId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? 'Failed to update driver');
+  }
+  return res.json() as Promise<{ success: boolean }>;
+}
+
+export async function deleteDriver(driverId: string): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/dispatcher/drivers/${driverId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? 'Failed to delete driver');
+  }
+  return res.json() as Promise<{ success: boolean }>;
 }
 
 // ── SSE URL helpers ──────────────────────────────────────────────────────────
