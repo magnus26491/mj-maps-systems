@@ -32,19 +32,27 @@ stopCompleteRouter.post('/', async (req: Request, res: Response) => {
     const stopId = req.params.stopId;
     const driverId = req.driver?.id;
 
-    // 2 & 3. Atomically update the stop — only if pending and owned by this driver
+    // 2 & 3. Atomically update the stop — only if pending and owned by this driver (via routes)
     const updateResult = await pool.query<{ id: string; route_id: string; driver_id: string; status: string }>(
-      `UPDATE stops
+      `UPDATE stops s
        SET status = $1
-       WHERE id = $2 AND driver_id = $3 AND status = 'pending'
-       RETURNING id, route_id, driver_id, status`,
+       FROM routes r
+       WHERE s.id = $2
+         AND s.route_id = r.id
+         AND r.driver_id = $3
+         AND s.status = 'pending'
+       RETURNING s.id, s.route_id, r.driver_id, s.status`,
       [status, stopId, driverId],
     );
 
     if (!updateResult.rows.length) {
-      // Fallback: provide precise error messages
+      // Fallback: provide precise error messages via routes join
       const checkResult = await pool.query<{ driver_id: string; status: string }>(
-        `SELECT driver_id, status FROM stops WHERE id = $1 LIMIT 1`,
+        `SELECT r.driver_id, s.status
+         FROM stops s
+         JOIN routes r ON r.id = s.route_id
+         WHERE s.id = $1
+         LIMIT 1`,
         [stopId],
       );
       if (!checkResult.rows.length) {
