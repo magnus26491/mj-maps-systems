@@ -16,13 +16,14 @@ import { replanRouter } from './routes/replan';
 import { stopPinRouter } from './routes/stop-pin';
 import { stopFeedbackRouter } from './routes/stop-feedback';
 import { dispatcherRouter } from './routes/dispatcher';
+import { dispatcherAssignRouter } from './routes/dispatcher-assign';
 import { pinsRouter } from './routes/pins';
 import { optimiseRouter } from './routes/optimise';
 import { pafRouter } from './routes/paf';
 import { billingRouter } from './routes/billing';
 import { pinConfirmRouter } from './routes/pin-confirm';
 import { vehicleSpecsRouter } from './routes/vehicle-specs';
-import { dispatcherAssignRouter } from './routes/dispatcher-assign';
+import { locationRouter } from './routes/location';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -50,6 +51,14 @@ const authLimiter = rateLimit({
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Fleet GPS pings — 300 req/min (drivers ping every 10s)
+const locationLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -92,6 +101,8 @@ app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);
 app.use('/api/v1/paf',        authenticateDriver, pafRouter);
 app.use('/api/v1/stops',      authenticateDriver, pinConfirmRouter);
 app.use('/api/v1/vehicle-specs', authenticateDriver, vehicleSpecsRouter);
+// Fleet GPS ping endpoint (high throughput — separate rate limiter)
+app.use('/api/v1/location',   locationLimiter, authenticateDriver, locationRouter);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found.' }));

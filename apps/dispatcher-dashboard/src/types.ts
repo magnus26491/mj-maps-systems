@@ -21,7 +21,7 @@ export interface Route {
   shiftStart: string;
   currentLat: number;
   currentLon: number;
-  lastPing: string;
+  lastPing: string | null;
   stops: unknown[];
 }
 
