@@ -139,6 +139,9 @@ export async function forceCompleteRoute(routeId: string): Promise<{ success: bo
     method: 'POST',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to complete route');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? 'Failed to complete route');
+  }
   return res.json() as Promise<{ success: boolean }>;
 }

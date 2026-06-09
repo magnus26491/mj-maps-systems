@@ -13,6 +13,7 @@ interface Props {
 export default function RouteList({ routes, isLoading, onAssign, onComplete }: Props) {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
+  const [completingRouteId, setCompletingRouteId] = useState<string | null>(null);
 
   if (isLoading) return <div style={{ color: '#64748b' }}>Loading routes...</div>;
   if (routes.length === 0) return <div style={{ color: '#64748b' }}>No active routes.</div>;
@@ -26,9 +27,11 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
   }
 
   function handleComplete(routeId: string) {
+    setCompletingRouteId(routeId);
     forceCompleteRoute(routeId)
       .then(() => { onComplete?.(routeId); })
-      .catch(err => { console.error('[RouteList] forceCompleteRoute failed:', err); });
+      .catch(err => { console.error('[RouteList] forceCompleteRoute failed:', err); })
+      .finally(() => { setCompletingRouteId(null); });
   }
 
   return (
@@ -68,13 +71,20 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
               {route.status === 'active' && (
                 <button
                   onClick={() => handleComplete(route.routeId)}
+                  disabled={completingRouteId === route.routeId}
                   style={{
-                    background: 'transparent', border: '1px solid #22c55e', color: '#22c55e',
-                    borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
+                    background: 'transparent',
+                    border: '1px solid #22c55e',
+                    color: '#22c55e',
+                    borderRadius: 6,
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    cursor: completingRouteId === route.routeId ? 'not-allowed' : 'pointer',
                     marginLeft: '0.5rem',
+                    opacity: completingRouteId === route.routeId ? 0.5 : 1,
                   }}
                 >
-                  ✓ Complete
+                  {completingRouteId === route.routeId ? 'Completing...' : '✓ Complete'}
                 </button>
               )}
               <button

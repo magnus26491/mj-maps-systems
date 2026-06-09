@@ -43,7 +43,8 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.cos(lat1 * Math.PI / 180) *
     Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const clampedA = Math.min(1, Math.max(0, a));
+  return R * 2 * Math.atan2(Math.sqrt(clampedA), Math.sqrt(1 - clampedA));
 }
 
 /**
@@ -72,9 +73,9 @@ export async function maybeCompleteRoute(routeId: string): Promise<boolean> {
     // 3. Live stop counts
     const stopsResult = await pool.query<StopCounts>(`
       SELECT
-        COUNT(*) FILTER (WHERE status = 'delivered') AS delivered,
-        COUNT(*) FILTER (WHERE status = 'failed')    AS failed,
-        COUNT(*) FILTER (WHERE status = 'pending')   AS pending
+        (COUNT(*) FILTER (WHERE status = 'delivered'))::integer AS delivered,
+        (COUNT(*) FILTER (WHERE status = 'failed'))::integer    AS failed,
+        (COUNT(*) FILTER (WHERE status = 'pending'))::integer   AS pending
       FROM stops WHERE route_id = $1
     `, [routeId]);
 
@@ -113,8 +114,8 @@ export async function maybeCompleteRoute(routeId: string): Promise<boolean> {
       actualDistanceKm = Math.round(total * 100) / 100;
     }
 
-    // 7. Stamp route as completed
-    await pool.query(`
+    // 7. Stamp route as completed (atomic race guard)
+    const updateResult = await pool.query(`
       UPDATE routes SET
         status              = 'completed',
         finished_at         = $2,
@@ -122,10 +123,10 @@ export async function maybeCompleteRoute(routeId: string): Promise<boolean> {
         actual_distance_km  = $4,
         completed_stops     = $5,
         failed_stops        = $6
-      WHERE id = $1
+      WHERE id = $1 AND status != 'completed'
     `, [routeId, finishedAt, onTime, actualDistanceKm, delivered, failed]);
 
-    return true;
+    return (updateResult.rowCount ?? 0) > 0;
   } catch (err) {
     console.error('[route-completion]', err);
     return false;
