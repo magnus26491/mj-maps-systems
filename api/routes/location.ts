@@ -2,7 +2,7 @@
  * Location ping endpoint
  * ---------------------
  * POST /api/v1/location — driver GPS ping (every 10s)
- * Upserts driver_locations table + Redis mirror (60s TTL).
+ * Inserts into driver_locations (full history) + Redis mirror (60s TTL).
  */
 
 import { Router, Request, Response } from 'express';
@@ -44,22 +44,15 @@ locationRouter.post('/', async (req: Request, res: Response) => {
 
   const recordedAt = new Date().toISOString();
 
-  // Upsert into PostgreSQL
+  // Insert into PostgreSQL (full history — composite PK allows multiple rows per driver)
   try {
     await pool.query(
       `INSERT INTO driver_locations (driver_id, route_id, lat, lng, heading, speed_kmh, recorded_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       ON CONFLICT (driver_id) DO UPDATE SET
-         route_id    = EXCLUDED.route_id,
-         lat         = EXCLUDED.lat,
-         lng         = EXCLUDED.lng,
-         heading     = EXCLUDED.heading,
-         speed_kmh   = EXCLUDED.speed_kmh,
-         recorded_at = NOW()`,
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
       [driverId, routeId ?? null, lat, lng, heading ?? null, speedKmh ?? null],
     );
   } catch (err) {
-    console.error('[location] DB upsert failed:', err);
+    console.error('[location] DB insert failed:', err);
     // DB failure should not break the request — still return 204
   }
 

@@ -27,7 +27,9 @@ export { redis };
  * a separate instance is required per SSE connection.
  */
 export function createSubscriber(): Redis {
-  return new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+  const sub = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+  sub.on('error', (err) => console.error('[cache:subscriber] Redis error:', err.message));
+  return sub;
 }
 
 // ── Key builders ──────────────────────────────────────────────────────────────

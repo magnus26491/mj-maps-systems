@@ -50,8 +50,11 @@ analyticsRouter.get('/routes', async (req: Request, res: Response) => {
         r.completed_stops       AS "completedStops",
         r.failed_stops          AS "failedStops",
         r.total_distance_km     AS "totalDistanceKm",
-        r.total_distance_km     AS "actualDistanceKm",
-        NULL::boolean           AS "onTime",
+        COALESCE(r.actual_distance_km, r.total_distance_km) AS "actualDistanceKm",
+        CASE
+          WHEN r.actual_completion IS NULL OR r.estimated_completion IS NULL THEN NULL
+          ELSE (r.actual_completion <= r.estimated_completion)
+        END                     AS "onTime",
         COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS "podCount",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlerts",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS "amberAlerts"
@@ -109,8 +112,11 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
         r.completed_stops       AS "completedStops",
         r.failed_stops          AS "failedStops",
         r.total_distance_km     AS "totalDistanceKm",
-        r.total_distance_km     AS "actualDistanceKm",
-        NULL::boolean           AS "onTime",
+        COALESCE(r.actual_distance_km, r.total_distance_km) AS "actualDistanceKm",
+        CASE
+          WHEN r.actual_completion IS NULL OR r.estimated_completion IS NULL THEN NULL
+          ELSE (r.actual_completion <= r.estimated_completion)
+        END                     AS "onTime",
         COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS "podCount",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlerts",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS "amberAlerts"
@@ -159,8 +165,8 @@ analyticsRouter.get('/summary', async (_req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(`
       SELECT
-        COUNT(r.id) FILTER (WHERE r.status = 'completed') AS "completedRoutes",
-        COUNT(r.id) FILTER (WHERE r.status = 'active') AS "activeRoutes",
+        COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'completed') AS "completedRoutes",
+        COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'active') AS "activeRoutes",
         COALESCE(SUM(r.completed_stops), 0)::int AS "totalStopsDelivered",
         COALESCE(SUM(r.failed_stops), 0)::int AS "totalStopsFailed",
         ROUND(
@@ -169,8 +175,13 @@ analyticsRouter.get('/summary', async (_req: Request, res: Response) => {
           4
         ) AS "podCaptureRate",
         ROUND(
-          COUNT(r.id) FILTER (WHERE r.status = 'completed')::numeric /
-          NULLIF(COUNT(r.id) FILTER (WHERE r.status = 'completed'), 0),
+          COUNT(DISTINCT r.id) FILTER (
+            WHERE r.status = 'completed'
+              AND r.actual_completion IS NOT NULL
+              AND r.estimated_completion IS NOT NULL
+              AND r.actual_completion <= r.estimated_completion
+          )::numeric /
+          NULLIF(COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'completed'), 0),
           4
         ) AS "onTimeRate",
         ROUND(

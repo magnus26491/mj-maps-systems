@@ -41,7 +41,7 @@ stopCompleteRouter.post('/', async (req: Request, res: Response) => {
          AND s.route_id = r.id
          AND r.driver_id = $3
          AND s.status = 'pending'
-       RETURNING s.id, s.route_id, r.driver_id, s.status`,
+       RETURNING s.id, s.route_id, $3::uuid AS driver_id, s.status`,
       [status, stopId, driverId],
     );
 
