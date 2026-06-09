@@ -57,3 +57,44 @@ export interface Stats {
   redAlerts: number;
   amberAlerts: number;
 }
+
+export interface RouteAnalyticsSummary {
+  routeId: string;
+  driverId: string;
+  driverName: string | null;
+  vehicleLabel: string | null;
+  status: string;
+  shiftStart: string | null;
+  finishedAt: string | null;
+  totalStops: number;
+  completedStops: number;
+  failedStops: number;
+  totalDistanceKm: number;
+  actualDistanceKm: number | null;
+  onTime: boolean | null;
+  podCount: number;
+  redAlerts: number;
+  amberAlerts: number;
+}
+
+export interface StopAnalyticsRow {
+  stopId: string;
+  address: string;
+  status: 'pending' | 'delivered' | 'failed';
+  hasPod: boolean;
+  turnAlertLevel: 'GREEN' | 'AMBER' | 'RED' | null;
+  createdAt: string;
+  podCapturedAt: string | null;
+}
+
+export interface AnalyticsSummary {
+  completedRoutes: number;
+  activeRoutes: number;
+  totalStopsDelivered: number;
+  totalStopsFailed: number;
+  podCaptureRate: number;
+  onTimeRate: number;
+  avgCompletionMins: number;
+  redAlertCount: number;
+  amberAlertCount: number;
+}

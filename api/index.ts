@@ -25,9 +25,11 @@ import { pinConfirmRouter } from './routes/pin-confirm';
 import { podRouter } from './routes/pod';
 import { vehicleSpecsRouter } from './routes/vehicle-specs';
 import { locationRouter } from './routes/location';
+import { analyticsRouter } from './routes/analytics';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
+import { requireEnterprise } from './middleware/requireEnterprise';
 import { pingCache } from '../services/cache';
 import { pool } from '../services/db';
 
@@ -96,6 +98,9 @@ app.use('/api/stop-feedback', authenticateDriver, stopFeedbackRouter);
 
 // Dispatcher + admin only
 app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dispatcherRouter, dispatcherAssignRouter);
+
+// Dispatcher analytics (enterprise-gated)
+app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), requireEnterprise, analyticsRouter);
 
 // Optimise and PAF routes (v1)
 app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);
