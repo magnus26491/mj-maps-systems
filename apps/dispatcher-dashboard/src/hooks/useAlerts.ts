@@ -11,8 +11,12 @@ export function useAlerts(): { alerts: Alert[]; dismiss: (id: string) => void } 
 
     function startPolling() {
       pollInterval = setInterval(async () => {
-        const fresh = await getAlerts().catch(() => []);
-        setAlerts(fresh.slice(0, 50));
+        try {
+          const fresh = await getAlerts();
+          setAlerts(fresh.slice(0, 50));
+        } catch (err) {
+          console.error('[useAlerts] poll failed:', err);
+        }
       }, 10_000);
     }
 

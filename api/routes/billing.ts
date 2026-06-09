@@ -102,7 +102,8 @@ billingRouter.get('/status', authenticateDriver, async (req: Request, res: Respo
         planExpiresAt: row?.plan_expires_at?.toISOString() ?? null,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[billing] status error:', err);
     res.status(500).json({ error: 'Could not fetch billing status' });
   }
 });

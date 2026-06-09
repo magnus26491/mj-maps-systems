@@ -4,18 +4,21 @@ const TOKEN_KEY = 'mj_dispatcher_token';
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 
-export function login(email: string, password: string): Promise<{ token: string }> {
-  return fetch('/api/auth/login', {
+export async function login(email: string, password: string) {
+  const r = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
-  }).then(r => {
-    if (!r.ok) throw new Error('Login failed');
-    return r.json() as Promise<{ token: string }>;
-  }).then(data => {
-    localStorage.setItem(TOKEN_KEY, data.token);
-    return data;
   });
+  if (!r.ok) throw new Error('Login failed');
+  const data = await r.json() as {
+    success: boolean;
+    accessToken: string;
+    refreshToken: string;
+    driver: { id: string; name: string; email: string; role: string; vehicleId: string | null; planId: string };
+  };
+  localStorage.setItem(TOKEN_KEY, data.accessToken);
+  return data;
 }
 
 export function logout(): void {

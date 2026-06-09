@@ -145,15 +145,12 @@ CREATE TABLE IF NOT EXISTS driver_sessions (
 CREATE INDEX IF NOT EXISTS driver_sessions_driver_id_idx ON driver_sessions(driver_id);
 CREATE INDEX IF NOT EXISTS driver_sessions_expires_idx ON driver_sessions(expires_at);
 
--- ─── Seed: create first admin driver (change password after first login!) ────────────
--- Password: 'ChangeMe123!' (bcrypt hash below, cost 12)
--- Run: UPDATE drivers SET password_hash = '<your_hash>' WHERE email = 'admin@mjmaps.app';
--- Or use the /api/auth/login endpoint and then a future /api/admin/reset-password route.
+-- ─── Seed: create first admin driver ───────────────────────────────────────────
 INSERT INTO drivers (name, email, password_hash, role, vehicle_id)
 VALUES (
   'Admin',
   'admin@mjmaps.app',
-  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uOeK', -- ChangeMe123!
+  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uOeK',
   'admin',
   'swb_van'
 ) ON CONFLICT (email) DO NOTHING;

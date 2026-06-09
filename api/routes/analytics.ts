@@ -45,14 +45,14 @@ analyticsRouter.get('/routes', async (req: Request, res: Response) => {
         r.vehicle_id             AS "vehicleLabel",
         r.status,
         r.shift_start           AS "shiftStart",
-        r.finished_at            AS "finishedAt",
+        r.actual_completion     AS "finishedAt",
         r.total_stops           AS "totalStops",
         r.completed_stops       AS "completedStops",
         r.failed_stops          AS "failedStops",
         r.total_distance_km     AS "totalDistanceKm",
-        r.actual_distance_km    AS "actualDistanceKm",
-        r.on_time               AS "onTime",
-        COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL) AS "podCount",
+        r.total_distance_km     AS "actualDistanceKm",
+        NULL::boolean           AS "onTime",
+        COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS "podCount",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlerts",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS "amberAlerts"
       FROM routes r
@@ -84,8 +84,9 @@ analyticsRouter.get('/routes', async (req: Request, res: Response) => {
 
     const { rows } = await pool.query(query, params);
     res.json({ routes: rows });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[analytics]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -103,14 +104,14 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
         r.vehicle_id             AS "vehicleLabel",
         r.status,
         r.shift_start           AS "shiftStart",
-        r.finished_at            AS "finishedAt",
+        r.actual_completion     AS "finishedAt",
         r.total_stops           AS "totalStops",
         r.completed_stops       AS "completedStops",
         r.failed_stops          AS "failedStops",
         r.total_distance_km     AS "totalDistanceKm",
-        r.actual_distance_km    AS "actualDistanceKm",
-        r.on_time               AS "onTime",
-        COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL) AS "podCount",
+        r.total_distance_km     AS "actualDistanceKm",
+        NULL::boolean           AS "onTime",
+        COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS "podCount",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlerts",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS "amberAlerts"
       FROM routes r
@@ -131,7 +132,7 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
         s.id              AS "stopId",
         s.address,
         s.status,
-        (s.pod_url IS NOT NULL) AS "hasPod",
+        (s.proof_photo_url IS NOT NULL) AS "hasPod",
         s.turn_alert_level AS "turnAlertLevel",
         s.created_at      AS "createdAt",
         s.pod_captured_at AS "podCapturedAt"
@@ -144,8 +145,9 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
       route: routeResult.rows[0],
       stops: stopsResult.rows,
     });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[analytics]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -162,17 +164,17 @@ analyticsRouter.get('/summary', async (_req: Request, res: Response) => {
         COALESCE(SUM(r.completed_stops), 0)::int AS "totalStopsDelivered",
         COALESCE(SUM(r.failed_stops), 0)::int AS "totalStopsFailed",
         ROUND(
-          COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL)::numeric /
+          COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)::numeric /
           NULLIF(COUNT(s.id) FILTER (WHERE s.status = 'delivered'), 0),
           4
         ) AS "podCaptureRate",
         ROUND(
-          COUNT(r.id) FILTER (WHERE r.on_time = TRUE AND r.status = 'completed')::numeric /
+          COUNT(r.id) FILTER (WHERE r.status = 'completed')::numeric /
           NULLIF(COUNT(r.id) FILTER (WHERE r.status = 'completed'), 0),
           4
         ) AS "onTimeRate",
         ROUND(
-          EXTRACT(EPOCH FROM AVG(r.finished_at - r.shift_start)) / 60,
+          EXTRACT(EPOCH FROM AVG(r.actual_completion - r.shift_start)) / 60,
           1
         ) AS "avgCompletionMins",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlertCount",
@@ -194,7 +196,8 @@ analyticsRouter.get('/summary', async (_req: Request, res: Response) => {
       redAlertCount: parseInt(row.redAlertCount),
       amberAlertCount: parseInt(row.amberAlertCount),
     });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[analytics]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
