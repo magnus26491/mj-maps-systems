@@ -27,6 +27,18 @@ function authHeaders(): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
 
+async function apiFetch(path: string): Promise<unknown> {
+  const res = await fetch(path, { headers: authHeaders() });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'Request failed' })) as { error?: string; code?: string };
+    if (res.status === 403 && body.code === 'ENTERPRISE_REQUIRED') {
+      throw Object.assign(new Error('Enterprise plan required'), { code: 'ENTERPRISE_REQUIRED' });
+    }
+    throw new Error(body.error ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 // ── API helpers ─────────────────────────────────────────────────────────────
 
 export async function getStats(): Promise<Stats> {
@@ -82,4 +94,9 @@ export function getAlertStreamUrl(): string {
 export function getLocationStreamUrl(): string {
   const token = localStorage.getItem(TOKEN_KEY) ?? '';
   return `/api/dispatcher/locations/stream?token=${encodeURIComponent(token)}`;
+}
+
+export async function getStopPod(stopId: string): Promise<{ podUrl: string; podType: string; podCapturedAt: string }> {
+  const data = await apiFetch(`/api/dispatcher/stops/${stopId}/pod`) as { success: boolean; podUrl: string; podType: string; podCapturedAt: string };
+  return { podUrl: data.podUrl, podType: data.podType, podCapturedAt: data.podCapturedAt };
 }
