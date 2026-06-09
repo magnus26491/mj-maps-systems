@@ -122,8 +122,16 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     return;
   }
 
-  // Load driver to get current role/plan
-  const driver = await getDriverById(session.driver_id).catch(() => null);
+  // Load driver to get current role/plan — distinguish DB errors from missing account
+  let driver;
+  try {
+    driver = await getDriverById(session.driver_id);
+  } catch (err) {
+    console.error('[auth] Failed to load driver during token refresh:', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+    return;
+  }
+
   if (!driver || !driver.active) {
     res.status(401).json({ success: false, error: 'Driver account not found or inactive.', code: 'ACCOUNT_INACTIVE' });
     return;
