@@ -6,6 +6,7 @@ import FleetMap from '../components/FleetMap';
 import RouteList from '../components/RouteList';
 import AlertPanel from '../components/AlertPanel';
 import AnalyticsPanel from '../components/AnalyticsPanel';
+import DriversPanel from '../components/DriversPanel';
 import AssignModal from '../components/AssignModal';
 import { useStats } from '../hooks/useStats';
 import { useRoutes } from '../hooks/useRoutes';
@@ -15,7 +16,7 @@ export default function Dashboard() {
   const { stats, isLoading: statsLoading } = useStats();
   const { routes, isLoading: routesLoading } = useRoutes();
   const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'alerts' | 'analytics'>('alerts');
+  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers'>('alerts');
 
   useEffect(() => {
     if (!localStorage.getItem('mj_dispatcher_token')) {
@@ -92,8 +93,19 @@ export default function Dashboard() {
             >
               Analytics
             </button>
+            <button
+              onClick={() => setRightTab('drivers')}
+              style={{
+                ...tabStyle,
+                background: rightTab === 'drivers' ? '#1e3a5f' : 'transparent',
+                color: rightTab === 'drivers' ? '#3b82f6' : '#64748b',
+                border: `1px solid ${rightTab === 'drivers' ? '#3b82f6' : '#1e293b'}`,
+              }}
+            >
+              Drivers
+            </button>
           </div>
-          {rightTab === 'alerts' ? <AlertPanel /> : <AnalyticsPanel />}
+          {rightTab === 'alerts' ? <AlertPanel /> : rightTab === 'analytics' ? <AnalyticsPanel /> : <DriversPanel />}
         </div>
       </div>
 
