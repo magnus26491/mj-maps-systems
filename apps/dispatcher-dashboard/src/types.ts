@@ -22,6 +22,7 @@ export interface Route {
   currentLat: number;
   currentLon: number;
   lastPing: string | null;
+  heading: number | null;
   stops: unknown[];
 }
 

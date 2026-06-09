@@ -11,7 +11,7 @@
 
 import { Router, Request, Response } from 'express';
 import { pool } from '../../services/db';
-import { redis } from '../../services/cache';
+import { redis, createSubscriber } from '../../services/cache';
 import { verifyAccessToken } from '../../services/auth';
 
 export const dispatcherRouter = Router();
@@ -53,7 +53,7 @@ dispatcherRouter.get('/routes', async (_req, res) => {
     `);
 
     // Batch read live locations from Redis
-    const locMap = new Map<string, { lat: number; lng: number; recordedAt: string }>();
+    const locMap = new Map<string, { lat: number; lng: number; heading: number | null; recordedAt: string }>();
     if (rows.length > 0) {
       const keys = rows
         .map((r: Record<string, unknown>) => r.driverId as string)
@@ -64,9 +64,9 @@ dispatcherRouter.get('/routes', async (_req, res) => {
         for (let i = 0; i < values.length; i++) {
           if (values[i]) {
             try {
-              const loc = JSON.parse(values[i]!) as { lat: number; lng: number; recordedAt: string };
+              const loc = JSON.parse(values[i]!) as { lat: number; lng: number; heading?: number | null; speedKmh?: number | null; routeId?: string | null; recordedAt: string };
               const driverId = rows[i]!.driverId as string;
-              locMap.set(driverId, { lat: loc.lat, lng: loc.lng, recordedAt: loc.recordedAt });
+              locMap.set(driverId, { lat: loc.lat, lng: loc.lng, heading: loc.heading ?? null, recordedAt: loc.recordedAt });
             } catch { /* skip malformed JSON */ }
           }
         }
@@ -86,6 +86,7 @@ dispatcherRouter.get('/routes', async (_req, res) => {
         currentLat: loc?.lat ?? 0,
         currentLon: loc?.lng ?? 0,
         lastPing: loc?.recordedAt ?? null,
+        heading: loc?.heading ?? null,
         stops: raw?.stops ?? [],
       };
     });
@@ -173,6 +174,57 @@ dispatcherRouter.get('/stats', async (_req, res) => {
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+// ── GET /api/dispatcher/locations/stream (SSE) ───────────────────────────────
+dispatcherRouter.get('/locations/stream', (req, res) => {
+  // Auth via query param (EventSource cannot send Authorization headers)
+  const token = req.query.token as string | undefined;
+  if (!token) { res.status(401).end(); return; }
+  const payload = verifyAccessToken(token);
+  if (!payload) { res.status(401).end(); return; }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  // Send initial snapshot: all current driver locations from Redis
+  (async () => {
+    try {
+      const keys = await redis.keys('driver:loc:*');
+      if (keys.length > 0) {
+        const values = await redis.mget(...keys);
+        const snapshot = values
+          .map((v, i) => {
+            if (!v) return null;
+            try {
+              const loc = JSON.parse(v) as { driverId: string; lat: number; lng: number; heading?: number | null; speedKmh?: number | null; routeId?: string | null; recordedAt: string };
+              // Redis key is driver:loc:{id}; extract id from key
+              const driverId = keys[i]!.replace('driver:loc:', '');
+              return { ...loc, driverId };
+            } catch { return null; }
+          })
+          .filter(Boolean);
+        res.write(`event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`);
+      }
+    } catch (err) {
+      console.warn('[locations/stream] snapshot fetch failed:', err);
+    }
+
+    // Subscribe to live updates
+    const subscriber = createSubscriber();
+    subscriber.subscribe('fleet:locations', (err) => {
+      if (err) { console.warn('[locations/stream] subscribe failed:', err); return; }
+      subscriber.on('message', (_channel, message) => {
+        try { res.write(`event: location\ndata: ${message}\n\n`); }
+        catch { /* client disconnected */ }
+      });
+    });
+
+    req.on('close', () => { subscriber.quit(); });
+  })();
 });
 
 // ── GET /api/dispatcher/alerts/stream (SSE) ─────────────────────────────────

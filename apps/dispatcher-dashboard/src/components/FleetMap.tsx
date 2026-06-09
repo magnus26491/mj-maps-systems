@@ -24,18 +24,33 @@ function getStatus(lastPing: string | null): 'live' | 'stale' | 'offline' {
   return 'offline';
 }
 
-function makeIcon(status: 'live' | 'stale' | 'offline'): L.DivIcon {
+// ── Compass bearing ───────────────────────────────────────────────────────────
+function bearingToCompass(deg: number): string {
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return dirs[Math.round(deg / 45) % 8]!;
+}
+
+// ── Icon factory ─────────────────────────────────────────────────────────────
+function makeIcon(status: 'live' | 'stale' | 'offline', heading: number | null): L.DivIcon {
   const colour =
     status === 'live' ? '#22c55e' :
     status === 'stale' ? '#f59e0b' :
     '#6b7280';
+  const arrowStyle = heading !== null
+    ? `transform: rotate(${heading}deg); display: inline-block;`
+    : '';
   return L.divIcon({
     className: '',
-    html: `<div style="width:14px;height:14px;border-radius:50%;
-                       background:${colour};border:2px solid #fff;
-                       box-shadow:0 0 6px ${colour}"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
+    html: `<div style="width:16px;height:16px;position:relative">
+             <div style="width:14px;height:14px;border-radius:50%;
+                         background:${colour};border:2px solid #fff;
+                         box-shadow:0 0 6px ${colour};position:absolute;
+                         display:flex;align-items:center;justify-content:center">
+               <span style="${arrowStyle}font-size:8px;color:#fff;line-height:1;pointer-events:none">▲</span>
+             </div>
+           </div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
   });
 }
 
@@ -63,7 +78,7 @@ function LiveMarkers({ routes }: LiveMarkersProps) {
       currentIds.add(id);
 
       const status = getStatus(route.lastPing);
-      const icon = makeIcon(status);
+      const icon = makeIcon(status, route.heading);
       const pos: L.LatLngExpression = [route.currentLat, route.currentLon];
 
       if (markersRef.current.has(id)) {
@@ -71,8 +86,9 @@ function LiveMarkers({ routes }: LiveMarkersProps) {
         markersRef.current.get(id)!.setLatLng(pos).setIcon(icon);
       } else {
         // Create new marker with popup
-        const heading = (route as unknown as { heading?: number }).heading;
-        const headingStr = heading != null ? `<br/>Heading: ${heading}°` : '';
+        const headingStr = route.heading !== null
+          ? `<br/>Heading: ${Math.round(route.heading)}° ${bearingToCompass(route.heading)}`
+          : '<br/>Heading: Unknown';
         const marker = L.marker(pos, { icon }).bindPopup(`
           <div style="font-family:sans-serif;line-height:1.5;min-width:140px">
             <strong>${route.driverName}</strong><br/>
