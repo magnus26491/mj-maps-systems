@@ -131,3 +131,17 @@ export async function getAnalyticsRoute(routeId: string): Promise<{
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   return apiFetch('/api/dispatcher/analytics/summary') as Promise<AnalyticsSummary>;
 }
+
+// ── Route completion helpers ──────────────────────────────────────────────────
+
+export async function forceCompleteRoute(routeId: string): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/dispatcher/routes/${routeId}/complete`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? 'Failed to complete route');
+  }
+  return res.json() as Promise<{ success: boolean }>;
+}
