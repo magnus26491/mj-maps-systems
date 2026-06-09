@@ -21,6 +21,15 @@ redis.on('error', (err) => console.error('[cache] Redis error:', err.message));
 
 export { redis };
 
+/**
+ * Creates a dedicated subscriber client for SSE / pub-sub use cases.
+ * ioredis does not allow a subscribed client to issue normal commands —
+ * a separate instance is required per SSE connection.
+ */
+export function createSubscriber(): Redis {
+  return new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+}
+
 // ── Key builders ──────────────────────────────────────────────────────────────
 
 const ROAD_KEY = (lat: number, lon: number) =>

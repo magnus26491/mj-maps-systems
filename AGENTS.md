@@ -398,6 +398,64 @@ BEFORE the 404 handler.
 **`apps/dispatcher-dashboard/src/types.ts`:** `Route.lastPing` changed to `string | null`.
 
 
+
+
+## Phase 14 — Driver Location SSE Stream (committed XXXXXX)
+
+### Backend
+
+**`services/cache/index.ts`:** Added `createSubscriber(): Redis` factory function.
+Creates a separate ioredis instance for pub/sub use cases. The shared `redis` export
+must never be subscribed — ioredis disallows normal commands on a subscribed client.
+
+**`api/routes/location.ts`:** Added `redis.publish('fleet:locations', ...)` call after
+the `setex` write. Both `setex` and `publish` are fire-and-forget — neither is awaited.
+`res.status(204).end()` fires before both so the response never waits on Redis.
+The published payload: `{ driverId, lat, lng, heading, speedKmh, routeId, recordedAt }`.
+
+**`api/routes/dispatcher.ts`:** Added `GET /api/dispatcher/locations/stream` SSE endpoint:
+- Auth via `req.query.token` + `verifyAccessToken()` (identical to `/alerts/stream`)
+- Sets SSE headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`,
+  `Connection: keep-alive`, `X-Accel-Buffering: no`
+- On connect: calls `redis.keys('driver:loc:*')` → `redis.mget(...keys)` to build a
+  snapshot; emits `event: snapshot\ndata: <JSON array>\n\n`
+- Creates a subscriber via `createSubscriber()` (separate from shared `redis`)
+- Subscribes to `fleet:locations` channel; on each message emits
+  `event: location\ndata: <raw message string>\n\n`
+- On `req.on('close')`: calls `subscriber.quit()` to release the connection
+- GET /routes also updated: `locMap` now includes `heading` field; each route object
+  includes `heading: loc?.heading ?? null` in its response
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/types.ts`:** `Route.heading` added as `number | null`
+(Phase 13 implied it via a cast — now explicitly typed).
+
+**`apps/dispatcher-dashboard/src/hooks/useRoutes.ts`:** Complete rewrite replacing SWR
+with an SSE-powered hook:
+- Initial fetch via `getRoutes()` to populate full route metadata (driverName, stops, etc.)
+- Opens `EventSource` to `getLocationStreamUrl()` (already in `src/api.ts`)
+- `snapshot` event: merges all location fields (currentLat, currentLon, lastPing, heading)
+  into matching routes by driverId — does not replace the route object
+- `location` event: delta update — finds matching route by driverId, updates only the
+  four location fields in-place
+- `onerror` (which fires on disconnect too): closes EventSource, clears fallback interval,
+  starts `setInterval` polling `getRoutes()` every 15_000ms
+- Unmount: `es.close()` + `clearInterval` via `cleanup()` callback
+- Return shape unchanged: `{ routes, isLoading, error }` — Dashboard.tsx and FleetMap.tsx
+  require no changes
+
+**`apps/dispatcher-dashboard/src/components/FleetMap.tsx`:** Two targeted changes:
+- `makeIcon(status, heading)`: gains `heading: number | null` parameter. When heading is
+  not null, CSS `transform: rotate(${heading}deg)` is applied to a `▲` arrow inside the
+  DivIcon. Icon size 16×16 (was 14×14) with centred arrow.
+- Popup heading: `Heading: ${Math.round(heading)}° ${bearingToCompass(heading)}` (or
+  "Unknown" when null) appended after "Last seen: Xs ago"
+- `bearingToCompass(deg: number): string` helper returns 8-point compass label
+  (N, NE, E, SE, S, SW, W, NW) from a bearing in degrees
+- `makeIcon` called with `route.heading` (typed `number | null` from Route interface)
+
+
 ## 4. Codebase Map (key paths)
 
 ```

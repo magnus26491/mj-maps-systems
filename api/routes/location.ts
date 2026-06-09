@@ -70,5 +70,18 @@ locationRouter.post('/', async (req: Request, res: Response) => {
     console.warn('[location] Redis write failed (non-fatal):', err);
   });
 
+  // Publish live location to SSE subscribers (fire-and-forget)
+  redis.publish('fleet:locations', JSON.stringify({
+    driverId,
+    lat,
+    lng,
+    heading: heading ?? null,
+    speedKmh: speedKmh ?? null,
+    routeId: routeId ?? null,
+    recordedAt,
+  })).catch((err: unknown) => {
+    console.warn('[location] Redis publish failed (non-fatal):', err);
+  });
+
   res.status(204).end();
 });
