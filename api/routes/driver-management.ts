@@ -23,6 +23,8 @@ driverManagementRouter.get('/', async (_req: Request, res: Response) => {
         d.id,
         d.name,
         d.email,
+        d.plan       AS "planId",
+        d.vehicle_id AS "vehicleId",
         d.role,
         d.is_active    AS "isActive",
         d.last_seen_at AS "lastSeenAt",
@@ -153,6 +155,10 @@ driverManagementRouter.delete('/:driverId', async (req: Request, res: Response) 
 
     res.json({ success: true });
   } catch (err) {
+    if ((err as any).code === '23503') {
+      res.status(409).json({ success: false, error: 'Cannot delete driver with historical route records or other dependencies.' });
+      return;
+    }
     console.error('[driver-management]', err);
     res.status(500).json({ success: false, error: 'Internal server error.' });
   }

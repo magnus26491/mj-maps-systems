@@ -62,12 +62,6 @@ stopCompleteRouter.post('/', async (req: Request, res: Response) => {
 
     const stop = updateResult.rows[0]!;
     const routeId = stop.route_id;
-    await pool.query(`
-      UPDATE routes r SET
-        completed_stops = (SELECT COUNT(*) FROM stops WHERE route_id = r.id AND status = 'delivered'),
-        failed_stops    = (SELECT COUNT(*) FROM stops WHERE route_id = r.id AND status = 'failed')
-      WHERE r.id = $1
-    `, [routeId]);
 
     // 5. Attempt route completion
     const completed = await maybeCompleteRoute(routeId);

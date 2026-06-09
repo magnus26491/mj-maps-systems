@@ -84,8 +84,9 @@ dispatcherAssignRouter.post('/assign', requireEnterprise, async (req: Request, r
     });
 
     res.status(201).json(assignment);
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher-assign]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -99,7 +100,8 @@ dispatcherAssignRouter.get('/drivers', requireEnterprise, async (_req: Request, 
       ORDER BY name ASC
     `);
     res.json({ drivers: rows });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher-assign]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });

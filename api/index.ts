@@ -105,7 +105,7 @@ app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dis
 app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), requireEnterprise, analyticsRouter);
 
 // Driver management (dispatcher role required)
-app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), driverManagementRouter);
+app.use('/api/dispatcher/drivers', authenticateDriver, requireRole('dispatcher'), driverManagementRouter);
 
 // Optimise and PAF routes (v1)
 app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);

@@ -45,6 +45,7 @@ export default function DriversPanel() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   function startEdit(driver: DriverRow) {
     setEditingId(driver.id);
@@ -52,6 +53,7 @@ export default function DriversPanel() {
   }
 
   async function handleSave(driverId: string) {
+    setActionError(null);
     setSavingId(driverId);
     try {
       await updateDriver(driverId, {
@@ -63,18 +65,21 @@ export default function DriversPanel() {
       refresh();
     } catch (err) {
       console.error('[DriversPanel] save failed:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to save driver changes.');
     } finally {
       setSavingId(null);
     }
   }
 
   async function handleDelete(driverId: string) {
+    setActionError(null);
     setDeletingId(driverId);
     try {
       await deleteDriver(driverId);
       refresh();
     } catch (err) {
       console.error('[DriversPanel] delete failed:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to delete driver.');
     } finally {
       setDeletingId(null);
     }
@@ -86,6 +91,11 @@ export default function DriversPanel() {
 
   return (
     <>
+      {actionError && (
+        <div style={{ color: '#ef4444', fontSize: '0.875rem', padding: '0.5rem 0', marginBottom: '0.25rem' }}>
+          {actionError}
+        </div>
+      )}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
           <thead>
