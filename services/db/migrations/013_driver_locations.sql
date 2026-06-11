@@ -2,10 +2,11 @@
 -- Creates the driver_locations table used by POST /api/v1/location.
 -- Stores full GPS history per driver for route completion distance calculation.
 -- Idempotent.
+-- NOTE: FK references users (real table). drivers is a VIEW aliasing users.
 
 
 CREATE TABLE IF NOT EXISTS driver_locations (
-  driver_id   UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+  driver_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   route_id    UUID REFERENCES routes(id) ON DELETE SET NULL,
   lat         DOUBLE PRECISION NOT NULL,
   lng         DOUBLE PRECISION NOT NULL,
