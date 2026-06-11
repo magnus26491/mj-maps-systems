@@ -2,10 +2,11 @@
 -- Creates route_assignments table used by POST /api/dispatcher/assign.
 -- Idempotent.
 -- NOTE: FK references users (real table). drivers is a VIEW aliasing users.
+-- Uses gen_random_uuid() (built-in Postgres 14+) instead of uuid_generate_v4().
 
 
 CREATE TABLE IF NOT EXISTS route_assignments (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   route_id    UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
   driver_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
