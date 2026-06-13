@@ -28,7 +28,8 @@ RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
 COPY package.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 
-# bust=2 forces this layer to rebuild and pick up fresh dist from stage 1
+# BUST=3 — forces Docker to invalidate cache for this layer and all below
+ARG BUST=3
 COPY --from=builder /app/dist ./dist
 
 USER mjmaps
