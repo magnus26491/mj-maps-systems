@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "lib": ["ES2022"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": [
+      "ES2022"
+    ],
     "outDir": "dist",
     "rootDir": ".",
     "strict": true,
@@ -19,15 +21,30 @@
     "noImplicitAny": false,
     "strictNullChecks": false
   },
-  "include": ["api/**/*", "services/**/*"],
+  "include": [
+    "api/**/*",
+    "packages/vehicle-profiles/**/*",
+    "services/api/**/*",
+    "services/cache/**/*",
+    "services/db/**/*",
+    "services/notifications/**/*",
+    "services/route-engine/**/*",
+    "services/storage/**/*",
+    "services/turn-engine/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/__tests__/**",
     "apps/**/*",
     "packages/offline-cache/**/*",
-    "packages/sync-queue/**/*",
-    "packages/driver-app/**/*",
-    "services/sync-queue/**/*"
+    "packages/offline-sync/**/*",
+    "packages/driver-app-shared/**/*",
+    "packages/stop-point/**/*",
+    "services/api/__tests__/**/*",
+    "packages/vehicle-profiles/__tests__/**/*",
+    "services/route-engine/__tests__/**/*",
+    "services/turn-engine/__tests__/**/*",
+    "services/storage/__tests__/**/*"
   ]
 }
+

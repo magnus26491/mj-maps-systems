@@ -1,7 +1,7 @@
 /**
  * Auth Service
  * ------------
- * - Password hashing with bcrypt (cost 12)
+ * - Password hashing with bcryptjs (cost 12)
  * - JWT access token (15min expiry)
  * - Opaque refresh token (64-byte random hex, stored as SHA-256 hash)
  * - Server-side token rotation via refresh_tokens table
@@ -13,7 +13,7 @@
  *   - Rotation is simple: revoke old hash, issue new token + hash
  */
 
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 

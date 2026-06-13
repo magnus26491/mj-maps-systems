@@ -132,3 +132,29 @@ export function requireTier(...tiers: string[]) {
     }
   };
 }
+
+// ── requireEnterprise() ─────────────────────────────────────────────────────────
+
+/**
+ * Returns a Fastify onRequest hook that checks the user's plan has ADMIN_ANALYTICS
+ * (Custom/Enterprise plan). This is the gate for the dispatcher analytics panel.
+ * Must be used after requireAuth.
+ */
+export function requireEnterprise(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): void {
+  const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
+  if (!authUser) {
+    reply.code(401).send({ error: 'Unauthorized' });
+    return;
+  }
+  if (!planHasFeature(authUser.planId as 'navigation' | 'custom', 'ADMIN_ANALYTICS')) {
+    reply.code(403).send({
+      ok: false,
+      error: 'ENTERPRISE_REQUIRED',
+      message: 'Fleet analytics require an Enterprise plan.',
+    });
+    return;
+  }
+}
