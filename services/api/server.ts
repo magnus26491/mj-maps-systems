@@ -14,6 +14,7 @@
  * POST /api/v1/auth/logout     ← token revocation
  * GET  /api/v1/auth/me          ← current user profile
  * POST /api/v1/auth/token      ← legacy driver token (kept for compatibility)
+ * POST /api/v1/location         ← GPS location ping
  * GET  /api/v1/health
  * GET  /api/v1/admin/*          ← admin-only endpoints
  * WS   /ws/driver/:driverId/:routeId
@@ -51,6 +52,7 @@ import { dispatcherRoutes } from './routes/dispatcher.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
+import { locationRoute }     from './routes/location.js';
 import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
@@ -187,6 +189,7 @@ const start = async () => {
   await server.register(analyticsRoutes);
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
+  await server.register(locationRoute);
 
   /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
