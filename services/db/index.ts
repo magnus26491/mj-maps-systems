@@ -7,11 +7,16 @@
 import { Pool } from 'pg';
 
 function resolveConnectionString(): string {
-  return (
+  const url =
     process.env.DATABASE_URL ??
-    process.env.POSTGRES_URL ??
-    ''
-  );
+    process.env.POSTGRES_URL;
+  if (!url) {
+    throw new Error(
+      '[db] No database connection string found. ' +
+      'Set DATABASE_URL or POSTGRES_URL environment variable.',
+    );
+  }
+  return url;
 }
 
 export const pool = new Pool({
