@@ -14,7 +14,7 @@
  * POST /api/v1/auth/logout     ← token revocation
  * GET  /api/v1/auth/me          ← current user profile
  * POST /api/v1/auth/token      ← legacy driver token (kept for compatibility)
- * POST /api/v1/location         ← GPS location ping
+ * POST /api/v1/location        ← GPS location ping
  * GET  /api/v1/health
  * GET  /api/v1/admin/*          ← admin-only endpoints
  * WS   /ws/driver/:driverId/:routeId
@@ -82,10 +82,6 @@ process.on('unhandledRejection', (reason: unknown) => {
 
 // ─── SERVER ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Creates a new Fastify server instance. Used in tests and as the Railway entry point.
- * Call `await server.listen()` after registering routes.
- */
 export function build() {
   return Fastify({
     logger: {
@@ -98,7 +94,6 @@ export function build() {
   });
 }
 
-/** The singleton server instance. */
 export const server = build();
 
 // ─── ZOD SCHEMAS ───────────────────────────────────────────────────────────────
@@ -125,7 +120,7 @@ const RouteIdSchema = z.string().min(1).max(128).regex(
   'routeId must be alphanumeric/hyphen/underscore only',
 );
 
-// ─── START (all plugin registration + routes live here) ────────────────────────────
+// ─── START ────────────────────────────────────────────────────────────────────────
 const start = async () => {
   // ── Plugins ─────────────────────────────────────────────────────────────────────
   await server.register(fastifyHelmet, { contentSecurityPolicy: false });
@@ -175,9 +170,7 @@ const start = async () => {
 
   // ── Routes ──────────────────────────────────────────────────────────────────────────
 
-  /** Auth router: /api/v1/auth/* — register, login, refresh, logout, /me */
   await server.register(authRoutes);
-
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);
@@ -264,7 +257,6 @@ const start = async () => {
       if (!RouteIdSchema.safeParse(routeId).success) {
         return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
       }
-      // TODO: wire into route-engine to cancel active route
       return reply.send({ ok: true, message: `Route ${routeId} deleted` });
     },
   );
@@ -334,36 +326,24 @@ const start = async () => {
     },
   );
 
-  /** Admin-only routes — admin role required (Custom plan) */
+  /** Admin-only routes */
   server.get(
     '/api/v1/admin/users',
     { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (request, reply) => {
-      // TODO: wire into user management service
-      return reply.send({ ok: true, data: [] });
-    },
+    async (_request, reply) => reply.send({ ok: true, data: [] }),
   );
 
   server.get(
     '/api/v1/admin/analytics',
     { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (request, reply) => {
-      // TODO: wire into analytics service
-      return reply.send({ ok: true, data: {} });
-    },
+    async (_request, reply) => reply.send({ ok: true, data: {} }),
   );
 
   // ── WebSocket ──────────────────────────────────────────────────────────────────────
-  // No preHandler auth here — JWT is verified per-message inside handleDriverWebSocket
-  // via the AUTH { type, token } first-message pattern.
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
-      {
-        websocket: true,
-        // Auth is validated per-message: first message must be { type: 'AUTH', token }
-        // Close codes: 4001 = bad/missing token, 4008 = token expired
-      },
+      { websocket: true },
       (socket: any, req: any) => {
         const { driverId, routeId } = req.params as { driverId: string; routeId: string };
         handleDriverWebSocket(socket, driverId, routeId);
@@ -383,7 +363,7 @@ const start = async () => {
   }
 };
 
-// ── Phase 12: Graceful shutdown ─────────────────────────────────────────────────────
+// ── Graceful shutdown ───────────────────────────────────────────────────────────────
 const shutdown = async (signal: string) => {
   console.log(`[mj-maps-api] Received ${signal} — shutting down gracefully…`);
   try {

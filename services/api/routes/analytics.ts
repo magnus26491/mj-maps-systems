@@ -15,9 +15,6 @@ import type { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole, requireEnterprise } from '../middleware/auth.js';
 import { pool } from '../../db/index.js';
 
-// ── Guards (applied at mount; these exports are for documentation) ──────────────
-// export const analyticsGuard = { preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise] };
-
 export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
   const guard = { preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise] };
 
@@ -35,16 +32,17 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const rawFrom = (request.query as Record<string, unknown>).from as string | undefined;
-    const rawTo   = (request.query as Record<string, unknown>).to   as string | undefined;
-    const rawDriverId = (request.query as Record<string, unknown>).driverId as string | undefined;
-    const rawLimit = (request.query as Record<string, unknown>).limit as string | undefined;
+    const rawFrom  = (request.query as Record<string, unknown>).from    as string | undefined;
+    const rawTo    = (request.query as Record<string, unknown>).to      as string | undefined;
+    const rawLimit = (request.query as Record<string, unknown>).limit   as string | undefined;
 
     const from = parseDate(rawFrom, sevenDaysAgo);
     const to   = parseDate(rawTo,   now);
+
     // Safely handle driverId — it could be an array if duplicated in query string
     const driverIdRaw = (request.query as Record<string, unknown>).driverId;
     const driverId = typeof driverIdRaw === 'string' ? driverIdRaw.trim() : undefined;
+
     // Clamp limit to 1..100 to prevent SQL errors
     const rawLimitNum = parseInt(rawLimit ?? '') || 20;
     const limit = Math.max(1, Math.min(rawLimitNum, 100));
@@ -75,9 +73,9 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
           r.total_distance_km        AS "totalDistanceKm",
           r.actual_distance_km       AS "actualDistanceKm",
           r.on_time                  AS "onTime",
-          COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)  AS "podCount",
-          COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')     AS "redAlerts",
-          COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER')   AS "amberAlerts"
+          COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)            AS "podCount",
+          COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')               AS "redAlerts",
+          COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER')             AS "amberAlerts"
         FROM routes r
         LEFT JOIN drivers d ON d.id = r.driver_id
         LEFT JOIN stops s ON s.route_id = r.id
@@ -130,9 +128,9 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
             r.total_distance_km        AS "totalDistanceKm",
             r.actual_distance_km       AS "actualDistanceKm",
             r.on_time                  AS "onTime",
-            COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)  AS "podCount",
-            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')     AS "redAlerts",
-            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER')   AS "amberAlerts"
+            COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)           AS "podCount",
+            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')              AS "redAlerts",
+            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER')            AS "amberAlerts"
           FROM routes r
           LEFT JOIN drivers d ON d.id = r.driver_id
           LEFT JOIN stops s ON s.route_id = r.id
@@ -196,10 +194,10 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
         ),
         stop_stats AS (
           SELECT
-            COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)  AS pod_count,
-            COUNT(s.id) FILTER (WHERE s.status = 'completed')         AS delivered_count,
-            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')   AS red_alerts,
-            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS amber_alerts
+            COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS pod_count,
+            COUNT(s.id) FILTER (WHERE s.status = 'completed')        AS delivered_count,
+            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')    AS red_alerts,
+            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER')  AS amber_alerts
           FROM stops s
           JOIN routes r ON s.route_id = r.id
           WHERE r.shift_start >= $1
@@ -228,8 +226,8 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
       const row = rows[0];
       return reply.send({
         ok: true,
-        completedRoutes:      parseInt(row.completedRoutes)  || 0,
-        activeRoutes:         parseInt(row.activeRoutes)     || 0,
+        completedRoutes:      parseInt(row.completedRoutes)     || 0,
+        activeRoutes:         parseInt(row.activeRoutes)        || 0,
         totalStopsDelivered:  parseInt(row.totalStopsDelivered) || 0,
         totalStopsFailed:     parseInt(row.totalStopsFailed)    || 0,
         podCaptureRate:       parseFloat(row.podCaptureRate)    || 0,
