@@ -42,9 +42,12 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
 
     const from = parseDate(rawFrom, sevenDaysAgo);
     const to   = parseDate(rawTo,   now);
-    const driverId = rawDriverId?.trim() || undefined;
+    // Safely handle driverId — it could be an array if duplicated in query string
+    const driverIdRaw = (request.query as Record<string, unknown>).driverId;
+    const driverId = typeof driverIdRaw === 'string' ? driverIdRaw.trim() : undefined;
+    // Clamp limit to 1..100 to prevent SQL errors
     const rawLimitNum = parseInt(rawLimit ?? '') || 20;
-    const limit = Math.min(rawLimitNum, 100);
+    const limit = Math.max(1, Math.min(rawLimitNum, 100));
 
     // Validate date inputs — return 400 for unparseable dates
     if (rawFrom && isNaN(new Date(rawFrom).getTime())) {
@@ -175,30 +178,51 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
 
     try {
       const { rows } = await pool.query(`
+        WITH route_stats AS (
+          SELECT
+            COUNT(r.id) FILTER (WHERE r.status = 'completed')  AS completed_routes,
+            COUNT(r.id) FILTER (WHERE r.status = 'active')     AS active_routes,
+            COALESCE(SUM(r.completed_stops), 0)                AS total_stops_delivered,
+            COALESCE(SUM(r.failed_stops), 0)                   AS total_stops_failed,
+            COUNT(r.id) FILTER (WHERE r.on_time = TRUE AND r.status = 'completed')
+                                                             AS on_time_count,
+            COUNT(r.id) FILTER (WHERE r.status = 'completed') AS completed_count,
+            ROUND(
+              EXTRACT(EPOCH FROM AVG(r.finished_at - r.shift_start)) / 60,
+              1
+            )                                                  AS avg_completion_mins
+          FROM routes r
+          WHERE r.shift_start >= $1
+        ),
+        stop_stats AS (
+          SELECT
+            COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL)  AS pod_count,
+            COUNT(s.id) FILTER (WHERE s.status = 'delivered') AS delivered_count,
+            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')   AS red_alerts,
+            COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS amber_alerts
+          FROM stops s
+          JOIN routes r ON s.route_id = r.id
+          WHERE r.shift_start >= $1
+        )
         SELECT
-          COUNT(r.id) FILTER (WHERE r.status = 'completed')                       AS "completedRoutes",
-          COUNT(r.id) FILTER (WHERE r.status = 'active')                          AS "activeRoutes",
-          COALESCE(SUM(r.completed_stops), 0)::int                                AS "totalStopsDelivered",
-          COALESCE(SUM(r.failed_stops), 0)::int                                   AS "totalStopsFailed",
+          rs.completed_routes                           AS "completedRoutes",
+          rs.active_routes                              AS "activeRoutes",
+          rs.total_stops_delivered::int                 AS "totalStopsDelivered",
+          rs.total_stops_failed::int                    AS "totalStopsFailed",
           ROUND(
-            COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL)::numeric /
-            NULLIF(COUNT(s.id) FILTER (WHERE s.status = 'delivered'), 0),
+            COALESCE(ss.pod_count, 0)::numeric /
+            NULLIF(COALESCE(ss.delivered_count, 0), 0),
             4
-          )                                                                        AS "podCaptureRate",
+          )                                             AS "podCaptureRate",
           ROUND(
-            COUNT(r.id) FILTER (WHERE r.on_time = TRUE AND r.status = 'completed')::numeric /
-            NULLIF(COUNT(r.id) FILTER (WHERE r.status = 'completed'), 0),
+            COALESCE(rs.on_time_count, 0)::numeric /
+            NULLIF(COALESCE(rs.completed_count, 0), 0),
             4
-          )                                                                        AS "onTimeRate",
-          ROUND(
-            EXTRACT(EPOCH FROM AVG(r.finished_at - r.shift_start)) / 60,
-            1
-          )                                                                        AS "avgCompletionMins",
-          COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED')                   AS "redAlertCount",
-          COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER')                 AS "amberAlertCount"
-        FROM routes r
-        LEFT JOIN stops s ON s.route_id = r.id
-        WHERE r.shift_start >= $1
+          )                                             AS "onTimeRate",
+          COALESCE(rs.avg_completion_mins, 0)           AS "avgCompletionMins",
+          COALESCE(ss.red_alerts, 0)                    AS "redAlertCount",
+          COALESCE(ss.amber_alerts, 0)                  AS "amberAlertCount"
+        FROM route_stats rs, stop_stats ss
       `, [today.toISOString()]);
 
       const row = rows[0];
