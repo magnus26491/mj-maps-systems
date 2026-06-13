@@ -28,6 +28,10 @@
     "packages/offline-cache/**/*",
     "packages/sync-queue/**/*",
     "packages/driver-app/**/*",
-    "services/sync-queue/**/*"
+    "services/sync-queue/**/*",
+    "services/api/**/*",
+    "services/access-engine/**/*",
+    "services/notifications/**/*",
+    "services/route-optimizer/**/*"
   ]
 }
