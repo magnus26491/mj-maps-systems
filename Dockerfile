@@ -13,7 +13,6 @@ COPY . .
 
 RUN npm run build
 
-# Verify the entry point was compiled
 RUN ls -la dist/api/index.js && echo "[build] dist/api/index.js OK"
 
 # ────────────────────────────────────────────────────────────────
@@ -28,8 +27,8 @@ RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
 COPY package.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 
-# BUST=3 — forces Docker to invalidate cache for this layer and all below
-ARG BUST=3
+# cache-bust-4: forces rebuild of all layers below
+RUN echo "cache-bust-4"
 COPY --from=builder /app/dist ./dist
 
 USER mjmaps
