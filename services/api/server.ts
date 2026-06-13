@@ -79,15 +79,25 @@ process.on('unhandledRejection', (reason: unknown) => {
 });
 
 // ─── SERVER ─────────────────────────────────────────────────────────────────────────
-export const server = Fastify({
-  logger: {
-    level: NODE_ENV === 'production' ? 'warn' : 'info',
-    transport: NODE_ENV !== 'production'
-      ? { target: 'pino-pretty', options: { colorize: true } }
-      : undefined,
-  },
-  trustProxy: true,
-});
+
+/**
+ * Creates a new Fastify server instance. Used in tests and as the Railway entry point.
+ * Call `await server.listen()` after registering routes.
+ */
+export function build() {
+  return Fastify({
+    logger: {
+      level: NODE_ENV === 'production' ? 'warn' : 'info',
+      transport: NODE_ENV !== 'production'
+        ? { target: 'pino-pretty', options: { colorize: true } }
+        : undefined,
+    },
+    trustProxy: true,
+  });
+}
+
+/** The singleton server instance. */
+export const server = build();
 
 // ─── ZOD SCHEMAS ───────────────────────────────────────────────────────────────
 const StopSchema = z.object({

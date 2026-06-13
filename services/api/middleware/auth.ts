@@ -32,10 +32,12 @@ export interface AuthUser {
 export function requireAuth(
   request: FastifyRequest,
   reply: FastifyReply,
+  done: () => void,
 ): void {
   const authHeader = request.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     reply.code(401).send({ error: 'Unauthorized' });
+    done();
     return;
   }
 
@@ -44,6 +46,7 @@ export function requireAuth(
 
   if (!payload) {
     reply.code(401).send({ error: 'Unauthorized' });
+    done();
     return;
   }
 
@@ -54,6 +57,7 @@ export function requireAuth(
     tier:   payload.tier,
     planId: payload.planId ?? 'navigation',
   };
+  done();
 }
 
 // ── requireFeature() ───────────────────────────────────────────────────────────
@@ -66,10 +70,12 @@ export function requireFeature(feature: FeatureKey) {
   return function featureGuard(
     request: FastifyRequest,
     reply: FastifyReply,
+    done: () => void,
   ): void {
     const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
     if (!authUser) {
       reply.code(401).send({ error: 'Unauthorized' });
+      done();
       return;
     }
     const planId = authUser.planId as 'navigation' | 'custom';
@@ -81,8 +87,10 @@ export function requireFeature(feature: FeatureKey) {
         feature,
         currentPlan: planId,
       });
+      done();
       return;
     }
+    done();
   };
 }
 
@@ -96,16 +104,20 @@ export function requireRole(...roles: string[]) {
   return function roleGuard(
     request: FastifyRequest,
     reply: FastifyReply,
+    done: () => void,
   ): void {
     const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
     if (!authUser) {
       reply.code(401).send({ error: 'Unauthorized' });
+      done();
       return;
     }
     if (!roles.includes(authUser.role)) {
       reply.code(403).send({ error: 'Forbidden' });
+      done();
       return;
     }
+    done();
   };
 }
 
@@ -120,16 +132,20 @@ export function requireTier(...tiers: string[]) {
   return function tierGuard(
     request: FastifyRequest,
     reply: FastifyReply,
+    done: () => void,
   ): void {
     const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
     if (!authUser) {
       reply.code(401).send({ error: 'Unauthorized' });
+      done();
       return;
     }
     if (!tiers.includes(authUser.tier)) {
       reply.code(403).send({ error: 'Plan upgrade required' });
+      done();
       return;
     }
+    done();
   };
 }
 
@@ -143,10 +159,12 @@ export function requireTier(...tiers: string[]) {
 export function requireEnterprise(
   request: FastifyRequest,
   reply: FastifyReply,
+  done: () => void,
 ): void {
   const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
   if (!authUser) {
     reply.code(401).send({ error: 'Unauthorized' });
+    done();
     return;
   }
   if (!planHasFeature(authUser.planId as 'navigation' | 'custom', 'ADMIN_ANALYTICS')) {
@@ -155,6 +173,8 @@ export function requireEnterprise(
       error: 'ENTERPRISE_REQUIRED',
       message: 'Fleet analytics require an Enterprise plan.',
     });
+    done();
     return;
   }
+  done();
 }

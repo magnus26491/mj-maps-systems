@@ -30,7 +30,8 @@
     "services/notifications/**/*",
     "services/route-engine/**/*",
     "services/storage/**/*",
-    "services/turn-engine/**/*"
+    "services/turn-engine/**/*",
+    "__tests__/**/*"
   ],
   "exclude": [
     "node_modules",

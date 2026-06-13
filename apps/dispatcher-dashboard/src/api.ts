@@ -116,6 +116,7 @@ export async function getAnalyticsRoutes(params?: {
   if (params?.limit) qs.set('limit', String(params.limit));
   const path = `/api/v1/dispatcher/analytics/routes${qs.size ? `?${qs}` : ''}`;
   const data = await apiFetch(path) as { ok: boolean; routes: RouteAnalyticsSummary[] };
+  if (!data.ok) throw new Error('Analytics routes request failed.');
   return { routes: data.routes };
 }
 
@@ -123,12 +124,20 @@ export async function getAnalyticsRoute(routeId: string): Promise<{
   route: RouteAnalyticsSummary;
   stops: StopAnalyticsRow[];
 }> {
-  return apiFetch(`/api/v1/dispatcher/analytics/routes/${routeId}`) as Promise<{
+  const data = await apiFetch(`/api/v1/dispatcher/analytics/routes/${routeId}`) as {
+    ok: boolean;
     route: RouteAnalyticsSummary;
     stops: StopAnalyticsRow[];
-  }>;
+  };
+  if (!data.ok) throw new Error('Analytics route detail request failed.');
+  return { route: data.route, stops: data.stops };
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
-  return apiFetch('/api/v1/dispatcher/analytics/summary') as Promise<AnalyticsSummary>;
+  const data = await apiFetch('/api/v1/dispatcher/analytics/summary') as {
+    ok: boolean;
+  } & AnalyticsSummary;
+  if (!data.ok) throw new Error('Analytics summary request failed.');
+  const { ok: _ok, ...summary } = data;
+  return summary as AnalyticsSummary;
 }

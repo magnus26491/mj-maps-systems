@@ -480,10 +480,27 @@ to devDependencies. `@aws-sdk/client-s3` was already present.
 
 ### Backend
 
-**`migrations/017_analytics_route_index.sql` (new):** Adds a partial index on
-`finished_at DESC` (WHERE `finished_at IS NOT NULL`) for analytics date-range
-queries. The `finished_at`, `on_time`, and `actual_distance_km` columns were
-added by migration 014.
+**`services/db/migrations/013_driver_locations.sql` (new):** Creates `driver_locations`
+table with composite PK on `(driver_id, recorded_at)`. Columns: `driver_id`, `route_id`,
+`lat`, `lng`, `heading`, `speed_kmh`, `recorded_at`. Indexes on `route_id` and
+`recorded_at`.
+
+**`services/db/migrations/014_routes_completion_cols.sql` (new):** Adds
+`finished_at` (TIMESTAMPTZ), `on_time` (BOOLEAN), and `actual_distance_km`
+(DOUBLE PRECISION) to the `routes` table. Also creates `routes_finished_at_idx`
+on `finished_at`.
+
+**`services/db/migrations/015_route_assignments.sql` (new):** Creates
+`route_assignments` table with columns: `id`, `route_id`, `driver_id`, `assigned_by`,
+`note`, `assigned_at`. Indexes on `route_id` and `driver_id`.
+
+**`services/db/migrations/016_fix_driver_locations_pk.sql` (new):** Converts
+`driver_locations` PK from single-column (`driver_id`) to composite
+`(driver_id, recorded_at)` so location pings can INSERT full GPS history.
+
+**`services/db/migrations/017_analytics_route_index.sql` (new):** Partial index
+on `routes.finished_at DESC WHERE finished_at IS NOT NULL` for analytics
+date-range queries.
 
 **`services/billing/subscription-guard.ts`:** `ADMIN_ANALYTICS` feature already
 exists (plans: `['custom']`) — no change needed.
@@ -520,9 +537,10 @@ Registered after `dispatcherRoutes`: `await server.register(analyticsRoutes)`.
 `RouteAnalyticsSummary`, `StopAnalyticsRow`, `AnalyticsSummary`.
 
 **`apps/dispatcher-dashboard/src/api.ts`:** Analytics functions updated to call
-Fastify paths (`/api/v1/dispatcher/analytics/*`). `getAnalyticsRoutes()` unwraps
-`{ ok: true, routes }` response shape. `apiFetch()` helper extracts
-`ENTERPRISE_REQUIRED` code from 403 responses.
+Fastify paths (`/api/v1/dispatcher/analytics/*`). All three helpers validate
+`response.ok` before returning — throws if backend returns `ok: false`. The
+`getAnalyticsRoutes` response shape is `{ ok: boolean; routes: [...] }` and is
+unwrapped. `apiFetch()` helper extracts `ENTERPRISE_REQUIRED` code from 403 responses.
 
 **`apps/dispatcher-dashboard/src/hooks/useAnalytics.ts`:** Already implemented —
 fetches `getAnalyticsSummary()` and `getAnalyticsRoutes({ limit: 20 })` in
@@ -532,15 +550,49 @@ parallel via `Promise.all`.
 implemented — 2×2 KPI cards, route history table, enterprise gate with amber
 upgrade prompt.
 
-**`apps/dispatcher-dashboard/src/components/RouteDetailModal.tsx`:** Already
-implemented — fetches `getAnalyticsRoute(routeId)`, summary grid, stop list
-table. Overlay/modal/closeBtn styles inlined (copied from PodModal.tsx pattern).
+**`apps/dispatcher-dashboard/src/components/RouteDetailModal.tsx`:** Updated —
+`useEffect` now validates the response shape before setting state. If the
+response lacks `route` and `stops` fields, throws and shows an error instead
+of rendering potentially-missing data.
 
 **`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** `rightTab` state:
 `'alerts' | 'analytics' | 'drivers'` (default `'alerts'`). Tab bar renders
 Alerts / Analytics / Drivers buttons above the panel. Active tab: background
 `#1e3a5f`, color `#3b82f6`, border `#3b82f6`. Inactive: transparent, `#64748b`,
 border `#1e293b`. Imports `AnalyticsPanel` from `../components/AnalyticsPanel`.
+
+### Tests
+
+**`__tests__/services/api/routes/analytics.test.ts` (new):** Fastify `inject()`-based
+tests for all three analytics endpoints. Verifies:
+1. 401 when no token (all three endpoints)
+2. 403 with `ENTERPRISE_REQUIRED` when authenticated but not on enterprise plan
+3. 200+`ok:true` when dispatcher with enterprise plan (auth/role/enterprise chain passes)
+4. 200+`ok:true` when admin with enterprise plan
+5. 400 for unparseable `from` date param
+6. `limit` silently clamped to 100 (no 400)
+7. 404+`Route not found.` for non-existent routeId
+
+Uses `@fastify/jwt`'s `encode()` to mint test tokens. Tests are environment-aware:
+auth/authorization is verified regardless of whether the DB is connected (200 or 500
+both indicate the guard chain passed; 401/403 are definitive).
+
+### Documentation
+
+**`README.md`:** Added "Development" section covering:
+- Architecture overview (Fastify on port 3000, legacy Express on port 3100)
+- Local setup commands (`npm run dev`, `npm start`, `npm run build`)
+- API endpoint table
+- Test commands
+- Database migration reference
+
+**`AGENTS.md`:** This section (Phase 16) updated with all files listed above.
+
+### Dependency Changes
+
+**`package.json`:** Moved `tsx` from `dependencies` to `devDependencies` (dev-only
+tool, should not be bundled in production images). Regenerated `package-lock.json`
+via `npm install --package-lock-only`.
 
 
 

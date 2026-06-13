@@ -25,7 +25,11 @@ export default function RouteDetailModal({ routeId, onClose }: Props) {
 
     getAnalyticsRoute(routeId)
       .then(data => {
-        setRouteData(data);
+        // Guard: backend must return ok=true
+        if (!data || typeof data !== 'object' || !('route' in data) || !('stops' in data)) {
+          throw new Error('Invalid response from analytics API.');
+        }
+        setRouteData(data as { route: RouteAnalyticsSummary; stops: StopAnalyticsRow[] });
         setLoading(false);
       })
       .catch(err => {
