@@ -98,3 +98,39 @@ export interface AnalyticsSummary {
   redAlertCount: number;
   amberAlertCount: number;
 }
+
+export interface DriverRow {
+  id: string;
+  name: string;
+  email: string;
+  planId: string;
+  vehicleId: string | null;
+  role: 'driver' | 'dispatcher' | 'admin';
+  isActive: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+  activeRoutes: number;
+  completedToday: number;
+}
+
+export interface DriverDetail {
+  id: string;
+  name: string;
+  email: string;
+  role: 'driver' | 'dispatcher' | 'admin';
+  isActive: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+}
+
+export interface DriverRouteRow {
+  routeId: string;
+  status: string;
+  totalStops: number;
+  completedStops: number;
+  failedStops: number;
+  shiftStart: string | null;
+  finishedAt: string | null;
+  onTime: boolean | null;
+  actualDistanceKm: number | null;
+}

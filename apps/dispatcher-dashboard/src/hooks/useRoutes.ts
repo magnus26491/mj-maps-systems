@@ -32,6 +32,7 @@ export function useRoutes() {
   }, []);
 
   useEffect(() => {
+    let es: EventSource | null = null;
     let cancelled = false;
 
     (async () => {
@@ -55,7 +56,7 @@ export function useRoutes() {
       }
 
       // 2. Open SSE stream for live location updates
-      const es = new EventSource(getLocationStreamUrl());
+      es = new EventSource(getLocationStreamUrl());
 
       es.addEventListener('snapshot', (e: MessageEvent) => {
         if (cancelled) return;
@@ -97,21 +98,21 @@ export function useRoutes() {
       });
 
       // On error or close, fall back to polling
-      const onError = () => {
+      es.onerror = () => {
         if (cancelled) return;
-        es.close();
+        es?.close();
+        es = null;
         cleanup();
         fallbackInterval.current = setInterval(async () => {
           try { setRoutes(await getRoutes()); }
           catch { /* swallow polling errors — last state stays visible */ }
         }, 15_000);
       };
-
-      es.onerror = onError;
     })();
 
     return () => {
       cancelled = true;
+      es?.close();
       cleanup();
     };
   }, [cleanup]);

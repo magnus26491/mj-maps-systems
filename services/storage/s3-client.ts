@@ -2,7 +2,7 @@
  * services/storage/s3-client.ts
  * S3-compatible client for POD photo upload (works with AWS S3 and Cloudflare R2).
  */
-import { S3Client, HeadObjectCommand, PutObjectCommand, S3ClientConfig } from '@aws-sdk/client-s3';
+import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 
@@ -21,10 +21,7 @@ if (!s3Configured) {
 }
 
 
-// endpoint and forcePathStyle are not in the S3ClientConfig TS interface (they're
-// Smithy-level resolved properties) but the runtime accepts them for R2/S3.
-// Build a base config, add R2 overrides as explicit any, then cast to S3ClientConfig.
-const baseConfig: Record<string, unknown> = {
+const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
   region: 'auto',
   credentials: {
     accessKeyId:     ACCESS_KEY,
@@ -32,15 +29,11 @@ const baseConfig: Record<string, unknown> = {
   },
 };
 
-if (ENDPOINT) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (baseConfig as any).endpoint = ENDPOINT;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (baseConfig as any).forcePathStyle = true;
-}
 
-// Cast through unknown — the runtime S3Client resolves these Smithy-level options.
-const clientConfig = baseConfig as unknown as S3ClientConfig;
+if (ENDPOINT) {
+  (clientConfig as Record<string, unknown>).endpoint = ENDPOINT;
+  (clientConfig as Record<string, unknown>).forcePathStyle = true;
+}
 
 
 export const s3 = new S3Client(clientConfig);

@@ -15,6 +15,8 @@ import type { StopPin } from '../stop-precision';
 const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
   maxRetriesPerRequest: 3,
   lazyConnect: true,
+  connectTimeout: 5000,
+  commandTimeout: 5000,
 });
 
 redis.on('error', (err) => console.error('[cache] Redis error:', err.message));
@@ -27,7 +29,12 @@ export { redis };
  * a separate instance is required per SSE connection.
  */
 export function createSubscriber(): Redis {
-  return new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+  const sub = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+    connectTimeout: 5000,
+    commandTimeout: 5000,
+  });
+  sub.on('error', (err) => console.error('[cache:subscriber] Redis error:', err.message));
+  return sub;
 }
 
 // ── Key builders ──────────────────────────────────────────────────────────────

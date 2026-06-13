@@ -71,7 +71,12 @@ authRegisterRouter.post('/', async (req: Request, res: Response) => {
         trialEndsAt: row.trial_ends_at.toISOString(),
       },
     });
-  } catch {
+  } catch (err) {
+    if ((err as any).code === '23505') {
+      res.status(409).json({ error: 'email_taken' });
+      return;
+    }
+    console.error('[auth-register] insert failed:', err);
     res.status(500).json({ error: 'Registration failed' });
   }
 });

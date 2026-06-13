@@ -1,22 +1,24 @@
 -- 012_drivers_billing_and_vehicle_specs.sql
 -- Driver plan & billing fields + vehicle_specs table with UK van fleet seed data.
 -- Idempotent: safe to re-run on any existing DB.
+-- NOTE: columns are added to 'users' (the real table).
+-- 'drivers' is a VIEW aliasing users (created in 010).
 
 
 BEGIN;
 
 -- ── Driver plan & billing ───────────────────────────────────────────────────
-ALTER TABLE drivers
+ALTER TABLE users
   ADD COLUMN IF NOT EXISTS plan             TEXT NOT NULL DEFAULT 'free',
   ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT UNIQUE,
   ADD COLUMN IF NOT EXISTS stripe_sub_id    TEXT UNIQUE,
   ADD COLUMN IF NOT EXISTS plan_expires_at  TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS trial_ends_at    TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_drivers_stripe_customer
-  ON drivers(stripe_customer_id);
-CREATE INDEX IF NOT EXISTS idx_drivers_plan
-  ON drivers(plan);
+CREATE INDEX IF NOT EXISTS idx_users_stripe_customer
+  ON users(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_users_plan
+  ON users(plan);
 
 -- ── Vehicle specs table ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS vehicle_specs (

@@ -3,6 +3,19 @@
  * All routes mounted. Protected routes require authenticateDriver middleware.
  */
 
+// Trap any crash before it silently exits
+process.on('uncaughtException', (err) => {
+  console.error('[startup] uncaughtException:', err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[startup] unhandledRejection:', reason);
+  process.exit(1);
+});
+
+console.log('[startup] loading imports...');
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -26,6 +39,8 @@ import { podRouter } from './routes/pod';
 import { vehicleSpecsRouter } from './routes/vehicle-specs';
 import { locationRouter } from './routes/location';
 import { analyticsRouter } from './routes/analytics';
+import { stopCompleteRouter } from './routes/stop-complete';
+import { driverManagementRouter } from './routes/driver-management';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -33,32 +48,31 @@ import { requireEnterprise } from './middleware/requireEnterprise';
 import { pingCache } from '../services/cache';
 import { pool } from '../services/db';
 
+console.log('[startup] imports loaded, building express app...');
+
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-// ── Rate limiting ─────────────────────────────────────────────────────────────
+// ── Rate limiting ─────────────────────────────────────────────────────
 
-// Tight limit on auth endpoints to prevent brute force
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 20,
   message: { success: false, error: 'Too many requests. Try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// General API limit
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 1000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Fleet GPS pings — 300 req/min (drivers ping every 10s)
 const locationLimiter = rateLimit({
   windowMs: 60_000,
   max: 300,
@@ -69,7 +83,7 @@ const locationLimiter = rateLimit({
 app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
-// ── Health (public) ─────────────────────────────────────────────────────────────
+// ── Health (public) ─────────────────────────────────────────────────────────
 app.get('/health', async (_req, res) => {
   const [redisOk, dbOk] = await Promise.all([
     pingCache(),
@@ -84,42 +98,39 @@ app.get('/health', async (_req, res) => {
 });
 
 // ── Public routes ───────────────────────────────────────────────────────────────
-app.use('/api/auth',       authRouter);        // login, refresh, logout — no auth required
-app.use('/api/v1/auth',    authRegisterRouter); // register — no auth required
-app.use('/api/v1/pins',    pinsRouter);        // GET /lookup is public; POST /confirm requires auth via router
-app.use('/api/v1/billing', billingRouter);     // webhook is public; checkout+status are auth-gated inside
+app.use('/api/auth',       authRouter);
+app.use('/api/v1/auth',    authRegisterRouter);
+app.use('/api/v1/pins',    pinsRouter);
+app.use('/api/v1/billing', billingRouter);
 
-// ── Protected routes (all require valid JWT) ─────────────────────────────────
+// ── Protected routes (all require valid JWT) ──────────────────────────────────────────
 app.use('/api/plan',          authenticateDriver, planRouter);
 app.use('/api/turn-check',    authenticateDriver, turnCheckRouter);
 app.use('/api/replan',        authenticateDriver, replanRouter);
 app.use('/api/stop-pin',      authenticateDriver, stopPinRouter);
 app.use('/api/stop-feedback', authenticateDriver, stopFeedbackRouter);
 
-// Dispatcher + admin only
 app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), dispatcherRouter, dispatcherAssignRouter);
-
-// Dispatcher analytics (enterprise-gated)
 app.use('/api/dispatcher',    authenticateDriver, requireRole('dispatcher'), requireEnterprise, analyticsRouter);
+app.use('/api/dispatcher/drivers', authenticateDriver, requireRole('dispatcher'), driverManagementRouter);
 
-// Optimise and PAF routes (v1)
-app.use('/api/v1/optimise',   authenticateDriver, optimiseRouter);
-app.use('/api/v1/paf',        authenticateDriver, pafRouter);
-app.use('/api/v1/stops',      authenticateDriver, pinConfirmRouter, podRouter);
+app.use('/api/v1/optimise',      authenticateDriver, optimiseRouter);
+app.use('/api/v1/paf',           authenticateDriver, pafRouter);
+app.use('/api/v1/stops',         authenticateDriver, pinConfirmRouter, podRouter, stopCompleteRouter);
 app.use('/api/v1/vehicle-specs', authenticateDriver, vehicleSpecsRouter);
-// Fleet GPS ping endpoint (high throughput — separate rate limiter)
-app.use('/api/v1/location',   locationLimiter, authenticateDriver, locationRouter);
+app.use('/api/v1/location',      locationLimiter, authenticateDriver, locationRouter);
 
-// ── 404 handler ───────────────────────────────────────────────────────────────────
+// ── 404 handler ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found.' }));
 
-// ── Global error handler ─────────────────────────────────────────────────────────
+// ── Global error handler ──────────────────────────────────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[api] Unhandled error:', err.message);
   res.status(500).json({ success: false, error: 'Internal server error.' });
 });
 
 const PORT = process.env.PORT ?? 3100;
+console.log(`[startup] calling app.listen on port ${PORT}...`);
 app.listen(PORT, () => {
   console.log(`[mj-maps-systems] API listening on port ${PORT}`);
 });

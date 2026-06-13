@@ -15,6 +15,7 @@ import { pool } from '../../services/db';
 import { redis, createSubscriber } from '../../services/cache';
 import { verifyAccessToken } from '../../services/auth';
 import { requireEnterprise } from '../middleware/requireEnterprise';
+import { maybeCompleteRoute } from '../../services/route-completion';
 
 export const dispatcherRouter = Router();
 
@@ -57,18 +58,20 @@ dispatcherRouter.get('/routes', async (_req, res) => {
     // Batch read live locations from Redis
     const locMap = new Map<string, { lat: number; lng: number; heading: number | null; recordedAt: string }>();
     if (rows.length > 0) {
-      const keys = rows
-        .map((r: Record<string, unknown>) => r.driverId as string)
-        .filter(Boolean)
-        .map(id => `driver:loc:${id}`);
+      const driverIdEntries = rows
+        .map((r: Record<string, unknown>, idx: number) => ({ driverId: r.driverId as string | null, idx }))
+        .filter((e): e is { driverId: string; idx: number } => Boolean(e.driverId));
+
+      const keys = driverIdEntries.map(e => `driver:loc:${e.driverId}`);
+
       try {
         const values = await redis.mget(...keys);
-        for (let i = 0; i < values.length; i++) {
-          if (values[i]) {
+        for (let i = 0; i < driverIdEntries.length; i++) {
+          const val = values[i];
+          if (val) {
             try {
-              const loc = JSON.parse(values[i]!) as { lat: number; lng: number; heading?: number | null; speedKmh?: number | null; routeId?: string | null; recordedAt: string };
-              const driverId = rows[i]!.driverId as string;
-              locMap.set(driverId, { lat: loc.lat, lng: loc.lng, heading: loc.heading ?? null, recordedAt: loc.recordedAt });
+              const loc = JSON.parse(val) as { lat: number; lng: number; heading?: number | null; speedKmh?: number | null; routeId?: string | null; recordedAt: string };
+              locMap.set(driverIdEntries[i]!.driverId, { lat: loc.lat, lng: loc.lng, heading: loc.heading ?? null, recordedAt: loc.recordedAt });
             } catch { /* skip malformed JSON */ }
           }
         }
@@ -94,8 +97,9 @@ dispatcherRouter.get('/routes', async (_req, res) => {
     });
 
     res.json({ routes });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -111,6 +115,24 @@ dispatcherRouter.get('/routes/:id', async (req, res) => {
     if (rows.length === 0) { res.status(404).json({ error: 'Route not found' }); return; }
     const row = rows[0];
     const raw = row.raw_result as { stops?: unknown[] } | null;
+
+    let currentLat = 0;
+    let currentLon = 0;
+    let lastPing: string | null = null;
+    let heading: number | null = null;
+    if (row.driver_id) {
+      try {
+        const locRaw = await redis.get(`driver:loc:${row.driver_id}`);
+        if (locRaw) {
+          const loc = JSON.parse(locRaw) as { lat: number; lng: number; heading?: number | null; recordedAt: string };
+          currentLat = loc.lat;
+          currentLon = loc.lng;
+          lastPing = loc.recordedAt;
+          heading = loc.heading ?? null;
+        }
+      } catch { /* Redis unavailable — fall back to 0,0 */ }
+    }
+
     res.json({
       route: {
         routeId: row.id,
@@ -125,14 +147,16 @@ dispatcherRouter.get('/routes/:id', async (req, res) => {
         totalDistanceKm: row.total_distance_km ?? 0,
         estimatedCompletion: row.estimated_completion,
         shiftStart: row.shift_start,
-        currentLat: 0,
-        currentLon: 0,
-        lastPing: new Date().toISOString(),
+        currentLat,
+        currentLon,
+        lastPing,
+        heading,
         stops: raw?.stops ?? [],
       }
     });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -173,8 +197,9 @@ dispatcherRouter.get('/stats', async (_req, res) => {
       redAlerts:            parseInt(alertsRes.rows[0].red_alerts),
       amberAlerts:          parseInt(alertsRes.rows[0].amber_alerts),
     });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -286,8 +311,26 @@ dispatcherRouter.get('/alerts', async (req, res) => {
       LIMIT $1
     `, [limit]);
     res.json({ alerts: rows });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
+// ── POST /api/dispatcher/routes/:routeId/complete ───────────────────────────
+dispatcherRouter.post('/routes/:routeId/complete', async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const completed = await maybeCompleteRoute(routeId);
+    if (!completed) {
+      res.status(409).json({ success: false, error: 'Route already completed or not found.' });
+      return;
+    }
+    broadcastAlert({ type: 'route_completed', routeId, manual: true, ts: new Date().toISOString() });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[dispatcher]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });
 
@@ -329,7 +372,8 @@ dispatcherRouter.get('/stops/:stopId/pod', requireEnterprise, async (req: Reques
       podType: stop.pod_type ?? 'photo',
       podCapturedAt: stop.pod_captured_at?.toISOString() ?? null,
     });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  } catch (err) {
+    console.error('[dispatcher]', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
   }
 });

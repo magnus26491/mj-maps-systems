@@ -596,6 +596,150 @@ via `npm install --package-lock-only`.
 
 
 
+## Phase 17 — Route Completion Engine (committed XXXXXX)
+
+### Backend
+
+**`services/route-completion/index.ts` (new):** Pure service function — no Express, no
+HTTP. Exports `maybeCompleteRoute(routeId): Promise<boolean>`:
+1. Loads route; returns `false` if not found or already `completed` (idempotency guard)
+2. Queries live stop counts (delivered/failed/pending) — returns `false` if any `pending > 0`
+3. Computes `finishedAt = NOW()`, `onTime = finishedAt <= estimated_completion` (null if
+   no estimate), `actualDistanceKm` via haversine accumulation from `driver_locations`
+   (falls back to `route.total_distance_km` if fewer than 2 GPS points)
+4. `UPDATE routes SET status='completed', finished_at, on_time, actual_distance_km,
+   completed_stops, failed_stops` — returns `true`
+5. Full `try/catch` — never throws; logs errors to `console.error('[route-completion]', err)`
+
+Haversine implementation is inline: `R = 6371`, all angles converted to radians,
+distance rounded to 2 decimal places.
+
+**`api/routes/stop-complete.ts` (new):** `stopCompleteRouter` for
+`POST /api/v1/stops/:stopId/complete`:
+- Validates `body.status` is `'delivered'` or `'failed'` → 400 otherwise
+- Loads stop → 404 if not found; 403 if `driver_id !== req.driver.id`; 400 if
+  `status !== 'pending'` (already actioned guard)
+- Updates stop status inline
+- Re-queries and stamps `completed_stops` and `failed_stops` on the parent route
+- Calls `maybeCompleteRoute(routeId)` — if `true`, calls `broadcastAlert({ type:
+  'route_completed', routeId, driverId, driverName: null, ts })`
+- Returns `200 { success: true, routeCompleted: boolean }`
+- `authenticateDriver` applied at the mount point — not re-applied here
+- Imports `broadcastAlert` from `'../routes/dispatcher'`
+
+**`api/routes/dispatcher.ts`:** Added `POST /api/dispatcher/routes/:routeId/complete`
+endpoint (inserted after the GET /alerts polling route, before POST /alerts/:id/dismiss):
+- Calls `maybeCompleteRoute(routeId)` directly
+- Returns `409` if `false` ("Route already completed or not found.")
+- Returns `200 { success: true }` if `true`, broadcasting `{ type: 'route_completed',
+  routeId, manual: true, ts }` via `broadcastAlert()`
+- Imports `maybeCompleteRoute` from `'../../services/route-completion'`
+
+**`api/index.ts`:** Imported `stopCompleteRouter` from `'./routes/stop-complete'`.
+Registered at `/api/v1/stops` alongside `pinConfirmRouter` and `podRouter`:
+`app.use('/api/v1/stops', authenticateDriver, pinConfirmRouter, podRouter, stopCompleteRouter)`.
+All three routers handle different sub-paths — no conflict.
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `forceCompleteRoute(routeId)` — calls
+`POST /api/dispatcher/routes/${routeId}/complete` via `apiFetch()`.
+
+**`apps/dispatcher-dashboard/src/components/RouteList.tsx`:** Added `onComplete?: (routeId:
+string) => void` prop. Added "✓ Complete" button (only when `route.status === 'active'`):
+green outline style, `marginLeft: '0.5rem'`. `handleComplete()` calls
+`forceCompleteRoute(routeId).then(() => onComplete?.(routeId)).catch(console.error)` —
+calls `onComplete` only on API success, logs on error, never throws. Imports
+`forceCompleteRoute` from `'../api'`.
+
+**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** Passes `onComplete` prop to
+`<RouteList>`: `onComplete={_routeId => { /* routes refresh via SSE */ }}`. No other
+changes.
+
+
+
+## Phase 18 — Driver Management (committed XXXXXX)
+
+### Backend
+
+**`migrations/011_driver_status.sql` (new):** Adds `is_active` (BOOLEAN NOT NULL DEFAULT
+FALSE) and `last_seen_at` (TIMESTAMPTZ) columns to the `drivers` table. Also creates
+`idx_drivers_is_active` — a partial index on `is_active` restricted to TRUE rows,
+optimized for "find active drivers" queries.
+
+**`api/routes/driver-management.ts` (new):** `driverManagementRouter` with four endpoints.
+All require `authenticateDriver` + `requireRole('dispatcher')` applied at the mount
+point — do NOT re-apply middleware inside this file:
+- `GET /` — returns all drivers with live route context (activeRoutes, completedToday).
+  Counts use `COUNT(...)::integer` casts to handle Postgres bigint returns.
+- `GET /:driverId` — single driver + last 10 routes (ordered by shift_start DESC).
+  Returns 404 if driver not found.
+- `PATCH /:driverId` — dynamic SET clause built from allowlisted fields only
+  (`name`, `email`, `role`). Validates role against `['driver', 'dispatcher', 'admin']`
+  — 400 on invalid. Returns 400 "No valid fields to update." if none provided.
+  Returns 404 if driver not found.
+- `DELETE /:driverId` — checks for active routes first (409 if any), then deletes.
+  Returns 404 if driver not found.
+
+All four endpoints: full `try/catch`, `console.error('[driver-management]', err)`,
+500 `{ success: false, error: 'Internal server error.' }`.
+
+**`api/index.ts`:** Imported `driverManagementRouter` from `'./routes/driver-management'`.
+Registered: `app.use('/api/dispatcher', authenticateDriver, requireRole('dispatcher'),
+driverManagementRouter)` — placed immediately after the analytics mount. Mounts on the
+same path prefix as `dispatcherRouter` and `dispatcherAssignRouter` — no route conflict
+since each router handles its own sub-paths.
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/types.ts`:** Added `DriverRow`, `DriverDetail`,
+`DriverRouteRow` interfaces. `DriverRow` includes `activeRoutes` and `completedToday`
+(counts from today's completed routes). `DriverRouteRow` mirrors analytics stop-row
+style for route history.
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `getDispatcherDrivers()`,
+`getDriver(driverId)`, `updateDriver(driverId, fields)`, `deleteDriver(driverId)`.
+`getDispatcherDrivers` and `getDriver` use `apiFetch()`. `updateDriver` and `deleteDriver`
+use raw `fetch` with error body parsing (same pattern as `forceCompleteRoute`).
+Renamed the existing enterprise-gated `getDrivers()` function unchanged (used by
+`AssignModal`).
+
+**`apps/dispatcher-dashboard/src/hooks/useDrivers.ts`:** Replaced SWR implementation
+with manual `useState` + `useEffect` pattern matching `useStats` / `useRoutes`. Uses
+`refreshKey` counter state — `refresh()` increments it to trigger re-fetch. Cancels
+in-flight requests via `cancelled` flag. Returns `{ drivers, isLoading, error, refresh }`.
+
+**`apps/dispatcher-dashboard/src/components/DriversPanel.tsx` (new):**
+- State: `editingId`, `editFields` (name/email/role), `savingId`, `deletingId`,
+  `selectedDriverId`
+- Table with 6 columns: Name/Email, Role, Status, Routes Today, Last Seen, Actions
+- Name cell: clickable driver name opens `DriverDetailModal`; email in muted text below
+- Role badge: green pill for `driver`, blue for `dispatcher`/`admin`
+- Status: green dot if `isActive`, grey otherwise
+- Edit mode: replaces Name/Email and Role cells with inputs (name input, email input,
+  role `<select>`)
+- Save/Cancel buttons (disabled + opacity while saving); Delete button (red, disabled
+  while deleting)
+- `handleSave()` and `handleDelete()` both call `refresh()` on success
+- `DriversPanel` does NOT fetch directly — uses `useDrivers()` hook exclusively
+
+**`apps/dispatcher-dashboard/src/components/DriverDetailModal.tsx` (new):**
+- Fetches `getDriver(driverId)` on mount when `driverId` is not null; returns `null`
+  immediately otherwise
+- Title: "Driver — {driver.name}"
+- Summary grid (4 cols): Email, Role, Status (dot + label), Last Seen
+- Route history table (last 10): Date, Stops, Failed, Distance, On Time, Status
+  (✓/✗/— with colour coding; status badge same as RouteList)
+- Copied overlay/modal/closeBtn styles exactly from `RouteDetailModal.tsx` — no shared
+  style module. Max width: 700px
+
+**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** Added third tab button "Drivers"
+matching existing style. `rightTab` type expanded to `'alerts' | 'analytics' | 'drivers'`.
+Imported `DriversPanel` from `../components/DriversPanel`. Renders `<DriversPanel />`
+when `rightTab === 'drivers'` (chained ternary: alerts → AlertPanel, analytics →
+AnalyticsPanel, drivers → DriversPanel).
+
+
 
 ## Phase 14 — Driver Location SSE Stream (committed XXXXXX)
 
