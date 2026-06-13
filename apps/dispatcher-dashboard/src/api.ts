@@ -5,7 +5,7 @@ const TOKEN_KEY = 'mj_dispatcher_token';
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 
 export async function login(email: string, password: string) {
-  const r = await fetch('/api/auth/login', {
+  const r = await fetch('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -45,34 +45,34 @@ async function apiFetch(path: string): Promise<unknown> {
 // ── API helpers ─────────────────────────────────────────────────────────────
 
 export async function getStats(): Promise<Stats> {
-  const res = await fetch('/api/dispatcher/stats', { headers: authHeaders() });
+  const res = await fetch('/api/v1/dispatcher/stats', { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to load stats');
   return res.json() as Promise<Stats>;
 }
 
 export async function getRoutes(): Promise<Route[]> {
-  const res = await fetch('/api/dispatcher/routes', { headers: authHeaders() });
+  const res = await fetch('/api/v1/dispatcher/routes', { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to load routes');
   const data = await res.json() as { routes: Route[] };
   return data.routes;
 }
 
 export async function getAlerts(): Promise<Alert[]> {
-  const res = await fetch('/api/dispatcher/alerts?limit=50', { headers: authHeaders() });
+  const res = await fetch('/api/v1/dispatcher/alerts?limit=50', { headers: authHeaders() });
   if (!res.ok) return [];
   const data = await res.json() as { alerts: Alert[] };
   return data.alerts;
 }
 
 export async function dismissAlert(id: string): Promise<void> {
-  await fetch(`/api/dispatcher/alerts/${id}/dismiss`, {
+  await fetch(`/api/v1/dispatcher/alerts/${id}/dismiss`, {
     method: 'POST',
     headers: authHeaders(),
   });
 }
 
 export async function getDrivers(): Promise<Driver[]> {
-  const res = await fetch('/api/dispatcher/drivers', { headers: authHeaders() });
+  const res = await fetch('/api/v1/dispatcher/drivers', { headers: authHeaders() });
   if (res.status === 403) return [];
   if (!res.ok) throw new Error('Failed to load drivers');
   const data = await res.json() as { drivers: Driver[] };
@@ -80,7 +80,7 @@ export async function getDrivers(): Promise<Driver[]> {
 }
 
 export async function assignRoute(routeId: string, driverId: string, note?: string): Promise<void> {
-  await fetch('/api/dispatcher/assign', {
+  await fetch('/api/v1/dispatcher/assign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ routeId, driverId, note }),
@@ -90,14 +90,14 @@ export async function assignRoute(routeId: string, driverId: string, note?: stri
 // ── Driver management helpers ────────────────────────────────────────────────
 
 export async function getDispatcherDrivers(): Promise<{ drivers: DriverRow[] }> {
-  return apiFetch('/api/dispatcher/drivers') as Promise<{ drivers: DriverRow[] }>;
+  return apiFetch('/api/v1/dispatcher/drivers') as Promise<{ drivers: DriverRow[] }>;
 }
 
 export async function getDriver(driverId: string): Promise<{
   driver: DriverDetail;
   routes: DriverRouteRow[];
 }> {
-  return apiFetch(`/api/dispatcher/drivers/${driverId}`) as Promise<{
+  return apiFetch(`/api/v1/dispatcher/drivers/${driverId}`) as Promise<{
     driver: DriverDetail;
     routes: DriverRouteRow[];
   }>;
@@ -107,7 +107,7 @@ export async function updateDriver(
   driverId: string,
   fields: { name?: string; email?: string; role?: string },
 ): Promise<{ success: boolean }> {
-  const res = await fetch(`/api/dispatcher/drivers/${driverId}`, {
+  const res = await fetch(`/api/v1/dispatcher/drivers/${driverId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(fields),
@@ -120,7 +120,7 @@ export async function updateDriver(
 }
 
 export async function deleteDriver(driverId: string): Promise<{ success: boolean }> {
-  const res = await fetch(`/api/dispatcher/drivers/${driverId}`, {
+  const res = await fetch(`/api/v1/dispatcher/drivers/${driverId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -135,16 +135,16 @@ export async function deleteDriver(driverId: string): Promise<{ success: boolean
 
 export function getAlertStreamUrl(): string {
   const token = localStorage.getItem(TOKEN_KEY) ?? '';
-  return `/api/dispatcher/alerts/stream?token=${encodeURIComponent(token)}`;
+  return `/api/v1/dispatcher/alerts/stream?token=${encodeURIComponent(token)}`;
 }
 
 export function getLocationStreamUrl(): string {
   const token = localStorage.getItem(TOKEN_KEY) ?? '';
-  return `/api/dispatcher/locations/stream?token=${encodeURIComponent(token)}`;
+  return `/api/v1/dispatcher/locations/stream?token=${encodeURIComponent(token)}`;
 }
 
 export async function getStopPod(stopId: string): Promise<{ podUrl: string; podType: string; podCapturedAt: string }> {
-  const data = await apiFetch(`/api/dispatcher/stops/${stopId}/pod`) as { success: boolean; podUrl: string; podType: string; podCapturedAt: string };
+  const data = await apiFetch(`/api/v1/dispatcher/stops/${stopId}/pod`) as { success: boolean; podUrl: string; podType: string; podCapturedAt: string };
   return { podUrl: data.podUrl, podType: data.podType, podCapturedAt: data.podCapturedAt };
 }
 
@@ -192,7 +192,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
 // ── Route completion helpers ──────────────────────────────────────────────────
 
 export async function forceCompleteRoute(routeId: string): Promise<{ success: boolean }> {
-  const res = await fetch(`/api/dispatcher/routes/${routeId}/complete`, {
+  const res = await fetch(`/api/v1/dispatcher/routes/${routeId}/complete`, {
     method: 'POST',
     headers: authHeaders(),
   });
