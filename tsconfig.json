@@ -19,19 +19,16 @@
     "noImplicitAny": false,
     "strictNullChecks": false
   },
-  "include": ["api/**/*", "services/**/*"],
+  "include": [
+    "api/**/*",
+    "services/cache/**/*",
+    "services/db/**/*",
+    "services/route-engine/**/*",
+    "services/storage/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/__tests__/**",
-    "apps/**/*",
-    "packages/offline-cache/**/*",
-    "packages/sync-queue/**/*",
-    "packages/driver-app/**/*",
-    "services/sync-queue/**/*",
-    "services/api/**/*",
-    "services/access-engine/**/*",
-    "services/notifications/**/*",
-    "services/route-optimizer/**/*"
+    "**/__tests__/**"
   ]
 }

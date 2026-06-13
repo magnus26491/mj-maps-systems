@@ -31,8 +31,8 @@ const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
 
 
 if (ENDPOINT) {
-  clientConfig.endpoint = ENDPOINT;
-  clientConfig.forcePathStyle = true;
+  (clientConfig as Record<string, unknown>).endpoint = ENDPOINT;
+  (clientConfig as Record<string, unknown>).forcePathStyle = true;
 }
 
 
