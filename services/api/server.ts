@@ -48,33 +48,56 @@ import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
 import { fcmTokenRoutes } from './routes/fcm-token.js';
 import { dispatcherRoutes } from './routes/dispatcher.js';
+import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
-const HOST       = process.env.HOST ?? '0.0.0.0';
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
+const HOST       = '0.0.0.0';
+const JWT_SECRET = process.env.JWT_SECRET;
 const NODE_ENV   = process.env.NODE_ENV ?? 'development';
+const BUILD_ID   = process.env.BUILD_ID   ?? `dev-${Date.now()}`;
 
-if (NODE_ENV === 'production' && JWT_SECRET === 'dev-secret-change-in-production') {
-  // Warn loudly but do not exit — the health check must be able to pass
-  // so Railway marks the deployment healthy. Set JWT_SECRET in Railway
-  // environment variables to remove this warning.
-  console.warn('[WARN] JWT_SECRET is not set — using insecure dev default in production!');
+// ── Phase 10: Production secrets must be set ─────────────────────────────────────────
+if (NODE_ENV === 'production') {
+  if (!JWT_SECRET) {
+    console.error('[mj-maps-api] FATAL: JWT_SECRET is required in production');
+    process.exit(1);
+  }
 }
 
-// ─── SERVER ─────────────────────────────────────────────────────────────────────────
-export const server = Fastify({
-  logger: {
-    level: NODE_ENV === 'production' ? 'warn' : 'info',
-    transport: NODE_ENV !== 'production'
-      ? { target: 'pino-pretty', options: { colorize: true } }
-      : undefined,
-  },
-  trustProxy: true,
+// ── Phase 12: Global error handlers ─────────────────────────────────────────────────
+process.on('uncaughtException', (err: Error) => {
+  console.error('[mj-maps-api] UNCAUGHT EXCEPTION:', err.message, err.stack);
+  process.exit(1);
 });
+
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('[mj-maps-api] UNHANDLED REJECTION:', reason);
+});
+
+// ─── SERVER ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Creates a new Fastify server instance. Used in tests and as the Railway entry point.
+ * Call `await server.listen()` after registering routes.
+ */
+export function build() {
+  return Fastify({
+    logger: {
+      level: NODE_ENV === 'production' ? 'warn' : 'info',
+      transport: NODE_ENV !== 'production'
+        ? { target: 'pino-pretty', options: { colorize: true } }
+        : undefined,
+    },
+    trustProxy: true,
+  });
+}
+
+/** The singleton server instance. */
+export const server = build();
 
 // ─── ZOD SCHEMAS ───────────────────────────────────────────────────────────────
 const StopSchema = z.object({
@@ -161,6 +184,7 @@ const start = async () => {
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
   await server.register(dispatcherRoutes);
+  await server.register(analyticsRoutes);
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
 
@@ -347,11 +371,29 @@ const start = async () => {
   // ── Listen ─────────────────────────────────────────────────────────────────────────
   try {
     await server.listen({ port: PORT, host: HOST });
-    console.log(`[mj-maps-api] Listening on ${HOST}:${PORT} (${NODE_ENV})`);
+    console.log(
+      `[mj-maps-api] Started — service=mj-maps-api, env=${NODE_ENV}, port=${PORT}, build=${BUILD_ID}`,
+    );
   } catch (err) {
     server.log.error(err);
     process.exit(1);
   }
 };
+
+// ── Phase 12: Graceful shutdown ─────────────────────────────────────────────────────
+const shutdown = async (signal: string) => {
+  console.log(`[mj-maps-api] Received ${signal} — shutting down gracefully…`);
+  try {
+    await server.close();
+    console.log('[mj-maps-api] Server closed cleanly');
+    process.exit(0);
+  } catch (err) {
+    console.error('[mj-maps-api] Error during shutdown:', err);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
 
 start();

@@ -1,3 +1,7 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# MJ Maps Systems — Global .gitignore
+# ────────────────────────────────────────────────────────────────────────────────
+
 # Dependencies
 node_modules/
 */node_modules/
@@ -26,3 +30,10 @@ google-play-service-account.json
 # Expo / EAS
 .eas/
 .expo/
+
+# Vite build output (dispatcher dashboard)
+apps/dispatcher-dashboard/dist/
+
+# Compiled .js files that conflict with TypeScript source (dispatcher dashboard)
+apps/dispatcher-dashboard/src/*.js
+apps/dispatcher-dashboard/src/**/*.js

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["__tests__/**/*", "services/api/**/*", "services/db/**/*"]
+}

@@ -117,3 +117,71 @@ mj-maps-systems/
 ---
 
 *Built by MJ Lawrence — Monaco, 2026*
+
+---
+
+## Development
+
+### Architecture
+
+The system uses **Fastify** (port 3000) as the primary API server. A legacy Express server
+(port 3100, entry: `api/index.js`) was used in earlier phases and is no longer maintained.
+
+### Running Locally
+
+```bash
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env
+# Edit .env — set JWT_SECRET, DATABASE_URL, REDIS_URL, GEOAPIFY_API_KEY
+
+# Start the Fastify API server (development mode with hot reload)
+npm run dev
+
+# The API is available at http://localhost:3000
+# Health check: GET /api/v1/health
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+### API Endpoints
+
+| Route | Method | Auth | Description |
+|---|---|---|---|
+| `/api/v1/auth/login` | POST | — | Driver login |
+| `/api/v1/dispatcher/*` | varies | dispatcher + enterprise | Dispatcher analytics |
+| `/api/v1/stops/:id/complete` | POST | driver | Mark stop delivered/failed |
+| `/api/v1/stops/:id/pod` | POST | driver | Upload proof-of-delivery photo |
+| `/api/v1/location` | POST | driver | GPS ping (live tracking) |
+| `/api/v1/health` | GET | — | Railway health check |
+
+### Running Tests
+
+```bash
+# All tests
+npm test
+
+# Analytics route tests only
+npm test -- --testPathPattern="analytics"
+
+# TypeScript type check (no tests, just tsc)
+npm run typecheck
+```
+
+### Database Migrations
+
+```bash
+# Run all pending migrations
+npm run migrate
+
+# Run with production database
+npm run migrate:prod
+```
+
+Migrations are numbered sequentially (`000`–`017`). Each file is idempotent (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).
