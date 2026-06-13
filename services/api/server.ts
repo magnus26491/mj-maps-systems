@@ -21,7 +21,6 @@
  */
 
 import Fastify from 'fastify';
-import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
@@ -61,14 +60,6 @@ const HOST       = '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET;
 const NODE_ENV   = process.env.NODE_ENV ?? 'development';
 const BUILD_ID   = process.env.BUILD_ID   ?? `dev-${Date.now()}`;
-
-// ── Phase 10: Production secrets must be set ─────────────────────────────────────────
-if (NODE_ENV === 'production') {
-  if (!JWT_SECRET) {
-    console.error('[mj-maps-api] FATAL: JWT_SECRET is required in production');
-    process.exit(1);
-  }
-}
 
 // ── Phase 12: Global error handlers ─────────────────────────────────────────────────
 process.on('uncaughtException', (err: Error) => {
@@ -141,11 +132,6 @@ const start = async () => {
     encodings: ['gzip', 'deflate'],
   });
 
-  await server.register(fastifyJwt, {
-    secret: JWT_SECRET,
-    sign: { expiresIn: '12h' },
-  });
-
   await server.register(fastifyRateLimit, {
     global: true,
     max: 120,
@@ -159,18 +145,9 @@ const start = async () => {
 
   await server.register(fastifyWebsocket);
 
-  // ── Auth decorator (legacy — kept for existing route compatibility) ─────────────────
-  server.decorate('authenticate', async function (request: any, reply: any) {
-    try {
-      await request.jwtVerify();
-    } catch {
-      reply.code(401).send({ ok: false, error: 'Unauthorised — invalid or expired token' });
-    }
-  });
-
   // ── Routes ──────────────────────────────────────────────────────────────────────────
 
-  await server.register(authRoutes);
+  await server.register(authRoutes, { prefix: '/api/v1/auth' });
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);

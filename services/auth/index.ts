@@ -19,8 +19,11 @@ import crypto from 'crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'changeme_insecure_default';
 
-if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'changeme_insecure_default') {
-  throw new Error('JWT_SECRET must be set in production.');
+// Guard production throw — only fires when functions are actually called, not at import time
+function guardProduction(): void {
+  if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'changeme_insecure_default') {
+    throw new Error('JWT_SECRET must be set in production.');
+  }
 }
 
 // ── Types ─────────────────────────────────
@@ -65,6 +68,7 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
  * Payload: { sub, role, tier, planId, iat, exp }
  */
 export function signAccessToken(userId: string, role: string, tier: string, planId: string): string {
+  guardProduction();
   return jwt.sign(
     { sub: userId, role, tier, planId },
     JWT_SECRET,
@@ -79,6 +83,7 @@ export function signAccessToken(userId: string, role: string, tier: string, plan
  */
 export function verifyAccessToken(token: string): AccessPayload | null {
   try {
+    guardProduction();
     const payload = jwt.verify(token, JWT_SECRET) as AccessPayload;
     if (!payload.sub || !payload.role) return null;
     return payload;
