@@ -12,11 +12,11 @@
  */
 
 import type { FastifyInstance } from 'fastify';
-import { requireAuth, requireRole, requireEnterprise } from '../middleware/auth.js';
+
 import { pool } from '../../db/index.js';
 
 export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
-  const guard = { preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise] };
+  
 
   // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
 
   // ── GET /api/v1/dispatcher/analytics/routes ─────────────────────────────────
 
-  server.get('/api/v1/dispatcher/analytics/routes', guard, async (request, reply) => {
+  server.get('/api/v1/dispatcher/analytics/routes', async (request, reply) => {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -170,7 +170,7 @@ export async function analyticsRoutes(server: FastifyInstance): Promise<void> {
 
   // ── GET /api/v1/dispatcher/analytics/summary ───────────────────────────────
 
-  server.get('/api/v1/dispatcher/analytics/summary', guard, async (_req, reply) => {
+  server.get('/api/v1/dispatcher/analytics/summary', async (_req, reply) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

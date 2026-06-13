@@ -16,7 +16,7 @@ export function useAlerts() {
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const url = `${API}/api/dispatcher/alerts/stream`;
+    const url = `${API}/api/v1/dispatcher/alerts/stream`;
 
     // Try SSE first
     try {
@@ -48,7 +48,7 @@ export function useAlerts() {
     function startPolling() {
       const interval = setInterval(async () => {
         try {
-          const res = await fetch(`${API}/api/dispatcher/alerts?limit=20`);
+          const res = await fetch(`${API}/api/v1/dispatcher/alerts?limit=20`);
           if (!res.ok) return;
           const data = await res.json() as { alerts: LiveAlert[] };
           setAlerts(data.alerts.slice(0, MAX_ALERTS));
@@ -66,7 +66,7 @@ export function useAlerts() {
     setAlerts((prev) =>
       prev.map((a) => a.alertId === alertId ? { ...a, dismissed: true } : a)
     );
-    fetch(`${API}/api/dispatcher/alerts/${alertId}/dismiss`, { method: 'POST' }).catch(() => {});
+    fetch(`${API}/api/v1/dispatcher/alerts/${alertId}/dismiss`, { method: 'POST' }).catch(() => {});
   };
 
   const undismissedCount = alerts.filter(

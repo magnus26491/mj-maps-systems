@@ -179,7 +179,12 @@ const start = async () => {
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
   await server.register(dispatcherRoutes);
-  await server.register(analyticsRoutes);
+  await server.register(analyticsRoutes, {
+    prefix: '/api/v1/dispatcher',
+    hooks: {
+      preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise],
+    },
+  });
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
   await server.register(locationRoute);

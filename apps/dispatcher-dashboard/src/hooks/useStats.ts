@@ -3,7 +3,7 @@ import { getStats } from '../api';
 import type { Stats } from '../types';
 
 export function useStats() {
-  const { data, error } = useSWR<Stats>('/api/dispatcher/stats', getStats, {
+  const { data, error } = useSWR<Stats>('/api/v1/dispatcher/stats', getStats, {
     refreshInterval: 30_000,
     revalidateOnFocus: false,
   });

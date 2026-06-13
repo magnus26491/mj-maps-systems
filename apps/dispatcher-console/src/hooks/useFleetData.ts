@@ -14,7 +14,7 @@ const fetcher = (url: string) =>
 /** Poll active routes every 8 seconds */
 export function useActiveRoutes() {
   const { data, error, isLoading, mutate } = useSWR<{ routes: ActiveRoute[] }>(
-    `${API}/api/dispatcher/routes`,
+    `${API}/api/v1/dispatcher/routes`,
     fetcher,
     { refreshInterval: 8_000, dedupingInterval: 4_000 },
   );
@@ -29,7 +29,7 @@ export function useActiveRoutes() {
 /** Poll fleet KPI stats every 15 seconds */
 export function useFleetStats() {
   const { data, error, isLoading } = useSWR<FleetStats>(
-    `${API}/api/dispatcher/stats`,
+    `${API}/api/v1/dispatcher/stats`,
     fetcher,
     { refreshInterval: 15_000 },
   );
@@ -43,7 +43,7 @@ export function useFleetStats() {
 /** Get a single route by ID, polled every 5s when a route is selected */
 export function useRouteDetail(routeId: string | null) {
   const { data, error, isLoading, mutate } = useSWR<{ route: ActiveRoute }>(
-    routeId ? `${API}/api/dispatcher/routes/${routeId}` : null,
+    routeId ? `${API}/api/v1/dispatcher/routes/${routeId}` : null,
     fetcher,
     { refreshInterval: 5_000 },
   );
