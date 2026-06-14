@@ -50,7 +50,8 @@ import { dispatcherRoutes } from './routes/dispatcher.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
-import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
+import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
+import { locationRoute } from './routes/location.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);

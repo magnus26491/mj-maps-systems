@@ -53,7 +53,7 @@ export async function locationRoute(server: FastifyInstance): Promise<void> {
         });
       }
 
-      const driverId = (request.user as any)?.sub;
+      const driverId = (request as unknown as { authUser?: { id?: string } }).authUser?.id;
       if (!driverId) {
         return reply.code(401).send({ success: false, error: 'Not authenticated.' });
       }
