@@ -8,14 +8,14 @@
  * GET  /api/v1/routes/:routeId/alerts/red
  * POST /api/v1/driver/event
  * GET  /api/v1/turn-score
- * POST /api/v1/auth/register   ← new user registration
- * POST /api/v1/auth/login      ← new token auth
- * POST /api/v1/auth/refresh    ← token rotation
- * POST /api/v1/auth/logout     ← token revocation
- * GET  /api/v1/auth/me          ← current user profile
- * POST /api/v1/auth/token      ← legacy driver token (kept for compatibility)
+ * POST /api/v1/auth/register
+ * POST /api/v1/auth/login
+ * POST /api/v1/auth/refresh
+ * POST /api/v1/auth/logout
+ * GET  /api/v1/auth/me
+ * POST /api/v1/auth/token
  * GET  /api/v1/health
- * GET  /api/v1/admin/*          ← admin-only endpoints
+ * GET  /api/v1/admin/*
  * WS   /ws/driver/:driverId/:routeId
  */
 
@@ -51,16 +51,15 @@ import { dispatcherRoutes } from './routes/dispatcher.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
-import { requireAuth, requireRole, requireTier, requireFeature } from './middleware/auth.js';
+import { requireAuth, requireRole, requireFeature } from './middleware/auth.js';
 
-// ─── ENV ──────────────────────────────────────────────────────────────────────────────
+// ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
 const HOST       = '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-not-for-production';
 const NODE_ENV   = process.env.NODE_ENV ?? 'development';
 const BUILD_ID   = process.env.BUILD_ID   ?? `dev-${Date.now()}`;
 
-// ── Phase 10: Production secrets must be set ─────────────────────────────────────────
 if (NODE_ENV === 'production') {
   if (!process.env.JWT_SECRET) {
     console.error('[mj-maps-api] FATAL: JWT_SECRET is required in production');
@@ -68,7 +67,6 @@ if (NODE_ENV === 'production') {
   }
 }
 
-// ── Phase 12: Global error handlers ─────────────────────────────────────────────────
 process.on('uncaughtException', (err: Error) => {
   console.error('[mj-maps-api] UNCAUGHT EXCEPTION:', err.message, err.stack);
   process.exit(1);
@@ -79,28 +77,26 @@ process.on('unhandledRejection', (reason: unknown) => {
   process.exit(1);
 });
 
-// ─── SERVER ─────────────────────────────────────────────────────────────────────────
+// ─── SERVER ──────────────────────────────────────────────────────────────────
 
-/**
- * Creates a new Fastify server instance. Used in tests and as the Railway entry point.
- * Call `await server.listen()` after registering routes.
- */
 export function build() {
   return Fastify({
     logger: {
+      // IMPORTANT: Never use pino-pretty transport in production.
+      // pino-pretty >=9 is ESM-only and will crash a CommonJS build.
+      // In production, log raw JSON — Railway captures it fine.
       level: NODE_ENV === 'production' ? 'warn' : 'info',
-      transport: NODE_ENV !== 'production'
-        ? { target: 'pino-pretty', options: { colorize: true } }
-        : undefined,
+      ...(NODE_ENV !== 'production' && process.stdout.isTTY
+        ? { transport: { target: 'pino-pretty', options: { colorize: true } } }
+        : {}),
     },
     trustProxy: true,
   });
 }
 
-/** The singleton server instance. */
 export const server = build();
 
-// ─── ZOD SCHEMAS ───────────────────────────────────────────────────────────────
+// ─── ZOD SCHEMAS ─────────────────────────────────────────────────────────────
 const StopSchema = z.object({
   id:              z.string(),
   lat:             z.number(),
@@ -124,14 +120,13 @@ const RouteIdSchema = z.string().min(1).max(128).regex(
   'routeId must be alphanumeric/hyphen/underscore only',
 );
 
-// ─── START (all plugin registration + routes live here) ────────────────────────────
+// ─── START ───────────────────────────────────────────────────────────────────
 const start = async () => {
-  // ── Plugins ─────────────────────────────────────────────────────────────────────
   await server.register(fastifyHelmet, { contentSecurityPolicy: false });
 
   const extraOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-  : [];
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+    : [];
 
   await server.register(fastifyCors, {
     origin: NODE_ENV === 'production'
@@ -163,7 +158,6 @@ const start = async () => {
 
   await server.register(fastifyWebsocket);
 
-  // ── Auth decorator (legacy — kept for existing route compatibility) ─────────────────
   server.decorate('authenticate', async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
@@ -172,11 +166,8 @@ const start = async () => {
     }
   });
 
-  // ── Routes ──────────────────────────────────────────────────────────────────────────
-
-  /** Auth router: /api/v1/auth/* — register, login, refresh, logout, /me */
+  // ── Routes ────────────────────────────────────────────────────────────────
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
-
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);
@@ -189,31 +180,24 @@ const start = async () => {
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
 
-  /** Health — no auth, used by Railway health checks */
   server.get('/api/v1/health', handleHealth as any);
 
-  /** Issue JWT for a driver (legacy compatibility endpoint) */
   server.post('/api/v1/auth/token', async (request, reply) => {
     const parsed = z.object({
       driverId: z.string().min(1),
       secret:   z.string().min(1),
     }).safeParse(request.body);
-
     if (!parsed.success) {
       return reply.code(400).send({ ok: false, error: 'driverId and secret required' });
     }
-
     const { driverId, secret } = parsed.data;
-
     if (NODE_ENV === 'production' && secret !== process.env.DRIVER_API_KEY) {
       return reply.code(401).send({ ok: false, error: 'Invalid credentials' });
     }
-
     const token = (server as any).jwt.sign({ sub: driverId, role: 'driver' });
     return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
   });
 
-  /** Optimise + auto-enrich a new route — Custom plan only */
   server.post(
     '/api/v1/routes/optimise',
     { preHandler: [requireAuth, requireFeature('ROUTE_OPTIMISE')] },
@@ -227,7 +211,6 @@ const start = async () => {
     },
   );
 
-  /** Get stop intelligence for a route — Custom plan only */
   server.get(
     '/api/v1/routes/:routeId/intel',
     { preHandler: [requireAuth, requireFeature('ROUTE_INTEL')] },
@@ -240,7 +223,6 @@ const start = async () => {
     },
   );
 
-  /** Manual replan — Custom plan only */
   server.post(
     '/api/v1/routes/:routeId/replan',
     { preHandler: [requireAuth, requireFeature('DISPATCHER')] },
@@ -253,7 +235,6 @@ const start = async () => {
     },
   );
 
-  /** Delete a route — dispatcher or admin only (Custom plan) */
   server.delete(
     '/api/v1/routes/:routeId',
     { preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireFeature('DISPATCHER')] },
@@ -262,7 +243,6 @@ const start = async () => {
       if (!RouteIdSchema.safeParse(routeId).success) {
         return reply.code(400).send({ ok: false, error: 'Invalid routeId' });
       }
-      // TODO: wire into route-engine to cancel active route
       return reply.send({ ok: true, message: `Route ${routeId} deleted` });
     },
   );
@@ -313,45 +293,34 @@ const start = async () => {
         lng:       z.coerce.number(),
         vehicleId: z.string(),
       }).safeParse(request.query);
-
       if (!parsed.success) {
         return reply.code(400).send({ ok: false, error: parsed.error.message });
       }
-
       const { lat, lng, vehicleId } = parsed.data;
-
       if (!VEHICLE_PROFILES[vehicleId]) {
         return reply.code(400).send({
           ok: false,
           error: `Unknown vehicleId: ${vehicleId}. Valid: ${Object.keys(VEHICLE_PROFILES).join(', ')}`,
         });
       }
-
       const result = await resolveTurnScore({ lat, lng, vehicleId });
       return reply.send({ ok: true, data: result, durationMs: Date.now() - t0 });
     },
   );
 
-  /** Admin-only routes — admin role required (Custom plan) */
   server.get(
     '/api/v1/admin/users',
     { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (request, reply) => {
-      // TODO: wire into user management service
-      return reply.send({ ok: true, data: [] });
-    },
+    async (_request, reply) => reply.send({ ok: true, data: [] }),
   );
 
   server.get(
     '/api/v1/admin/analytics',
     { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (request, reply) => {
-      // TODO: wire into analytics service
-      return reply.send({ ok: true, data: {} });
-    },
+    async (_request, reply) => reply.send({ ok: true, data: {} }),
   );
 
-  // ── WebSocket ──────────────────────────────────────────────────────────────────────
+  // ── WebSocket ──────────────────────────────────────────────────────────────
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
@@ -363,7 +332,7 @@ const start = async () => {
     );
   });
 
-  // ── Listen ─────────────────────────────────────────────────────────────────────────
+  // ── Listen ────────────────────────────────────────────────────────────────
   try {
     await server.listen({ port: PORT, host: HOST });
     console.log(
@@ -375,7 +344,7 @@ const start = async () => {
   }
 };
 
-// ── Phase 12: Graceful shutdown ─────────────────────────────────────────────────────
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
 const shutdown = async (signal: string) => {
   console.log(`[mj-maps-api] Received ${signal} — shutting down gracefully…`);
   try {
