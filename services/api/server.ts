@@ -174,7 +174,7 @@ const start = async () => {
   // ── Routes ──────────────────────────────────────────────────────────────────────────
 
   /** Auth router: /api/v1/auth/* — register, login, refresh, logout, /me */
-  await server.register(authRoutes);
+  await server.register(authRoutes, { prefix: '/api/v1/auth' });
 
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
