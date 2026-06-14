@@ -20,7 +20,6 @@
  */
 
 import Fastify from 'fastify';
-import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
@@ -51,7 +50,8 @@ import { dispatcherRoutes } from './routes/dispatcher.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
-import { requireAuth, requireRole, requireFeature } from './middleware/auth.js';
+import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
+import { locationRoute } from './routes/location.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -140,11 +140,6 @@ const start = async () => {
     encodings: ['gzip', 'deflate'],
   });
 
-  await server.register(fastifyJwt, {
-    secret: JWT_SECRET,
-    sign: { expiresIn: '12h' },
-  });
-
   await server.register(fastifyRateLimit, {
     global: true,
     max: 120,
@@ -158,15 +153,7 @@ const start = async () => {
 
   await server.register(fastifyWebsocket);
 
-  server.decorate('authenticate', async function (request: any, reply: any) {
-    try {
-      await request.jwtVerify();
-    } catch {
-      reply.code(401).send({ ok: false, error: 'Unauthorised — invalid or expired token' });
-    }
-  });
-
-  // ── Routes ────────────────────────────────────────────────────────────────
+  // ── Routes ──────────────────────────────────────────────────────────────────
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
   await server.register(confirmPinRoute);
   await server.register(mapConfigRoute);
@@ -176,9 +163,15 @@ const start = async () => {
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
   await server.register(dispatcherRoutes);
-  await server.register(analyticsRoutes);
+  await server.register(analyticsRoutes, {
+    prefix: '/api/v1/dispatcher',
+    hooks: {
+      preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise],
+    },
+  });
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
+  await server.register(locationRoute);
 
   server.get('/api/v1/health', handleHealth as any);
 
@@ -308,6 +301,7 @@ const start = async () => {
     },
   );
 
+  /** Admin-only routes */
   server.get(
     '/api/v1/admin/users',
     { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
@@ -320,7 +314,7 @@ const start = async () => {
     async (_request, reply) => reply.send({ ok: true, data: {} }),
   );
 
-  // ── WebSocket ──────────────────────────────────────────────────────────────
+  // ── WebSocket ──────────────────────────────────────────────────────────────────────
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
@@ -344,7 +338,7 @@ const start = async () => {
   }
 };
 
-// ─── Graceful shutdown ────────────────────────────────────────────────────────
+// ── Graceful shutdown ───────────────────────────────────────────────────────────────
 const shutdown = async (signal: string) => {
   console.log(`[mj-maps-api] Received ${signal} — shutting down gracefully…`);
   try {
@@ -360,11 +354,4 @@ const shutdown = async (signal: string) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
 
-(async () => {
-  try {
-    await start();
-  } catch (err) {
-    console.error('[mj-maps-api] FATAL startup error:', err);
-    process.exit(1);
-  }
-})();
+start();

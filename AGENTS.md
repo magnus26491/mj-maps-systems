@@ -480,6 +480,78 @@ to devDependencies. `@aws-sdk/client-s3` was already present.
 
 ### Backend
 
+**`migrations/010_route_analytics.sql` (new):** Adds `finished_at` (TIMESTAMPTZ),
+`actual_distance_km` (NUMERIC(8,2)), and `on_time` (BOOLEAN) columns to the `routes`
+table. Creates partial index `idx_routes_finished_at` on `finished_at DESC WHERE
+finished_at IS NOT NULL` for analytics date-range queries.
+
+**`api/routes/analytics.ts`:** Route analytics and end-of-shift report endpoints.
+All routes require `authenticateDriver + requireRole('dispatcher') + requireEnterprise`
+applied at mount point (NOT re-applied inside this file):
+- `GET /api/dispatcher/analytics/routes` — paginated route summaries. Query params:
+  `from`/`to` (ISO strings, defaults: 7 days ago → now), `driverId` (optional),
+  `limit` (default 20, clamped to 100 via `Math.min`). Invalid `from`/`to` dates
+  return 400. Uses `COUNT ... FILTER (WHERE ...)` for `podCount`, `redAlerts`,
+  `amberAlerts`. Returns `{ ok: true, routes: [...] }`.
+- `GET /api/dispatcher/analytics/routes/:routeId` — stop-level breakdown. Returns
+  404 `{ success: false, error: 'Route not found.' }` if route absent. Returns
+  `{ ok: true, route: {...}, stops: [...] }`.
+- `GET /api/dispatcher/analytics/summary` — fleet KPIs for current UTC day. Uses
+  `COALESCE(SUM(...), 0)::int` for stop counts. `podCaptureRate` and `onTimeRate`
+  computed in SQL with `NULLIF(..., 0)` to guard division-by-zero. `avgCompletionMins`
+  computed as `EXTRACT(EPOCH FROM AVG(finished_at - shift_start)) / 60`. Returns
+  `{ ok: true, completedRoutes, activeRoutes, totalStopsDelivered, totalStopsFailed,
+  podCaptureRate, onTimeRate, avgCompletionMins, redAlertCount, amberAlertCount }`.
+
+**`api/index.ts`:** `analyticsRouter` imported and registered at `/api/dispatcher`
+with `authenticateDriver, requireRole('dispatcher'), requireEnterprise` middleware
+applied at mount. Mounted after `dispatcherRouter` and `dispatcherAssignRouter`.
+
+### Dispatcher Dashboard
+
+**`apps/dispatcher-dashboard/src/types.ts`:** Added `RouteAnalyticsSummary`,
+`StopAnalyticsRow`, and `AnalyticsSummary` interfaces.
+
+**`apps/dispatcher-dashboard/src/api.ts`:** Added `getAnalyticsRoutes(params)`,
+`getAnalyticsRoute(routeId)`, and `getAnalyticsSummary()` functions. All three call
+`apiFetch()` and validate `response.ok` before returning. `getAnalyticsRoutes` builds
+query string from params using URLSearchParams. `apiFetch()` helper extracts
+`ENTERPRISE_REQUIRED` code from 403 responses.
+
+**`apps/dispatcher-dashboard/src/hooks/useAnalytics.ts` (new):** Hook that fetches
+`getAnalyticsSummary()` and `getAnalyticsRoutes({ limit: 20 })` in parallel via
+`Promise.all`. Returns `{ summary, routes, isLoading, error }`.
+
+**`apps/dispatcher-dashboard/src/components/AnalyticsPanel.tsx` (new):** Self-contained
+panel that fetches its own data via `useAnalytics()`. Layout:
+- Top section: 2×2 KPI cards (Routes completed, Delivery success rate, POD capture
+  rate, On-time rate) — dark theme with `#0f172a` background, `#1e293b` border.
+- Bottom section: Route history table (last 20 routes) with columns: Driver,
+  Stops, Failed, Alerts, POD, Status, Shift. Clicking any row opens `RouteDetailModal`.
+- Loading state: "Loading analytics..." in `#64748b`.
+- Enterprise gate: amber box with "Fleet analytics require an Enterprise plan." when
+  error contains `ENTERPRISE_REQUIRED`.
+
+**`apps/dispatcher-dashboard/src/components/RouteDetailModal.tsx` (new):** Modal
+showing stop-level breakdown for a single route. Props: `routeId: string | null`,
+`onClose: () => void`. Fetches `getAnalyticsRoute(routeId)` on mount. Layout:
+- Title: "Route Detail — {driverName}"
+- Summary row: vehicle, distance, shift start → finished, on-time badge
+- Stop list table: Address | Status (dot: green/delivered, red/failed, amber/pending)
+  | Alert (🔴/🟡/—) | POD (📷 if hasPod) | Time
+- Uses same overlay/modal/closeBtn styles as `PodModal.tsx`.
+- Backdrop click and × button both call `onClose`. Max width 800px.
+
+**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** Added `rightTab` state
+(`'alerts' | 'analytics' | 'drivers'`, default `'alerts'`). Tab bar renders
+Alerts / Analytics / Drivers buttons above the panel. Active tab: background
+`#1e3a5f`, color `#3b82f6`, border `#3b82f6`. Inactive: transparent, `#64748b`,
+border `#1e293b`. Imports `AnalyticsPanel` from `../components/AnalyticsPanel`.
+Renders `<AlertPanel />` when `rightTab === 'alerts'`, `<AnalyticsPanel />` when
+`rightTab === 'analytics'`, `<DriversPanel />` when `rightTab === 'drivers'`.
+
+### Additional Backend (from main branch)
+
 **`services/db/migrations/013_driver_locations.sql` (new):** Creates `driver_locations`
 table with composite PK on `(driver_id, recorded_at)`. Columns: `driver_id`, `route_id`,
 `lat`, `lng`, `heading`, `speed_kmh`, `recorded_at`. Indexes on `route_id` and
@@ -510,89 +582,21 @@ Checks `planHasFeature(authUser.planId, 'ADMIN_ANALYTICS')`. Returns 403 with
 `{ ok: false, error: 'ENTERPRISE_REQUIRED', message: 'Fleet analytics require an
 Enterprise plan.' }` when the plan does not have the feature.
 
-**`services/api/routes/analytics.ts` (new):** `analyticsRoutes(server: FastifyInstance)`
+**`services/api/routes/analytics.ts`:** `analyticsRoutes(server: FastifyInstance)`
 with three endpoints. Middlewares (`requireAuth`, `requireRole('dispatcher', 'admin'),
 `requireEnterprise`) are passed via the `guard` object at registration — NOT
 applied inside the file:
-- `GET /api/v1/dispatcher/analytics/routes` — paginated route summaries. Query
-  params: `from`/`to` (ISO strings, defaults: 7 days ago → now), `driverId`
-  (optional), `limit` (default 20, clamped to 100 via `Math.min`). Invalid
-  `from`/`to` dates return 400. Uses `COUNT ... FILTER (WHERE ...)` for
-  `podCount`, `redAlerts`, `amberAlerts`. Returns `{ ok: true, routes: [...] }`.
+- `GET /api/v1/dispatcher/analytics/routes` — paginated route summaries.
 - `GET /api/v1/dispatcher/analytics/routes/:routeId` — stop-level breakdown.
-  Returns 404 `{ success: false, error: 'Route not found.' }` if route absent.
-  Returns `{ ok: true, route: {...}, stops: [...] }`.
-- `GET /api/v1/dispatcher/analytics/summary` — fleet KPIs for current UTC day.
-  `podCaptureRate` and `onTimeRate` computed in SQL with `NULLIF(..., 0)` to
-  guard division-by-zero. Returns `{ ok: true, completedRoutes, activeRoutes,
-  totalStopsDelivered, totalStopsFailed, podCaptureRate, onTimeRate,
-  avgCompletionMins, redAlertCount, amberAlertCount }`.
+- `GET /api/v1/dispatcher/analytics/summary` — fleet KPIs.
 
 **`services/api/server.ts`:** Imported `analyticsRoutes` from `./routes/analytics.js`.
-Registered after `dispatcherRoutes`: `await server.register(analyticsRoutes)`.
-
-### Dispatcher Dashboard
-
-**`apps/dispatcher-dashboard/src/types.ts`:** Interfaces already present:
-`RouteAnalyticsSummary`, `StopAnalyticsRow`, `AnalyticsSummary`.
-
-**`apps/dispatcher-dashboard/src/api.ts`:** Analytics functions updated to call
-Fastify paths (`/api/v1/dispatcher/analytics/*`). All three helpers validate
-`response.ok` before returning — throws if backend returns `ok: false`. The
-`getAnalyticsRoutes` response shape is `{ ok: boolean; routes: [...] }` and is
-unwrapped. `apiFetch()` helper extracts `ENTERPRISE_REQUIRED` code from 403 responses.
-
-**`apps/dispatcher-dashboard/src/hooks/useAnalytics.ts`:** Already implemented —
-fetches `getAnalyticsSummary()` and `getAnalyticsRoutes({ limit: 20 })` in
-parallel via `Promise.all`.
-
-**`apps/dispatcher-dashboard/src/components/AnalyticsPanel.tsx`:** Already
-implemented — 2×2 KPI cards, route history table, enterprise gate with amber
-upgrade prompt.
-
-**`apps/dispatcher-dashboard/src/components/RouteDetailModal.tsx`:** Updated —
-`useEffect` now validates the response shape before setting state. If the
-response lacks `route` and `stops` fields, throws and shows an error instead
-of rendering potentially-missing data.
-
-**`apps/dispatcher-dashboard/src/pages/Dashboard.tsx`:** `rightTab` state:
-`'alerts' | 'analytics' | 'drivers'` (default `'alerts'`). Tab bar renders
-Alerts / Analytics / Drivers buttons above the panel. Active tab: background
-`#1e3a5f`, color `#3b82f6`, border `#3b82f6`. Inactive: transparent, `#64748b`,
-border `#1e293b`. Imports `AnalyticsPanel` from `../components/AnalyticsPanel`.
+Registered after `dispatcherRoutes`.
 
 ### Tests
 
 **`__tests__/services/api/routes/analytics.test.ts` (new):** Fastify `inject()`-based
-tests for all three analytics endpoints. Verifies:
-1. 401 when no token (all three endpoints)
-2. 403 with `ENTERPRISE_REQUIRED` when authenticated but not on enterprise plan
-3. 200+`ok:true` when dispatcher with enterprise plan (auth/role/enterprise chain passes)
-4. 200+`ok:true` when admin with enterprise plan
-5. 400 for unparseable `from` date param
-6. `limit` silently clamped to 100 (no 400)
-7. 404+`Route not found.` for non-existent routeId
-
-Uses `@fastify/jwt`'s `encode()` to mint test tokens. Tests are environment-aware:
-auth/authorization is verified regardless of whether the DB is connected (200 or 500
-both indicate the guard chain passed; 401/403 are definitive).
-
-### Documentation
-
-**`README.md`:** Added "Development" section covering:
-- Architecture overview (Fastify on port 3000, legacy Express on port 3100)
-- Local setup commands (`npm run dev`, `npm start`, `npm run build`)
-- API endpoint table
-- Test commands
-- Database migration reference
-
-**`AGENTS.md`:** This section (Phase 16) updated with all files listed above.
-
-### Dependency Changes
-
-**`package.json`:** Moved `tsx` from `dependencies` to `devDependencies` (dev-only
-tool, should not be bundled in production images). Regenerated `package-lock.json`
-via `npm install --package-lock-only`.
+tests for all three analytics endpoints.
 
 
 
