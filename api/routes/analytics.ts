@@ -19,10 +19,14 @@ export const analyticsRouter = Router();
 
 // ── Date helpers ───────────────────────────────────────────────────────────
 
-function parseDate(param: string | undefined, fallback: Date): Date {
+function parseDate(param: string | undefined, fallback: Date, onInvalid: () => void): Date {
   if (!param) return fallback;
   const d = new Date(param);
-  return isNaN(d.getTime()) ? fallback : d;
+  if (isNaN(d.getTime())) {
+    onInvalid();
+    return fallback;
+  }
+  return d;
 }
 
 // ── GET /api/dispatcher/analytics/routes ───────────────────────────────────
@@ -30,8 +34,15 @@ analyticsRouter.get('/routes', async (req: Request, res: Response) => {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const from = parseDate(req.query.from as string | undefined, sevenDaysAgo);
-  const to = parseDate(req.query.to as string | undefined, now);
+  let invalidDate = false;
+  const from = parseDate(req.query.from as string | undefined, sevenDaysAgo, () => { invalidDate = true; });
+  const to = parseDate(req.query.to as string | undefined, now, () => { invalidDate = true; });
+
+  if (invalidDate) {
+    res.status(400).json({ ok: false, error: 'Invalid from/to date parameter.' });
+    return;
+  }
+
   const driverId = req.query.driverId as string | undefined;
   const rawLimit = parseInt(req.query.limit as string) || 20;
   const limit = Math.min(rawLimit, 100);
@@ -42,20 +53,17 @@ analyticsRouter.get('/routes', async (req: Request, res: Response) => {
         r.id                    AS "routeId",
         r.driver_id             AS "driverId",
         d.name                  AS "driverName",
-        r.vehicle_id             AS "vehicleLabel",
+        r.vehicle_id            AS "vehicleLabel",
         r.status,
         r.shift_start           AS "shiftStart",
-        r.actual_completion     AS "finishedAt",
+        r.finished_at           AS "finishedAt",
         r.total_stops           AS "totalStops",
         r.completed_stops       AS "completedStops",
         r.failed_stops          AS "failedStops",
         r.total_distance_km     AS "totalDistanceKm",
-        COALESCE(r.actual_distance_km, r.total_distance_km) AS "actualDistanceKm",
-        CASE
-          WHEN r.actual_completion IS NULL OR r.estimated_completion IS NULL THEN NULL
-          ELSE (r.actual_completion <= r.estimated_completion)
-        END                     AS "onTime",
-        COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS "podCount",
+        r.actual_distance_km    AS "actualDistanceKm",
+        r.on_time               AS "onTime",
+        COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL) AS "podCount",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlerts",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS "amberAlerts"
       FROM routes r
@@ -86,7 +94,7 @@ analyticsRouter.get('/routes', async (req: Request, res: Response) => {
     }
 
     const { rows } = await pool.query(query, params);
-    res.json({ routes: rows });
+    res.json({ ok: true, routes: rows });
   } catch (err) {
     console.error('[analytics]', err);
     res.status(500).json({ success: false, error: 'Internal server error.' });
@@ -104,20 +112,17 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
         r.id                    AS "routeId",
         r.driver_id             AS "driverId",
         d.name                  AS "driverName",
-        r.vehicle_id             AS "vehicleLabel",
+        r.vehicle_id            AS "vehicleLabel",
         r.status,
         r.shift_start           AS "shiftStart",
-        r.actual_completion     AS "finishedAt",
+        r.finished_at           AS "finishedAt",
         r.total_stops           AS "totalStops",
         r.completed_stops       AS "completedStops",
         r.failed_stops          AS "failedStops",
         r.total_distance_km     AS "totalDistanceKm",
-        COALESCE(r.actual_distance_km, r.total_distance_km) AS "actualDistanceKm",
-        CASE
-          WHEN r.actual_completion IS NULL OR r.estimated_completion IS NULL THEN NULL
-          ELSE (r.actual_completion <= r.estimated_completion)
-        END                     AS "onTime",
-        COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL) AS "podCount",
+        r.actual_distance_km    AS "actualDistanceKm",
+        r.on_time               AS "onTime",
+        COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL) AS "podCount",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlerts",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'AMBER') AS "amberAlerts"
       FROM routes r
@@ -138,7 +143,7 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
         s.id              AS "stopId",
         s.address,
         s.status,
-        (s.proof_photo_url IS NOT NULL) AS "hasPod",
+        (s.pod_url IS NOT NULL) AS "hasPod",
         s.turn_alert_level AS "turnAlertLevel",
         s.created_at      AS "createdAt",
         s.pod_captured_at AS "podCapturedAt"
@@ -148,6 +153,7 @@ analyticsRouter.get('/routes/:routeId', async (req: Request, res: Response) => {
     `, [routeId]);
 
     res.json({
+      ok: true,
       route: routeResult.rows[0],
       stops: stopsResult.rows,
     });
@@ -170,22 +176,20 @@ analyticsRouter.get('/summary', async (_req: Request, res: Response) => {
         COALESCE(SUM(r.completed_stops), 0)::int AS "totalStopsDelivered",
         COALESCE(SUM(r.failed_stops), 0)::int AS "totalStopsFailed",
         ROUND(
-          COUNT(s.id) FILTER (WHERE s.proof_photo_url IS NOT NULL)::numeric /
+          COUNT(s.id) FILTER (WHERE s.pod_url IS NOT NULL)::numeric /
           NULLIF(COUNT(s.id) FILTER (WHERE s.status = 'delivered'), 0),
           4
         ) AS "podCaptureRate",
         ROUND(
           COUNT(DISTINCT r.id) FILTER (
             WHERE r.status = 'completed'
-              AND r.actual_completion IS NOT NULL
-              AND r.estimated_completion IS NOT NULL
-              AND r.actual_completion <= r.estimated_completion
+              AND r.on_time = TRUE
           )::numeric /
           NULLIF(COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'completed'), 0),
           4
         ) AS "onTimeRate",
         ROUND(
-          EXTRACT(EPOCH FROM AVG(r.actual_completion - r.shift_start)) / 60,
+          EXTRACT(EPOCH FROM AVG(r.finished_at - r.shift_start)) / 60,
           1
         ) AS "avgCompletionMins",
         COUNT(s.id) FILTER (WHERE s.turn_alert_level = 'RED') AS "redAlertCount",
@@ -197,6 +201,7 @@ analyticsRouter.get('/summary', async (_req: Request, res: Response) => {
 
     const row = rows[0];
     res.json({
+      ok: true,
       completedRoutes: parseInt(row.completedRoutes),
       activeRoutes: parseInt(row.activeRoutes),
       totalStopsDelivered: parseInt(row.totalStopsDelivered),
