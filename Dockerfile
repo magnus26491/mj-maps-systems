@@ -27,10 +27,13 @@ WORKDIR /app
 
 RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
 
-# Copy pruned node_modules and dist from builder (same install, guaranteed consistent)
+# Copy pruned node_modules and dist from builder
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+
+# Copy startup script
+COPY start.sh ./start.sh
 
 # Fix ownership so mjmaps user can read everything
 RUN chown -R mjmaps:mjmaps /app
@@ -42,4 +45,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/v1/health || exit 1
 
-CMD ["node", "dist/services/api/server.js"]
+CMD ["sh", "start.sh"]
