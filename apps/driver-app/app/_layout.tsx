@@ -11,6 +11,7 @@
  *  · WebSocket connection lifecycle tied to active shift
  */
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -39,14 +40,16 @@ const queryClient = new QueryClient({
   },
 });
 
-// FCM notification handler — silent pushes only
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: false,
-    shouldSetBadge:  false,
-  } as Notifications.NotificationBehavior),
-});
+// FCM notification handler — silent pushes only (native only)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: false,
+      shouldPlaySound: false,
+      shouldSetBadge:  false,
+    } as Notifications.NotificationBehavior),
+  });
+}
 
 // —— Auth guard component ———————————————————————————————
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -68,12 +71,13 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// —— FCM registration ———————————————————————————————
+// —— FCM registration (native only) ——————————————————————
 function FcmRegistrar({ children }: { children: React.ReactNode }) {
   const isReady = useAuthStore(s => s.isReady);
   const token   = useAuthStore(s => s.token);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     if (!isReady || !token) return;
     (async () => {
       try {
@@ -130,9 +134,11 @@ function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
 // —— Root layout ———————————————————————————————
 export default function RootLayout() {
   useEffect(() => {
-    KeepAwake.activateKeepAwakeAsync();
-    setupShiftNotificationChannel().catch(() => {});
-    return () => { KeepAwake.deactivateKeepAwake(); };
+    if (Platform.OS !== 'web') {
+      KeepAwake.activateKeepAwakeAsync();
+      setupShiftNotificationChannel().catch(() => {});
+    }
+    return () => { if (Platform.OS !== 'web') KeepAwake.deactivateKeepAwake(); };
   }, []);
 
   return (
