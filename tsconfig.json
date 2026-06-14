@@ -25,6 +25,8 @@
     "api/**/*",
     "packages/vehicle-profiles/**/*",
     "services/api/**/*",
+    "services/auth/**/*",
+    "services/billing/**/*",
     "services/cache/**/*",
     "services/db/**/*",
     "services/notifications/**/*",
