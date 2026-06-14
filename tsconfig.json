@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "CommonJS",
     "moduleResolution": "Node",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "outDir": "dist",
     "rootDir": ".",
     "strict": true,
@@ -21,14 +23,30 @@
   },
   "include": [
     "api/**/*",
+    "packages/vehicle-profiles/**/*",
+    "services/api/**/*",
+    "services/auth/**/*",
+    "services/billing/**/*",
     "services/cache/**/*",
     "services/db/**/*",
+    "services/notifications/**/*",
     "services/route-engine/**/*",
-    "services/storage/**/*"
+    "services/storage/**/*",
+    "services/turn-engine/**/*",
+    "__tests__/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/__tests__/**"
+    "apps/**/*",
+    "packages/offline-cache/**/*",
+    "packages/offline-sync/**/*",
+    "packages/driver-app-shared/**/*",
+    "packages/stop-point/**/*",
+    "services/api/__tests__/**/*",
+    "packages/vehicle-profiles/__tests__/**/*",
+    "services/route-engine/__tests__/**/*",
+    "services/turn-engine/__tests__/**/*",
+    "services/storage/__tests__/**/*"
   ]
 }

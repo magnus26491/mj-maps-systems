@@ -2,7 +2,7 @@ import type { Alert, Driver, Route, Stats, RouteAnalyticsSummary, StopAnalyticsR
 
 const TOKEN_KEY = 'mj_dispatcher_token';
 
-// ── Auth helpers ───────────────────────────────────────────────────────────────
+// ── Auth helpers ─────────────────────────────────────────────────────────────
 
 export async function login(email: string, password: string) {
   const r = await fetch('/api/v1/auth/login', {
@@ -42,7 +42,7 @@ async function apiFetch(path: string): Promise<unknown> {
   return res.json();
 }
 
-// ── API helpers ───────────────────────────────────────────────────────────────
+// ── API helpers ─────────────────────────────────────────────────────────────
 
 export async function getStats(): Promise<Stats> {
   const res = await fetch('/api/v1/dispatcher/stats', { headers: authHeaders() });
@@ -87,7 +87,7 @@ export async function assignRoute(routeId: string, driverId: string, note?: stri
   });
 }
 
-// ── Driver management helpers ──────────────────────────────────────────────
+// ── Driver management helpers ────────────────────────────────────────────────
 
 export async function getDispatcherDrivers(): Promise<{ drivers: DriverRow[] }> {
   return apiFetch('/api/v1/dispatcher/drivers') as Promise<{ drivers: DriverRow[] }>;
@@ -131,7 +131,7 @@ export async function deleteDriver(driverId: string): Promise<{ success: boolean
   return res.json() as Promise<{ success: boolean }>;
 }
 
-// ── SSE URL helpers ────────────────────────────────────────────────────────────
+// ── SSE URL helpers ──────────────────────────────────────────────────────────
 
 export function getAlertStreamUrl(): string {
   const token = localStorage.getItem(TOKEN_KEY) ?? '';
@@ -148,7 +148,7 @@ export async function getStopPod(stopId: string): Promise<{ podUrl: string; podT
   return { podUrl: data.podUrl, podType: data.podType, podCapturedAt: data.podCapturedAt };
 }
 
-// ── Analytics helpers (Fastify server: /api/v1/dispatcher/analytics/*) ─────────
+// ── Analytics helpers (Fastify server: /api/v1/dispatcher/analytics/*) ───────
 
 export async function getAnalyticsRoutes(params?: {
   from?: string;
@@ -189,7 +189,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   return summary as AnalyticsSummary;
 }
 
-// ── Route completion helpers ────────────────────────────────────────────────
+// ── Route completion helpers ──────────────────────────────────────────────────
 
 export async function forceCompleteRoute(routeId: string): Promise<{ success: boolean }> {
   const res = await fetch(`/api/v1/dispatcher/routes/${routeId}/complete`, {

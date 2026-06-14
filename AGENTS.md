@@ -550,6 +550,54 @@ border `#1e293b`. Imports `AnalyticsPanel` from `../components/AnalyticsPanel`.
 Renders `<AlertPanel />` when `rightTab === 'alerts'`, `<AnalyticsPanel />` when
 `rightTab === 'analytics'`, `<DriversPanel />` when `rightTab === 'drivers'`.
 
+### Additional Backend (from main branch)
+
+**`services/db/migrations/013_driver_locations.sql` (new):** Creates `driver_locations`
+table with composite PK on `(driver_id, recorded_at)`. Columns: `driver_id`, `route_id`,
+`lat`, `lng`, `heading`, `speed_kmh`, `recorded_at`. Indexes on `route_id` and
+`recorded_at`.
+
+**`services/db/migrations/014_routes_completion_cols.sql` (new):** Adds
+`finished_at` (TIMESTAMPTZ), `on_time` (BOOLEAN), and `actual_distance_km`
+(DOUBLE PRECISION) to the `routes` table. Also creates `routes_finished_at_idx`
+on `finished_at`.
+
+**`services/db/migrations/015_route_assignments.sql` (new):** Creates
+`route_assignments` table with columns: `id`, `route_id`, `driver_id`, `assigned_by`,
+`note`, `assigned_at`. Indexes on `route_id` and `driver_id`.
+
+**`services/db/migrations/016_fix_driver_locations_pk.sql` (new):** Converts
+`driver_locations` PK from single-column (`driver_id`) to composite
+`(driver_id, recorded_at)` so location pings can INSERT full GPS history.
+
+**`services/db/migrations/017_analytics_route_index.sql` (new):** Partial index
+on `routes.finished_at DESC WHERE finished_at IS NOT NULL` for analytics
+date-range queries.
+
+**`services/billing/subscription-guard.ts`:** `ADMIN_ANALYTICS` feature already
+exists (plans: `['custom']`) — no change needed.
+
+**`services/api/middleware/auth.ts`:** Added `requireEnterprise()` Fastify hook.
+Checks `planHasFeature(authUser.planId, 'ADMIN_ANALYTICS')`. Returns 403 with
+`{ ok: false, error: 'ENTERPRISE_REQUIRED', message: 'Fleet analytics require an
+Enterprise plan.' }` when the plan does not have the feature.
+
+**`services/api/routes/analytics.ts`:** `analyticsRoutes(server: FastifyInstance)`
+with three endpoints. Middlewares (`requireAuth`, `requireRole('dispatcher', 'admin'),
+`requireEnterprise`) are passed via the `guard` object at registration — NOT
+applied inside the file:
+- `GET /api/v1/dispatcher/analytics/routes` — paginated route summaries.
+- `GET /api/v1/dispatcher/analytics/routes/:routeId` — stop-level breakdown.
+- `GET /api/v1/dispatcher/analytics/summary` — fleet KPIs.
+
+**`services/api/server.ts`:** Imported `analyticsRoutes` from `./routes/analytics.js`.
+Registered after `dispatcherRoutes`.
+
+### Tests
+
+**`__tests__/services/api/routes/analytics.test.ts` (new):** Fastify `inject()`-based
+tests for all three analytics endpoints.
+
 
 
 ## Phase 17 — Route Completion Engine (committed XXXXXX)

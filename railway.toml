@@ -3,6 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm run migrate:prod && node dist/services/api/server.js"
+startCommand = "sh start.sh"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3

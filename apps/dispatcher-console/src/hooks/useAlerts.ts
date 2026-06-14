@@ -36,7 +36,6 @@ export function useAlerts() {
       es.onerror = () => {
         setConnected(false);
         es.close();
-        // Fallback to polling
         startPolling();
       };
 
