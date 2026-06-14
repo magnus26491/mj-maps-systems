@@ -56,13 +56,13 @@ import { requireAuth, requireRole, requireTier, requireFeature } from './middlew
 // ─── ENV ──────────────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
 const HOST       = '0.0.0.0';
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-not-for-production';
 const NODE_ENV   = process.env.NODE_ENV ?? 'development';
 const BUILD_ID   = process.env.BUILD_ID   ?? `dev-${Date.now()}`;
 
 // ── Phase 10: Production secrets must be set ─────────────────────────────────────────
 if (NODE_ENV === 'production') {
-  if (!JWT_SECRET) {
+  if (!process.env.JWT_SECRET) {
     console.error('[mj-maps-api] FATAL: JWT_SECRET is required in production');
     process.exit(1);
   }
@@ -76,6 +76,7 @@ process.on('uncaughtException', (err: Error) => {
 
 process.on('unhandledRejection', (reason: unknown) => {
   console.error('[mj-maps-api] UNHANDLED REJECTION:', reason);
+  process.exit(1);
 });
 
 // ─── SERVER ─────────────────────────────────────────────────────────────────────────
@@ -351,16 +352,10 @@ const start = async () => {
   );
 
   // ── WebSocket ──────────────────────────────────────────────────────────────────────
-  // No preHandler auth here — JWT is verified per-message inside handleDriverWebSocket
-  // via the AUTH { type, token } first-message pattern.
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
-      {
-        websocket: true,
-        // Auth is validated per-message: first message must be { type: 'AUTH', token }
-        // Close codes: 4001 = bad/missing token, 4008 = token expired
-      },
+      { websocket: true },
       (socket: any, req: any) => {
         const { driverId, routeId } = req.params as { driverId: string; routeId: string };
         handleDriverWebSocket(socket, driverId, routeId);
@@ -396,4 +391,11 @@ const shutdown = async (signal: string) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
 
-start();
+(async () => {
+  try {
+    await start();
+  } catch (err) {
+    console.error('[mj-maps-api] FATAL startup error:', err);
+    process.exit(1);
+  }
+})();
