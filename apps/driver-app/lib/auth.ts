@@ -2,8 +2,10 @@
  * lib/auth.ts
  * JWT storage via expo-secure-store, Zustand auth store, token refresh.
  * All drivers access auth state via useAuthStore() — single source of truth.
+ * Web fallback: uses in-memory Map when Platform.OS === 'web'.
  */
 import { create } from 'zustand';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import type { User } from './types';
 
@@ -12,7 +14,25 @@ const REFRESH_KEY = 'mj_refresh';
 const USER_KEY    = 'mj_user';
 const ROUTE_KEY   = 'mj_route_id';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+// In-memory fallback for web platform
+const memStore = new Map<string, string>();
+
+async function ssGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') return memStore.get(key) ?? null;
+  return SecureStore.getItemAsync(key);
+}
+
+async function ssSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') { memStore.set(key, value); return; }
+  return SecureStore.setItemAsync(key, value);
+}
+
+async function ssDel(key: string): Promise<void> {
+  if (Platform.OS === 'web') { memStore.delete(key); return; }
+  return SecureStore.deleteItemAsync(key);
+}
+
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3100';
 
 interface AuthState {
   token:   string | null;
@@ -30,9 +50,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   isReady: false,
 
   setAuth: async (token, refreshToken, user) => {
-    await SecureStore.setItemAsync(TOKEN_KEY,    token);
-    await SecureStore.setItemAsync(REFRESH_KEY, refreshToken);
-    await SecureStore.setItemAsync(USER_KEY,     JSON.stringify(user));
+    await ssSet(TOKEN_KEY,    token);
+    await ssSet(REFRESH_KEY, refreshToken);
+    await ssSet(USER_KEY,     JSON.stringify(user));
     set({ token, user, isReady: true });
 
     // Discover today's routeId and cache it in SecureStore for fast startup.
@@ -44,7 +64,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (res.ok) {
         const json = await res.json() as { ok: boolean; data: { routeId: string } | null };
         if (json.ok && json.data?.routeId) {
-          await SecureStore.setItemAsync(ROUTE_KEY, json.data.routeId);
+          await ssSet(ROUTE_KEY, json.data.routeId);
         }
       }
     } catch {
@@ -54,9 +74,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   loadStored: async () => {
     const [token, refresh, userRaw] = await Promise.all([
-      SecureStore.getItemAsync(TOKEN_KEY),
-      SecureStore.getItemAsync(REFRESH_KEY),
-      SecureStore.getItemAsync(USER_KEY),
+      ssGet(TOKEN_KEY),
+      ssGet(REFRESH_KEY),
+      ssGet(USER_KEY),
     ]);
     const user = userRaw ? (JSON.parse(userRaw) as User) : null;
     set({ token, user, isReady: true });
@@ -64,10 +84,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await Promise.all([
-      SecureStore.deleteItemAsync(TOKEN_KEY),
-      SecureStore.deleteItemAsync(REFRESH_KEY),
-      SecureStore.deleteItemAsync(USER_KEY),
-      SecureStore.deleteItemAsync(ROUTE_KEY),
+      ssDel(TOKEN_KEY),
+      ssDel(REFRESH_KEY),
+      ssDel(USER_KEY),
+      ssDel(ROUTE_KEY),
     ]);
     set({ token: null, user: null });
   },
@@ -78,7 +98,7 @@ export const useAuthStore = create<AuthState>((set) => ({
  * Returns new token or null on failure.
  */
 export async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY);
+  const refreshToken = await ssGet(REFRESH_KEY);
   if (!refreshToken) return null;
   try {
     const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
@@ -89,11 +109,10 @@ export async function refreshAccessToken(): Promise<string | null> {
     if (!res.ok) return null;
     const data = await res.json() as { ok: boolean; data: { token: string } };
     if (!data.ok) return null;
-    const userRaw = await SecureStore.getItemAsync(USER_KEY);
+    const userRaw = await ssGet(USER_KEY);
     const user    = userRaw ? (JSON.parse(userRaw) as User) : null;
     if (!user) return null;
-    const rt = await SecureStore.getItemAsync(REFRESH_KEY);
-    await SecureStore.setItemAsync(TOKEN_KEY, data.data.token);
+    await ssSet(TOKEN_KEY, data.data.token);
     useAuthStore.setState({ token: data.data.token });
     return data.data.token;
   } catch {
