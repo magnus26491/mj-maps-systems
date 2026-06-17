@@ -20,6 +20,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import fs from 'fs';
 
 import { authRouter } from './routes/auth';
 import { authRegisterRouter } from './routes/auth-register';
@@ -119,6 +121,16 @@ app.use('/api/v1/paf',           authenticateDriver, pafRouter);
 app.use('/api/v1/stops',         authenticateDriver, pinConfirmRouter, podRouter, stopCompleteRouter);
 app.use('/api/v1/vehicle-specs', authenticateDriver, vehicleSpecsRouter);
 app.use('/api/v1/location',      locationLimiter, authenticateDriver, locationRouter);
+
+// ── Driver app web build ────────────────────────────────────────────────────────────
+const driverAppDist = path.join(__dirname, '../../apps/driver-app/dist');
+if (fs.existsSync(driverAppDist)) {
+  app.use('/app', express.static(driverAppDist));
+  app.get('/app/*', (_req, res) => {
+    res.sendFile(path.join(driverAppDist, 'index.html'));
+  });
+  console.log(`[startup] driver app web build served at /app (${driverAppDist})`);
+}
 
 // ── 404 handler ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found.' }));
