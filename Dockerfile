@@ -13,6 +13,8 @@ COPY . .
 
 RUN npm run build
 
+RUN cd apps/driver-app && npm install --legacy-peer-deps && EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com npx expo export --platform web
+
 RUN ls -la dist/services/api/server.js && echo "[build] dist/services/api/server.js OK"
 
 # Prune devDependencies so we can copy a clean node_modules to runtime
@@ -31,6 +33,7 @@ RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/driver-app/dist ./apps/driver-app/dist
 
 # Copy startup script
 COPY start.sh ./start.sh
