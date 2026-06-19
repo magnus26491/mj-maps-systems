@@ -13,7 +13,12 @@ COPY . .
 
 RUN npm run build
 
-RUN cd apps/driver-app && npm install --legacy-peer-deps && EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com npx expo export --platform web
+RUN cd apps/driver-app && \
+    npm install --legacy-peer-deps && \
+    npx expo install react-native-web@~0.19.10 react-dom@18.2.0 --no-save && \
+    NODE_PATH=apps/driver-app/node_modules \
+    EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com \
+    npx expo export --platform web --clear
 
 RUN ls -la dist/services/api/server.js && echo "[build] dist/services/api/server.js OK"
 

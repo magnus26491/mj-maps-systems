@@ -3,6 +3,12 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
+// Prevent metro from crawling up into the monorepo root node_modules
+config.watchFolders = [__dirname];
+config.resolver.nodeModulesPaths = [
+  path.resolve(__dirname, 'node_modules'),
+];
+
 // Resolve custom native modules for web platform
 config.resolver.extraNodeModules = {
   'expo-camera': path.resolve(__dirname, 'modules/expo-camera'),
