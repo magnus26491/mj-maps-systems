@@ -12,6 +12,7 @@ RUN npm prune --omit=dev --legacy-peer-deps
 FROM node:20-alpine AS driver-builder
 WORKDIR /driver
 COPY apps/driver-app/package.json apps/driver-app/package-lock.json* ./
+COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
 RUN npm install --legacy-peer-deps react-native-web@0.19.10 react-dom@18.2.0
 COPY apps/driver-app/ .
