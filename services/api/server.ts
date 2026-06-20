@@ -331,8 +331,8 @@ const start = async () => {
   // ── Static file serving (Expo web build) ───────────────────────────────
   // Compiled server.ts lives at dist/services/api/server.js, so:
   //   __dirname = /app/dist/services/api/
-  //   ../../apps/driver-app/dist = /app/apps/driver-app/dist
-  const webDistPath = path.resolve(__dirname, '../../apps/driver-app/dist');
+  //   ../../../apps/driver-app/dist = /app/apps/driver-app/dist
+  const webDistPath = path.resolve(__dirname, '../../../apps/driver-app/dist');
 
   await server.register(fastifyStatic, {
     root: webDistPath,
