@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { requireAuth } from '../middleware/auth.js';
 
 interface PhotonFeature {
   properties: {
@@ -29,7 +30,7 @@ export const autocompleteRoute: FastifyPluginAsync = async (fastify) => {
   }>(
     '/api/v1/address/autocomplete',
     {
-      onRequest: [(fastify as any).authenticate],
+      preHandler: [requireAuth],
       schema: {
         querystring: {
           type: 'object',
