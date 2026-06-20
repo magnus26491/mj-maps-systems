@@ -64,7 +64,7 @@ interface ShiftState {
   wsConnected: boolean;
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  startShift:      (orderedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[], vehicleId: string) => void;
+  startShift:      (orderedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[], vehicleId: string, routeId: string) => void;
   endShift:        () => void;
   completeStop:    () => void;
   failStop:        () => void;
@@ -110,8 +110,8 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
 
   // ── startShift ─────────────────────────────────────────────────────────────
   // Accepts pre-optimised stops from API or greedy fallback from shift-start.
-  startShift: (orderedStops, vehicleId) => {
-    const routeId  = `route-${Date.now()}`;
+  // routeId: server-assigned on success, or offline-<timestamp> on fallback.
+  startShift: (orderedStops, vehicleId, routeId) => {
     const shiftId  = `shift-${Date.now()}`;
 
     const stops: DeliveryStop[] = orderedStops.map((s, i) => ({

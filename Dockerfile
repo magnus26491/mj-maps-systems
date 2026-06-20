@@ -14,7 +14,8 @@ WORKDIR /driver
 COPY apps/driver-app/package.json apps/driver-app/package-lock.json* ./
 COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
-RUN npm install --legacy-peer-deps react-native-web@0.19.10 react-dom@18.2.0
+# --no-save via -- separator: Expo CLI requires the npm flag to be passed through
+RUN npx expo install -- --no-save react-native-web@0.19.10 react-dom@18.2.0
 COPY apps/driver-app/ .
 ENV EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com
 RUN npx expo export --platform web --clear

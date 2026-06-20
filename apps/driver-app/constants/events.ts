@@ -25,9 +25,16 @@ export const FailureCode = {
 export type FailureCode = typeof FailureCode[keyof typeof FailureCode];
 
 // WebSocket messages received FROM server
+// Must stay in sync with driver-api.ts on the backend
 export const ServerMessageType = {
   APPROACH_BRIEF:    'APPROACH_BRIEF',
-  PLAN_UPDATE:      'PLAN_UPDATE',
+  PLAN_UPDATE:      'PLAN_UPDATE',       // legacy alias for REPLAN
   WORKLOAD_WARNING:  'WORKLOAD_WARNING',
   WORKLOAD_OVERLOAD: 'WORKLOAD_OVERLOAD',
+  // Added to fix vocabulary mismatch with server
+  REPLAN:           'REPLAN',           // server sends: type: 'REPLAN'
+  ETA_UPDATE:        'ETA_UPDATE',       // server sends: type: 'ETA_UPDATE'
+  STOP_COMPLETED:    'STOP_COMPLETED',   // server sends: type: 'STOP_COMPLETED'
+  CONNECTED:         'CONNECTED',        // server sends: type: 'CONNECTED'
+  ERROR:             'ERROR',            // server sends: type: 'ERROR'
 } as const;

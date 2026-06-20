@@ -1,12 +1,47 @@
 /**
  * hooks/useNavigation.ts
- * Navigation state machine using live GPS and expo-speech.
+ * Navigation state machine using shared GPS and expo-speech.
+ * Includes off-route detection with automatic re-routing.
+ *
+ * Uses the shared location singleton — no own watchPositionAsync.
+ * startNav() triggers route fetch + subscribes to shared location.
+ * stopNav() unsubscribes.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import * as Location from 'expo-location';
 import * as Speech from 'expo-speech';
 import { fetchNavRoute, type NavRoute, type NavStep } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
+import { subscribeSharedLocation, type SharedLocation } from '../lib/shared-location';
+
+const DEVIATION_THRESHOLD_M = 250;  // metres — if user is this far off route, re-route
+
+// Haversine distance (metres)
+function distanceM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (x: number) => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Check if a point is off the route polyline by more than thresholdM
+function isOffRoute(
+  userLat: number, userLng: number,
+  polyline: { lat: number; lng: number }[],
+  thresholdM: number,
+): boolean {
+  if (!polyline.length) return false;
+  // Find the minimum distance from user position to any point on the polyline
+  let minDist = Infinity;
+  for (const pt of polyline) {
+    const d = distanceM(userLat, userLng, pt.lat, pt.lng);
+    if (d < minDist) minDist = d;
+    if (minDist < thresholdM) return false;  // early exit
+  }
+  return minDist > thresholdM;
+}
 
 interface UseNavigationResult {
   route:          NavRoute | null;
@@ -32,8 +67,14 @@ export function useNavigation(): UseNavigationResult {
   const [userLat,  setUserLat]    = useState<number | null>(null);
   const [userLng,  setUserLng]    = useState<number | null>(null);
   const [bearing,  setBearing]    = useState(0);
-  const locationSub = useRef<Location.LocationSubscription | null>(null);
   const lastSpokenStep = useRef(-1);
+  const destLat = useRef<number | null>(null);
+  const destLng = useRef<number | null>(null);
+  // Keep a mutable ref to current route for use in the location callback
+  const routeRef = useRef<NavRoute | null>(null);
+  const isReroutingRef = useRef(false);
+  // Shared location subscription (cleaned up in stopNav)
+  const locUnsubRef = useRef<(() => void) | null>(null);
 
   const speakStep = useCallback((step: NavStep) => {
     Speech.stop();
@@ -53,14 +94,7 @@ export function useNavigation(): UseNavigationResult {
     const segmentEnd = route.polyline[Math.min(stepIndex + 1, route.polyline.length - 1)];
     if (!segmentEnd) return;
 
-    const R   = 6371000;
-    const dLat = (segmentEnd.lat - userLat) * Math.PI / 180;
-    const dLng = (segmentEnd.lng - userLng) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2
-      + Math.cos(userLat * Math.PI / 180)
-      * Math.cos(segmentEnd.lat * Math.PI / 180)
-      * Math.sin(dLng / 2) ** 2;
-    const distM = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distM = distanceM(userLat, userLng, segmentEnd.lat, segmentEnd.lng);
 
     if (distM < 200 && lastSpokenStep.current !== stepIndex) {
       lastSpokenStep.current = stepIndex;
@@ -78,12 +112,17 @@ export function useNavigation(): UseNavigationResult {
     setStepIndex(0);
     lastSpokenStep.current = -1;
 
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    setUserLat(loc.coords.latitude);
-    setUserLng(loc.coords.longitude);
+    // Get current position for route calculation
+    const currentLoc = getLatestLocation();
+    const fromLat = currentLoc?.latitude ?? 0;
+    const fromLng = currentLoc?.longitude ?? 0;
+
+    setUserLat(fromLat);
+    setUserLng(fromLng);
+    if (currentLoc?.heading !== null) setBearing(currentLoc.heading);
 
     const navRoute = await fetchNavRoute(
-      loc.coords.latitude, loc.coords.longitude,
+      fromLat, fromLng,
       toLat, toLng,
       vehicleId ?? 'TRANSIT_LWB_GB',
     );
@@ -95,25 +134,58 @@ export function useNavigation(): UseNavigationResult {
     }
 
     setRoute(navRoute);
+    routeRef.current = navRoute;
+    destLat.current = toLat;
+    destLng.current = toLng;
     setIsLoading(false);
     if (navRoute.steps[0]) speakStep(navRoute.steps[0]);
 
-    locationSub.current?.remove();
-    locationSub.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, timeInterval: 2000, distanceInterval: 5 },
-      loc => {
-        setUserLat(loc.coords.latitude);
-        setUserLng(loc.coords.longitude);
-        setBearing(loc.coords.heading ?? 0);
-      },
-    );
+    // Subscribe to shared location for tracking + off-route detection
+    locUnsubRef.current?.();
+    locUnsubRef.current = subscribeSharedLocation((loc: SharedLocation) => {
+      setUserLat(loc.latitude);
+      setUserLng(loc.longitude);
+      if (loc.heading !== null) setBearing(loc.heading);
+
+      // Off-route detection — re-fetch route if driver deviates
+      const currentRoute = routeRef.current;
+      if (currentRoute && !isReroutingRef.current) {
+        const offRoute = isOffRoute(
+          loc.latitude, loc.longitude,
+          currentRoute.polyline,
+          DEVIATION_THRESHOLD_M,
+        );
+        if (offRoute) {
+          isReroutingRef.current = true;
+          console.log('[useNavigation] Off route — re-routing...');
+          fetchNavRoute(
+            loc.latitude, loc.longitude,
+            destLat.current!, destLng.current!,
+            vehicleId ?? 'TRANSIT_LWB_GB',
+          ).then(newRoute => {
+            if (newRoute) {
+              routeRef.current = newRoute;
+              setRoute(newRoute);
+              setStepIndex(0);
+              if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
+            }
+            isReroutingRef.current = false;
+          }).catch(() => {
+            isReroutingRef.current = false;
+          });
+        }
+      }
+    });
   }, [vehicleId, speakStep]);
 
   const stopNav = useCallback(() => {
-    locationSub.current?.remove();
-    locationSub.current = null;
+    locUnsubRef.current?.();
+    locUnsubRef.current = null;
     Speech.stop();
     setRoute(null);
+    routeRef.current = null;
+    destLat.current = null;
+    destLng.current = null;
     setStepIndex(0);
     setError(null);
   }, []);

@@ -3,8 +3,8 @@
  * Poll interval: 5s when >500m away, 2s when <500m (approaching).
  * Falls back to cached GREEN if network unavailable — never blocks driver.
  */
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '../lib/auth';
 import type { DeliveryStop } from '../store/shift';
 
 interface TurnScoreResult {
@@ -41,13 +41,7 @@ export function useTurnScore(
   stop: DeliveryStop | null,
   vehicleId: string | null | undefined,
 ): TurnScoreResult {
-  const [token, setToken] = useState<string>('');
-
-  useEffect(() => {
-    // TODO: replace with auth store when implemented
-    setToken((global as any).__mjMapsToken ?? '');
-  }, []);
-
+  const token = useAuthStore(s => s.token);
   const distM  = stop?.distanceM ?? 9999;
   const enabled = !!(stop && vehicleId && token);
 

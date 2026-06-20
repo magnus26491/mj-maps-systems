@@ -1,14 +1,14 @@
 /**
- * useDeliveryLocation — Expo Location hook
+ * useDeliveryLocation — shared GPS subscription hook.
  *
- * Watches position with high accuracy.
+ * Uses the singleton shared-location.ts watcher.
  * Computes haversine distance to current stop.
  * Auto-transitions phase based on distance:
  *   > 200m → EN_ROUTE
  *   ≤ 200m → ARRIVING (fires once per stop)
  */
-import { useEffect, useRef, useState } from 'react';
-import * as Location from 'expo-location';
+import { useEffect, useState } from 'react';
+import { subscribeSharedLocation, type SharedLocation } from '../lib/shared-location';
 import { useDeliveryStore } from '../store/deliveryStore';
 
 interface LocationState {
@@ -23,7 +23,7 @@ function haversine(
   lat1: number, lng1: number,
   lat2: number, lng2: number,
 ): number {
-  const R = 6371000; // Earth radius in meters
+  const R = 6371000;
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -51,68 +51,35 @@ export function useDeliveryLocation() {
     error: null,
   });
 
-  const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
-
   useEffect(() => {
-    let mounted = true;
+    const unsub = subscribeSharedLocation((loc: SharedLocation) => {
+      setLocation({
+        lat: loc.latitude,
+        lng: loc.longitude,
+        distanceM: null,
+        error: null,
+      });
 
-    async function startWatching() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        if (mounted) {
-          setLocation(l => ({ ...l, error: 'Location permission denied' }));
+      const stop = currentStop;
+      if (stop?.pin) {
+        const dist = haversine(
+          loc.latitude, loc.longitude,
+          stop.pin.lat, stop.pin.lng,
+        );
+        setLocation(l => ({ ...l, distanceM: dist }));
+
+        // Auto-transition: distance ≤ 200m → ARRIVING (once per stop)
+        if (
+          dist <= 200 &&
+          phase === 'EN_ROUTE' &&
+          !hasTriggeredArriving
+        ) {
+          triggerArriving();
         }
-        return;
       }
+    });
 
-      subscriptionRef.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 3000,
-          distanceInterval: 5,
-        },
-        (location) => {
-          if (!mounted) return;
-
-          const { latitude, longitude } = location.coords;
-          setLocation({
-            lat: latitude,
-            lng: longitude,
-            distanceM: null,
-            error: null,
-          });
-
-          // Compute distance to current stop
-          const stop = currentStop;
-          if (stop?.pin) {
-            const dist = haversine(
-              latitude, longitude,
-              stop.pin.lat, stop.pin.lng,
-            );
-            setLocation(l => ({ ...l, distanceM: dist }));
-
-            // Auto-transition: distance ≤ 200m → ARRIVING (once per stop)
-            if (
-              dist <= 200 &&
-              phase === 'EN_ROUTE' &&
-              !hasTriggeredArriving
-            ) {
-              triggerArriving();
-            }
-          }
-        },
-      );
-    }
-
-    startWatching();
-
-    return () => {
-      mounted = false;
-      if (subscriptionRef.current) {
-        subscriptionRef.current.remove();
-        subscriptionRef.current = null;
-      }
-    };
+    return unsub;
   }, [currentStop?.id, phase, hasTriggeredArriving]);
 
   return location;

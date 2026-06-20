@@ -6,7 +6,8 @@
  * Auth: sends { type: 'AUTH', token } as first message after onopen
  *       (never in URL — prevents token appearing in server/proxy logs)
  * Sends:   JSON driver events
- * Receives: APPROACH_BRIEF, PLAN_UPDATE, WORKLOAD_WARNING, WORKLOAD_OVERLOAD
+ * Receives: APPROACH_BRIEF, REPLAN, ETA_UPDATE, WORKLOAD_WARNING, WORKLOAD_OVERLOAD
+ *           (PLAN_UPDATE is legacy alias for REPLAN)
  *
  * Auto-reconnects every 3s on drop, with token refresh on 4008/4001 close codes.
  * Falls back to enqueue() for send if WS not open.
@@ -30,7 +31,9 @@ interface UseDriverWsOptions {
   driverId:           string;
   routeId:            string;
   onApproachBrief?:   (msg: ServerMessage) => void;
-  onPlanUpdate?:      (msg: ServerMessage) => void;
+  onReplan?:          (msg: ServerMessage) => void;   // server sends: type: 'REPLAN'
+  onPlanUpdate?:      (msg: ServerMessage) => void;   // legacy alias for REPLAN
+  onEtaUpdate?:       (msg: ServerMessage) => void;   // server sends: type: 'ETA_UPDATE'
   onWorkloadWarning?: (msg: ServerMessage) => void;
   onOverload?:        (msg: ServerMessage) => void;
 }
@@ -39,7 +42,9 @@ export function useDriverWs({
   driverId,
   routeId,
   onApproachBrief,
+  onReplan,
   onPlanUpdate,
+  onEtaUpdate,
   onWorkloadWarning,
   onOverload,
 }: UseDriverWsOptions) {
@@ -75,9 +80,13 @@ export function useDriverWs({
           const msg: ServerMessage = JSON.parse(e.data as string);
           switch (msg.type) {
             case ServerMessageType.APPROACH_BRIEF:    onApproachBrief?.(msg);   break;
-            case ServerMessageType.PLAN_UPDATE:       onPlanUpdate?.(msg);      break;
+            case ServerMessageType.REPLAN:            onReplan?.(msg);           break;
+            case ServerMessageType.PLAN_UPDATE:       onPlanUpdate?.(msg);      break;  // legacy alias
+            case ServerMessageType.ETA_UPDATE:        onEtaUpdate?.(msg);        break;
             case ServerMessageType.WORKLOAD_WARNING:  onWorkloadWarning?.(msg); break;
             case ServerMessageType.WORKLOAD_OVERLOAD: onOverload?.(msg);        break;
+            // STOP_COMPLETED, CONNECTED, ERROR — no-op hooks for now
+            // (handlers can be added later as needed)
           }
         } catch { /* ignore malformed */ }
       };

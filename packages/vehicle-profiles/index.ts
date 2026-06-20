@@ -222,6 +222,34 @@ export const VEHICLE_PROFILES: Record<VehicleId, VehicleProfile> = {
 
 export const ALL_VEHICLE_IDS = Object.keys(VEHICLE_PROFILES) as VehicleId[];
 
+// ── Geoapify mode mapping ──────────────────────────────────────────────────
+// Maps our internal vehicle profiles to Geoapify routing mode buckets.
+// Geoapify truck routing uses height/weight-banded modes:
+//   light_truck   — <3.5t, <3.2m
+//   medium_truck  — <7.5t, <4.11m
+//   truck         — <16t
+//   heavy_truck   — any larger
+//   long_truck    — longer than standard
+export type GeoapifyMode = 'drive' | 'light_truck' | 'medium_truck' | 'truck' | 'heavy_truck' | 'long_truck';
+
+export function getGeoapifyMode(profile: VehicleProfile): GeoapifyMode {
+  const { heightM, gvwT, vehicleClass, lengthM } = profile;
+
+  // Artic/long vehicles
+  if (vehicleClass === 'artic' || lengthM > 16) return 'long_truck';
+
+  // HGV classes based on weight bands
+  if (gvwT >= 16) return 'heavy_truck';
+  if (gvwT >= 7.5) return 'truck';
+  if (gvwT >= 3.5 || heightM >= 3.2) return 'medium_truck';
+
+  // Vans — height-banded
+  if (heightM >= 2.8 || gvwT >= 3.0) return 'light_truck';
+
+  // Everything else (car, bike, etc.)
+  return 'drive';
+}
+
 // ── Turn scoring ───────────────────────────────────────────────────────────────────────────────────
 
 export const TURN_ALERT_DISTANCES: Record<TurnAlertLevel, number> = {

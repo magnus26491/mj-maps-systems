@@ -119,13 +119,14 @@ export default function ShiftStartScreen() {
     setLoading(true);
     try {
       const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
-      const token = useShiftStore.getState().token;
+      // Read token from SecureStore — same source as lib/api.ts
+      const token = await SecureStore.getItemAsync('mj_jwt');
 
       const res = await fetch(`${API}/api/v1/routes/optimise`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token ?? ''}`,
         },
         body: JSON.stringify({
           stops: stops.map((s, i) => ({
@@ -146,9 +147,10 @@ export default function ShiftStartScreen() {
 
       if (res.ok) {
         const { data } = await res.json();
-        startShift(data.orderedStops, vehicle!);
+        // Use server-assigned routeId for proper tracking
+        startShift(data.orderedStops, vehicle!, data.routeId);
       } else {
-        // Offline fallback — use input order
+        // Offline fallback — use input order with a clearly-flagged offline ID
         startShift(
           greedyOrder(stops).map((s, i) => ({
             id: `stop-${i}`,
@@ -159,6 +161,7 @@ export default function ShiftStartScreen() {
             status: 'pending' as const,
           })),
           vehicle!,
+          `offline-${Date.now()}`,
         );
       }
 
@@ -168,7 +171,7 @@ export default function ShiftStartScreen() {
         params: { departureEpochMs: String(Date.now()) },
       });
     } catch {
-      // No signal — use greedy fallback silently
+      // No signal — use greedy fallback silently with offline ID
       startShift(
         greedyOrder(stops).map((s, i) => ({
           id: `stop-${i}`,
@@ -179,6 +182,7 @@ export default function ShiftStartScreen() {
           status: 'pending' as const,
         })),
         vehicle!,
+        `offline-${Date.now()}`,
       );
       useShiftStore.getState().setStagedStops(stops as any);
       router.push({

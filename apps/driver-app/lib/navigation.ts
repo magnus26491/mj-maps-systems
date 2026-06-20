@@ -1,7 +1,13 @@
 /**
  * lib/navigation.ts
- * Geoapify Routing API client for in-app turn-by-turn navigation.
+ * Server-side Geoapify routing client for in-app turn-by-turn navigation.
+ *
+ * Calls POST /api/v1/navigate/leg (our backend) rather than Geoapify directly.
+ * This keeps GEOAPIFY_API_KEY off the client device.
+ *
+ * The server resolves vehicle profile → Geoapify mode bucket.
  */
+import * as SecureStore from 'expo-secure-store';
 
 export interface NavStep {
   instruction:  string;
@@ -12,54 +18,35 @@ export interface NavStep {
 }
 
 export interface NavRoute {
-  steps:          NavStep[];
+  steps:            NavStep[];
   totalDistanceM:   number;
   totalDurationSec: number;
-  polyline:       { lat: number; lng: number }[];
+  polyline:         { lat: number; lng: number }[];
 }
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
 export async function fetchNavRoute(
   fromLat: number, fromLng: number,
   toLat:   number, toLng:   number,
-  profileKey: string,
+  vehicleId: string,
 ): Promise<NavRoute | null> {
-  const key  = process.env.EXPO_PUBLIC_GEOAPIFY_KEY ?? '';
-  const mode = profileKeyToMode(profileKey);
-  const url  = `https://router.geoapify.com/v1/routing`
-    + `?waypoints=${fromLat},${fromLng}|${toLat},${toLng}`
-    + `&mode=${mode}&format=json&apiKey=${key}`;
+  const token = await SecureStore.getItemAsync('mj_jwt');
 
-  const res = await fetch(url);
+  const res = await fetch(`${API_BASE}/api/v1/navigate/leg`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ fromLat, fromLng, toLat, toLng, vehicleId }),
+  });
+
   if (!res.ok) return null;
-
   const json = await res.json();
-  const feature = json.features?.[0];
-  if (!feature) return null;
+  if (!json.ok || !json.data) return null;
 
-  const props = feature.properties;
-  const steps: NavStep[] = (props.legs?.[0]?.steps ?? []).map((s: any) => ({
-    instruction:  s.instruction?.text ?? '',
-    distanceM:    s.distance ?? 0,
-    durationSec: s.time ?? 0,
-    bearing:     s.bearing_after ?? 0,
-    maneuver:    s.maneuver?.type ?? 'straight',
-  }));
-
-  const coords = feature.geometry?.coordinates ?? [];
-  const polyline = coords.map(([lng, lat]: [number, number]) => ({ lat, lng }));
-
-  return {
-    steps,
-    totalDistanceM:    props.distance ?? 0,
-    totalDurationSec: props.time ?? 0,
-    polyline,
-  };
-}
-
-function profileKeyToMode(profileKey: string): string {
-  if (profileKey.includes('HGV') || profileKey.includes('ARTIC')) return 'truck';
-  if (profileKey.includes('LUTON')) return 'truck';
-  return 'drive';
+  return json.data as NavRoute;
 }
 
 export function formatDistance(m: number): string {

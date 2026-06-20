@@ -89,9 +89,16 @@ export function ArrivingScreen({ onImHere }: ArrivingScreenProps) {
   const accessNotes = currentStop.pinMeta?.accessNotes ?? currentStop.access_notes;
 
   const openInMaps = () => {
-    const url = `comgooglemaps://?q=${lat},${lng}`;
-    Linking.openURL(url).catch(() =>
-      Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`),
+    // Use directions intent so the driver gets turn-by-turn navigation to the stop
+    const encodedAddr = encodeURIComponent(currentStop.address);
+    const googleMapsUrl = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+    const appleMapsUrl = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    Linking.openURL(googleMapsUrl).catch(() =>
+      Linking.openURL(appleMapsUrl).catch(() =>
+        Linking.openURL(fallbackUrl)
+      )
     );
   };
 

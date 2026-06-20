@@ -11,12 +11,13 @@
  *   startStopGeofences(stops) — register regions for next 20 stops
  *   stopStopGeofences()       — unregister all regions
  *
- * Uses WhenInUse permission only — no background location needed.
+ * Uses the shared location singleton — no own GPS watcher.
  */
 import { useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import type { StopPoint } from '../store/deliveryStore';
+import { subscribeSharedLocation } from '../lib/shared-location';
 
 const SPEED_THRESHOLD_KPH = 8;
 const REQUIRED_TRUE        = 3; // consecutive above → driving
@@ -32,52 +33,31 @@ export function useDrivingMode(): { isDriving: boolean; speedKmh: number } {
   const belowCount = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const unsub = subscribeSharedLocation((loc) => {
+      const speedMs  = loc.speed ?? -1;
+      const speed    = speedMs >= 0 ? speedMs * 3.6 : 0;
+      const above    = speed > SPEED_THRESHOLD_KPH;
 
-    async function startWatching() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      setSpeedKmh(Math.round(speed));
 
-      const watch = await Location.watchPositionAsync(
-        {
-          accuracy:        Location.Accuracy.BestForNavigation,
-          distanceInterval: 5,
-          timeInterval:    1000,
-        },
-        (location) => {
-          if (cancelled) return;
-          const speedMs    = location.coords.speed ?? -1;
-          const speed       = speedMs >= 0 ? speedMs * 3.6 : 0;
-          const above       = speed > SPEED_THRESHOLD_KPH;
+      if (above) {
+        belowCount.current = 0;
+        aboveCount.current += 1;
+        if (aboveCount.current >= REQUIRED_TRUE) {
+          aboveCount.current = REQUIRED_TRUE;
+          setIsDriving(true);
+        }
+      } else {
+        aboveCount.current = 0;
+        belowCount.current += 1;
+        if (belowCount.current >= REQUIRED_FALSE) {
+          belowCount.current = REQUIRED_FALSE;
+          setIsDriving(false);
+        }
+      }
+    });
 
-          setSpeedKmh(Math.round(speed));
-
-          if (above) {
-            belowCount.current = 0;
-            aboveCount.current += 1;
-            if (aboveCount.current >= REQUIRED_TRUE) {
-              aboveCount.current = REQUIRED_TRUE;
-              setIsDriving(true);
-            }
-          } else {
-            aboveCount.current = 0;
-            belowCount.current += 1;
-            if (belowCount.current >= REQUIRED_FALSE) {
-              belowCount.current = REQUIRED_FALSE;
-              setIsDriving(false);
-            }
-          }
-        },
-      );
-
-      return () => { watch.remove(); };
-    }
-
-    const cleanup = startWatching();
-    return () => {
-      cancelled = true;
-      cleanup.then(fn => fn?.());
-    };
+    return unsub;
   }, []);
 
   return { isDriving, speedKmh };

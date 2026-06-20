@@ -1,10 +1,15 @@
 /**
  * useDriverLocation — device GPS subscription.
- * Battery-efficient: 10s background interval, 3s foreground.
- * Foreground service notification keeps tracking when screen is off.
+ *
+ * This is the canonical foreground GPS watcher — it feeds the shared-location
+ * singleton so all other GPS consumers (delivery, driving mode, navigation)
+ * share the same subscription without creating multiple watchers.
+ *
+ * Also starts the background task for backend GPS pings when the app is backgrounded.
  */
 import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
+import { publishLocation } from '../lib/shared-location';
 
 export interface DriverLocation {
   lat:        number;
@@ -49,13 +54,26 @@ export function useDriverLocation(): DriverLocation | null {
           timeInterval:     3000,
           distanceInterval: 5,
         },
-        loc => setLocation({
-          lat:        loc.coords.latitude,
-          lng:        loc.coords.longitude,
-          headingDeg: loc.coords.heading,
-          speedMps:   loc.coords.speed,
-          accuracyM:  loc.coords.accuracy,
-        }),
+        loc => {
+          const locData: DriverLocation = {
+            lat:        loc.coords.latitude,
+            lng:        loc.coords.longitude,
+            headingDeg: loc.coords.heading,
+            speedMps:   loc.coords.speed,
+            accuracyM:  loc.coords.accuracy,
+          };
+          setLocation(locData);
+          // Feed the shared singleton so other hooks don't need their own watcher
+          publishLocation({
+            latitude:  loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            heading:   loc.coords.heading,
+            speed:     loc.coords.speed,
+            accuracy:  loc.coords.accuracy,
+            altitude:  loc.coords.altitude,
+            timestamp: loc.timestamp,
+          });
+        },
       );
     })();
 

@@ -69,4 +69,29 @@ describe('maneuverArrow', () => {
   it('returns roundabout arrow for roundabout', () => {
     expect(maneuverArrow('roundabout')).toBe('⟳');
   });
+
+  // Geoapify instruction types (normalized to our format)
+  it('handles Geoapify "Right" instruction', () => {
+    expect(maneuverArrow('turn-right')).toBe('→');
+  });
+
+  it('handles Geoapify "Left" instruction', () => {
+    expect(maneuverArrow('turn-left')).toBe('←');
+  });
+
+  it('handles Geoapify "SharpRight" instruction', () => {
+    expect(maneuverArrow('turn-sharp-right')).toBe('↱');
+  });
+
+  it('handles Geoapify "SharpLeft" instruction', () => {
+    expect(maneuverArrow('turn-sharp-left')).toBe('↰');
+  });
+
+  it('handles Geoapify "SlightRight" instruction', () => {
+    expect(maneuverArrow('turn-slight-right')).toBe('↗');
+  });
+
+  it('handles Geoapify "SlightLeft" instruction', () => {
+    expect(maneuverArrow('turn-slight-left')).toBe('↖');
+  });
 });

@@ -8,13 +8,15 @@
  *  4. Bottom button → opens details sheet
  */
 import React, { useCallback, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Text } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useDeliveryStore, StopPoint } from '../../store/deliveryStore';
+import { useVehicleStore } from '../../store/vehicleStore';
 import { useDeliveryLocation } from '../../hooks/useDeliveryLocation';
 import { useDrivingMode } from '../../hooks/useDrivingMode';
+import { useTurnScore } from '../../hooks/useTurnScore';
 import { ShiftProgressBar } from '../../components/ShiftProgressBar';
 import { useTheme } from '../../components/ThemeContext';
 import {
@@ -41,10 +43,17 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
   const totalStops = useDeliveryStore(s => s.totalStops);
   const getRemainingTimeEstimate = useDeliveryStore(s => s.getRemainingTimeEstimate);
   const { isDriving } = useDrivingMode();
+  const vehicleProfile = useVehicleStore(s => s.vehicleProfile);
+
+  // Get turn score from the fixed useTurnScore hook
+  const vehicleId = vehicleProfile?.profileKey ?? null;
+  const { alert, score, reason } = useTurnScore(currentStop, vehicleId);
 
   useDeliveryLocation();
 
-  const alertLevel = currentStop?.turn?.alertLevel ?? 'none';
+  // Merge live turn score with stored turn data
+  const liveAlertLevel = alert === 'RED' ? 'red' : alert === 'AMBER' ? 'amber' : 'none';
+  const alertLevel = liveAlertLevel !== 'none' ? liveAlertLevel : currentStop?.turn?.alertLevel ?? 'none';
 
   // Haptic on alert level change
   useEffect(() => {
@@ -64,8 +73,24 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
     );
   }
 
-  const turnMessage = currentStop.turn?.message ?? '';
+  // Use live score message if available, otherwise fall back to stored
+  const turnMessage = reason ?? currentStop.turn?.message ?? '';
   const remainingTime = getRemainingTimeEstimate();
+
+  // Open external maps with directions to the stop
+  const openNavigation = useCallback(() => {
+    const lat = currentStop?.pin?.lat ?? currentStop?.lat;
+    const lng = currentStop?.pin?.lng ?? currentStop?.lng;
+    if (!lat || !lng) return;
+    const googleMapsUrl = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+    const appleMapsUrl = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    Linking.openURL(googleMapsUrl).catch(() =>
+      Linking.openURL(appleMapsUrl).catch(() =>
+        Linking.openURL(fallbackUrl)
+      )
+    );
+  }, [currentStop]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -100,8 +125,18 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
         </View>
       </ScrollView>
 
-      {/* Bottom button */}
+      {/* Bottom buttons */}
       <View style={[styles.buttonWrapper, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {/* Navigate button */}
+        <TouchableOpacity
+          style={styles.navigateBtn}
+          onPress={openNavigation}
+          accessibilityRole="button"
+          accessibilityLabel="Navigate to stop using Google Maps or Apple Maps"
+        >
+          <Text style={styles.navigateBtnText}>🗺️ Navigate</Text>
+        </TouchableOpacity>
+        {/* Stop details button */}
         {isDriving ? (
           <BottomButton
             title="ARRIVING SOON"
@@ -214,6 +249,24 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  navigateBtn: {
+    backgroundColor: '#4fc3f7',
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 64,
+    flex: 1,
+  },
+  navigateBtnText: {
+    color: '#0f1923',
+    fontSize: 16,
+    fontWeight: '800',
   },
   emptyState: {
     flex: 1,
