@@ -44,3 +44,7 @@ Create `apps/driver-app/.env`:
 ```
 EXPO_PUBLIC_API_URL=http://localhost:3000
 ```
+
+## Package management
+
+**Always use `npx expo install <package>` when adding or upgrading Expo-ecosystem packages** (expo-*, react-native-*, @react-native-community/*, etc.). Never use `npm install <package>` directly — npm can silently resolve to a version built for a newer Expo SDK than this project uses, causing peer-dependency conflicts and Docker build failures. Run `npx expo install --check` (or `npx expo-doctor`) before committing any package.json changes.
