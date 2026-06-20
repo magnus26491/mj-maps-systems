@@ -15,7 +15,7 @@ RUN npm run build
 
 RUN cd apps/driver-app && \
     npm install --legacy-peer-deps && \
-    npx expo install react-native-web@~0.19.10 react-dom@18.2.0 --no-save && \
+    npx expo install react-native-web@~0.19.10 react-dom@18.2.0 -- --no-save && \
     NODE_PATH=apps/driver-app/node_modules \
     EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com \
     npx expo export --platform web --clear
