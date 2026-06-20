@@ -8,8 +8,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, 'node_modules'),
 ];
 
-// Only shim modules that actually exist as files/dirs
+// Alias react-native → react-native-web for web platform
+const reactNativeWebPath = path.resolve(__dirname, 'node_modules/react-native-web');
+
 config.resolver.extraNodeModules = {
+  'react-native': reactNativeWebPath,
   'expo-keep-awake': path.resolve(__dirname, 'shims/expo-keep-awake.web.ts'),
   'expo-notifications': path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
   'expo-speech': path.resolve(__dirname, 'shims/expo-speech.web.ts'),
