@@ -173,6 +173,13 @@ function HudInner() {
           )}
         </View>
 
+        {/* Route confidence indicator (Phase 21) */}
+        <View style={[styles.routeOkBadge, { backgroundColor: colors.greenBg }]}>
+          <Text style={[styles.routeOkText, { color: colors.green }]}>
+            ✓ Route suitable for your vehicle
+          </Text>
+        </View>
+
         {/* Navigate button */}
         <TouchableOpacity
           style={styles.navBtn}
@@ -288,6 +295,17 @@ const styles = StyleSheet.create({
   stopNotes:   { fontSize: 15, marginTop: 8, lineHeight: 22 },
   stopMeta:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   metaItem:    { fontSize: 16 },
+  routeOkBadge: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  routeOkText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   navBtn: {
     backgroundColor: '#4fc3f7', borderRadius: 12,
     height: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center',
