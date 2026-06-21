@@ -3,7 +3,12 @@
  * 
  * A layer between intelligence and navigation provider.
  * Adds MJ Maps context on top of raw navigation directions.
+ * 
+ * Architecture:
+ * MJ Intelligence → Navigation Control Layer → Navigation Provider (Google/HERE/TomTom/Internal)
  */
+
+export { makeNavigationDecision, type NavigationDecision, type NavigationDecisionType, type NavigationContext } from './decision-engine';
 
 export interface NavigationInstruction {
   // Raw instruction from provider
