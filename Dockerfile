@@ -14,20 +14,36 @@ WORKDIR /driver
 COPY apps/driver-app/package.json apps/driver-app/package-lock.json* ./
 COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
-# --no-save via -- separator: Expo CLI requires the npm flag to be passed through
 RUN npx expo install -- --no-save react-native-web@0.19.10 react-dom@18.2.0
 COPY apps/driver-app/ .
 ENV EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com
 RUN npx expo export --platform web --clear
 
-# ── Stage 3: Runtime ──────────────────────────────────────────
+# ── Stage 3: Build Dispatcher Dashboard ─────────────────────
+FROM node:20-alpine AS dispatcher-builder
+WORKDIR /dispatcher
+COPY apps/dispatcher-dashboard/package.json apps/dispatcher-dashboard/package-lock.json* ./
+RUN npm install --legacy-peer-deps
+COPY apps/dispatcher-dashboard/ .
+RUN npm run build
+
+# ── Stage 4: Build Landing Page ───────────────────────────────
+FROM node:20-alpine AS landing-builder
+WORKDIR /landing
+# Landing page is just static HTML, copy as-is
+COPY apps/landing/ ./dist/
+RUN mkdir -p dist && cp index.html dist/
+
+# ── Stage 5: Runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
 WORKDIR /app
 RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
 COPY --from=api-builder /app/package.json ./
 COPY --from=api-builder /app/node_modules ./node_modules
 COPY --from=api-builder /app/dist ./dist
-COPY --from=driver-builder /driver/dist ./apps/driver-app/dist
+COPY --from=driver-builder /driver/dist ./dist/apps/driver-app/dist
+COPY --from=dispatcher-builder /dispatcher/dist ./dist/dispatcher
+COPY --from=landing-builder /landing/dist ./dist/landing
 COPY start.sh ./start.sh
 RUN chown -R mjmaps:mjmaps /app
 USER mjmaps

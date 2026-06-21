@@ -25,8 +25,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyCompress from '@fastify/compress';
-import fastifyStatic from '@fastify/static';
-import path from 'path';
+import { registerWebRoutes } from './web-serving';
 import { z } from 'zod';
 import {
   handleOptimiseRoute,
@@ -328,22 +327,9 @@ const start = async () => {
     );
   });
 
-  // ── Static file serving (Expo web build) ───────────────────────────────
-  // Compiled server.ts lives at dist/services/api/server.js, so:
-  //   __dirname = /app/dist/services/api/
-  //   ../../../apps/driver-app/dist = /app/apps/driver-app/dist
-  const webDistPath = path.resolve(__dirname, '../../../apps/driver-app/dist');
-
-  await server.register(fastifyStatic, {
-    root: webDistPath,
-    prefix: '/',
-    decorateReply: false,
-  });
-
-  // SPA fallback — serve index.html for any unmatched GET
-  server.setNotFoundHandler((_request, reply) => {
-    reply.sendFile('index.html', webDistPath);
-  });
+  // ── Web Frontend Routes ────────────────────────────────────────────────
+  // Uses web-serving.ts module for safe static file serving
+  await registerWebRoutes(server);
 
   // ── Listen ────────────────────────────────────────────────────────────────
   try {
