@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MJ Maps Systems — Delivery Route Intelligence</title>
+  <meta name="description" content="AI-powered delivery route intelligence platform for UK courier drivers">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary: #00c2a8;
+      --primary-dark: #00a090;
+      --bg: #0f1117;
+      --surface: #1c2a37;
+      --text: #e0eaf4;
+      --text-muted: #8fa0b0;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --blue: #3b82f6;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      background: linear-gradient(180deg, var(--bg) 0%, #0a1628 100%);
+    }
+    
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: var(--primary);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 194, 168, 0.3);
+    }
+    
+    .logo svg {
+      width: 48px;
+      height: 48px;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .tagline {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      margin-bottom: 3rem;
+      max-width: 500px;
+    }
+    
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      min-width: 180px;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: var(--bg);
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 194, 168, 0.4);
+    }
+    
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .btn-secondary:hover {
+      background: #243447;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      max-width: 900px;
+      margin-top: 3rem;
+      padding: 0 1rem;
+    }
+    
+    .feature-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .feature-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    
+    .feature-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    
+    footer {
+      padding: 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    
+    footer a:hover {
+      text-decoration: underline;
+    }
+    
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.75rem;
+      }
+      
+      .tagline {
+        font-size: 1rem;
+      }
+      
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 24L16 8L24 24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="16" cy="18" r="2.5" fill="white"/>
+      </svg>
+    </div>
+    
+    <h1>MJ Maps Systems</h1>
+    <p class="tagline">AI-powered delivery route intelligence for UK courier drivers. Optimise routes, avoid tight turns, deliver with confidence.</p>
+    
+    <div class="cta-group">
+      <a href="/driver" class="btn btn-primary">🚚 Driver App</a>
+      <a href="/dispatcher" class="btn btn-secondary">📊 Dispatcher Dashboard</a>
+    </div>
+    
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <div class="feature-title">Smart Route Planning</div>
+        <div class="feature-desc">AI-optimised delivery routes that minimise backtracking and maximise efficiency.</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">⚠️</div>
+        <div class="feature-title">Turn Warnings</div>
+        <div class="feature-desc">Green, amber, and red alerts warn you about tight turns before you commit.</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <div class="feature-title">Mobile First</div>
+        <div class="feature-desc">Designed for one-handed operation while driving. Voice alerts included.</div>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    <p>&copy; 2024 MJ Maps Systems. <a href="/health">API Health</a></p>
+  </footer>
+</body>
+</html>

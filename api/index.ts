@@ -44,6 +44,7 @@ import { analyticsRouter } from './routes/analytics';
 import { stopCompleteRouter } from './routes/stop-complete';
 import { driverManagementRouter } from './routes/driver-management';
 import { navigateRouter } from './routes/navigate';
+import { metricsRouter } from './routes/metrics';
 
 import { authenticateDriver } from './middleware/authenticate';
 import { requireRole } from './middleware/requireRole';
@@ -124,15 +125,51 @@ app.use('/api/v1/vehicle-specs', authenticateDriver, vehicleSpecsRouter);
 app.use('/api/v1/location',      locationLimiter, authenticateDriver, locationRouter);
 app.use('/api/v1/navigate',      authenticateDriver, navigateRouter);
 
-// ── Driver app web build ────────────────────────────────────────────────────────────
+// ── Internal metrics (Enterprise only) ───────────────────────────────────────────
+app.use('/internal', authenticateDriver, requireEnterprise, metricsRouter);
+
+// ── Landing page ─────────────────────────────────────────────────────────────────
+const landingDist = path.join(__dirname, '../../apps/landing');
+if (fs.existsSync(landingDist)) {
+  app.use(express.static(landingDist));
+}
+
+// ── Driver app web build (served at /driver) ──────────────────────────────────────
 const driverAppDist = path.join(__dirname, '../../apps/driver-app/dist');
 if (fs.existsSync(driverAppDist)) {
-  app.use('/app', express.static(driverAppDist));
-  app.get('/app/*', (_req, res) => {
+  app.use('/driver', express.static(driverAppDist));
+  app.get('/driver/*', (_req, res) => {
     res.sendFile(path.join(driverAppDist, 'index.html'));
   });
-  console.log(`[startup] driver app web build served at /app (${driverAppDist})`);
+  console.log(`[startup] driver app web build served at /driver (${driverAppDist})`);
 }
+
+// ── Dispatcher dashboard (served at /dispatcher) ──────────────────────────────────
+const dispatcherDist = path.join(__dirname, '../../apps/dispatcher-dashboard/dist');
+if (fs.existsSync(dispatcherDist)) {
+  app.use('/dispatcher', express.static(dispatcherDist));
+  app.get('/dispatcher/*', (_req, res) => {
+    res.sendFile(path.join(dispatcherDist, 'index.html'));
+  });
+  console.log(`[startup] dispatcher dashboard served at /dispatcher (${dispatcherDist})`);
+}
+
+// ── SPA fallback for root ────────────────────────────────────────────────────────
+// Serve landing page for root URL if no static files match
+app.get('/', (_req, res) => {
+  const landingIndex = path.join(landingDist, 'index.html');
+  if (fs.existsSync(landingIndex)) {
+    res.sendFile(landingIndex);
+  } else {
+    // Fallback: serve driver app as default
+    const driverIndex = path.join(driverAppDist, 'index.html');
+    if (fs.existsSync(driverIndex)) {
+      res.sendFile(driverIndex);
+    } else {
+      res.status(200).send('MJ Maps Systems API - Build driver app with: npx expo export --platform web');
+    }
+  }
+});
 
 // ── 404 handler ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ success: false, error: 'Route not found.' }));

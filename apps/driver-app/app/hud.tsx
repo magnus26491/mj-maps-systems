@@ -26,6 +26,16 @@ import { useDrivingMode } from '../hooks/useDrivingMode';
 import { SlideToConfirm } from '../components/SlideToConfirm';
 import { ShiftProgressBar } from '../components/ShiftProgressBar';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
+import { useAuthStore } from '../lib/auth';
+
+// ─── Lifecycle greeting helper ─────────────────────────────────────────────────
+// "Good morning {name}" fires ONLY on ROUTE_PREPARED → READY_TO_GO transition
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 function HudInner() {
   const { colors } = useTheme();
@@ -34,12 +44,27 @@ function HudInner() {
   const currentStop = useShiftStore(s => s.currentStop);
   const completeStop = useShiftStore(s => s.completeStop);
   const failStop     = useShiftStore(s => s.failStop);
+  const user         = useAuthStore(s => s.user);
 
   useDriverLocation();
   const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId);
 
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
+  const hasGreeted = useRef(false);
+
+  // Lifecycle greeting: fires ONLY on ROUTE_PREPARED → READY_TO_GO (first HUD render with active shift)
+  useEffect(() => {
+    if (shift && currentStop && !hasGreeted.current) {
+      hasGreeted.current = true;
+      const driverName = user?.name?.split(' ')[0] || 'driver';
+      const greeting = `${getTimeGreeting()} ${driverName}. Your route is ready with ${shift.totalStops} stops. Let's go!`;
+      
+      if (Platform.OS !== 'web') {
+        Speech.speak(greeting, { language: 'en-GB', rate: 0.95 });
+      }
+    }
+  }, [shift, currentStop, user]);
 
   useEffect(() => {
     if (!alert || alert === lastAlert) return;
