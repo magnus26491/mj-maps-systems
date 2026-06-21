@@ -4,7 +4,7 @@
   "description": "MJ Maps Systems — AI-powered delivery route intelligence platform",
   "main": "dist/services/api/server.js",
   "scripts": {
-    "build": "tsc && mkdir -p dist/services/db && cp -r services/db/migrations dist/services/db/migrations",
+    "build": "tsc && mkdir -p dist/services/db && cp -r services/db/migrations dist/services/db/migrations && node scripts/validate-build.js",
     "start": "node dist/services/api/server.js",
     "dev": "ts-node-dev --respawn --transpile-only services/api/server.ts",
     "test": "jest --runInBand",

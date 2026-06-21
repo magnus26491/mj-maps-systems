@@ -194,6 +194,24 @@ export async function registerWebRoutes(server: any): Promise<void> {
     }
   });
   
+  // Pricing page - same as landing (landing contains pricing info)
+  server.get('/pricing', async (_request: any, reply: FastifyReply) => {
+    if (directoryExists(LANDING_ROOT)) {
+      await safeServeSpa(reply, LANDING_ROOT);
+    } else {
+      reply.code(503).send('Landing page not built');
+    }
+  });
+  
+  // Features page - same as landing
+  server.get('/features', async (_request: any, reply: FastifyReply) => {
+    if (directoryExists(LANDING_ROOT)) {
+      await safeServeSpa(reply, LANDING_ROOT);
+    } else {
+      reply.code(503).send('Landing page not built');
+    }
+  });
+  
   // Driver app
   server.get('/driver', async (_request: any, reply: FastifyReply) => {
     if (directoryExists(DRIVER_ROOT)) {
