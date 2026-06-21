@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   metaItem:    { fontSize: 16 },
   navBtn: {
     backgroundColor: '#4fc3f7', borderRadius: 12,
-    height: 52, alignItems: 'center', justifyContent: 'center',
+    height: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center',
     marginTop: 12,
   },
   navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0f1923' },

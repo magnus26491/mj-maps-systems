@@ -10,7 +10,8 @@
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
     "migrate": "ts-node services/db/migrate.ts",
-    "migrate:prod": "node dist/services/db/migrate.js"
+    "migrate:prod": "node dist/services/db/migrate.js",
+    "predeploy": "npm run build && npm run typecheck && node scripts/predeploy-check.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
