@@ -85,12 +85,6 @@ export function TurnWarningOverlay({ visible, reason, score, address, onDismiss 
           <Text style={styles.addressLabel}>Stop ahead:</Text>
           <Text style={styles.address} numberOfLines={2}>{address}</Text>
 
-          {/* Score badge */}
-          <View style={styles.scoreBadge}>
-            <Text style={styles.scoreLabel}>Suitability</Text>
-            <Text style={styles.scoreValue}>{Math.round(score * 100)}/100</Text>
-          </View>
-
           {/* Dismiss */}
           <TouchableOpacity
             style={styles.dismissBtn}
@@ -147,14 +141,6 @@ const styles = StyleSheet.create({
     fontSize: 17, color: '#ffffff',
     fontWeight: '700', textAlign: 'center', lineHeight: 24,
   },
-  scoreBadge: {
-    flexDirection: 'row', gap: 8, alignItems: 'center',
-    backgroundColor: '#7f0000',
-    borderRadius: 999, paddingVertical: 6, paddingHorizontal: 16,
-    marginTop: 4,
-  },
-  scoreLabel: { fontSize: 13, color: '#ef9a9a', fontWeight: '600' },
-  scoreValue: { fontSize: 18, color: '#ffffff', fontWeight: '900' },
   dismissBtn: {
     marginTop: 12,
     borderWidth: 1.5, borderColor: '#ef9a9a',

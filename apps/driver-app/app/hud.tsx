@@ -130,9 +130,6 @@ function HudInner() {
               </Text>
             ) : null}
           </View>
-          <Text style={[styles.alertScore, { color: '#fff' }]}>
-            {score !== null ? Math.round(score * 100) : '--'}
-          </Text>
         </Animated.View>
       )}
 
