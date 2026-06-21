@@ -14,7 +14,7 @@ WORKDIR /driver
 COPY apps/driver-app/package.json apps/driver-app/package-lock.json* ./
 COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
-RUN npx expo install -- --no-save react-native-web@0.19.10 react-dom@18.2.0
+RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
 COPY apps/driver-app/ .
 ENV EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com
 RUN npx expo export --platform web --clear
@@ -30,9 +30,8 @@ RUN npm run build
 # ── Stage 4: Build Landing Page ───────────────────────────────
 FROM node:20-alpine AS landing-builder
 WORKDIR /landing
-# Landing page is just static HTML, copy as-is
+# Landing page is just static HTML, copy as-is to dist/
 COPY apps/landing/ ./dist/
-RUN mkdir -p dist && cp index.html dist/
 
 # ── Stage 5: Runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime

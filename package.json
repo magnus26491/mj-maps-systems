@@ -4,14 +4,15 @@
   "description": "MJ Maps Systems — AI-powered delivery route intelligence platform",
   "main": "dist/services/api/server.js",
   "scripts": {
-    "build": "tsc && mkdir -p dist/services/db && cp -r services/db/migrations dist/services/db/migrations && node scripts/validate-build.js",
+    "build": "tsc && mkdir -p dist/services/db && cp -r services/db/migrations dist/services/db/migrations && cp apps/landing/robots.txt apps/landing/sitemap.xml apps/landing/favicon.svg dist/landing/ 2>/dev/null; node scripts/validate-build.js",
     "start": "node dist/services/api/server.js",
     "dev": "ts-node-dev --respawn --transpile-only services/api/server.ts",
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
     "migrate": "ts-node services/db/migrate.ts",
     "migrate:prod": "node dist/services/db/migrate.js",
-    "predeploy": "npm run build && npm run typecheck && node scripts/predeploy-check.js"
+    "predeploy": "npm run build && npm run typecheck && npx ts-node scripts/predeploy-check.ts",
+    "validate-production": "npx ts-node scripts/production-integrity-check.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
