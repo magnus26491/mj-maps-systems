@@ -13,7 +13,8 @@
     "migrate": "ts-node services/db/migrate.ts",
     "migrate:prod": "node dist/services/db/migrate.js",
     "predeploy": "npm run build && npm run typecheck && npx ts-node scripts/predeploy-check.ts",
-    "validate-production": "npx ts-node scripts/production-integrity-check.ts"
+    "validate-production": "npx ts-node scripts/production-integrity-check.ts",
+    "test:driver-web": "npx ts-node scripts/test-driver-web-runtime.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
