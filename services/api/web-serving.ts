@@ -221,13 +221,7 @@ export async function registerWebRoutes(server: any): Promise<void> {
     }
   });
   
-  // Driver app static assets
-  server.get('/driver/assets/:file(*)', async (request: any, reply: FastifyReply) => {
-    const file = request.params.file;
-    await safeServeFile(reply, `assets/${file}`, DRIVER_ROOT);
-  });
-  
-  // Driver app SPA fallback
+  // Driver app SPA fallback — * catches all /driver/* sub-paths for React Router
   server.get('/driver/*', async (_request: any, reply: FastifyReply) => {
     await safeServeSpa(reply, DRIVER_ROOT);
   });
@@ -241,13 +235,7 @@ export async function registerWebRoutes(server: any): Promise<void> {
     }
   });
   
-  // Dispatcher static assets
-  server.get('/dispatcher/assets/:file(*)', async (request: any, reply: FastifyReply) => {
-    const file = request.params.file;
-    await safeServeFile(reply, `assets/${file}`, DISPATCHER_ROOT);
-  });
-  
-  // Dispatcher SPA fallback
+  // Dispatcher SPA fallback — * catches all /dispatcher/* sub-paths for React Router
   server.get('/dispatcher/*', async (_request: any, reply: FastifyReply) => {
     await safeServeSpa(reply, DISPATCHER_ROOT);
   });
@@ -258,7 +246,7 @@ export async function registerWebRoutes(server: any): Promise<void> {
   });
   
   // Global static assets (from landing)
-  server.get('/assets/:file(*)', async (request: any, reply: FastifyReply) => {
+  server.get('/assets/:file', async (request: any, reply: FastifyReply) => {
     const file = request.params.file;
     await safeServeFile(reply, file, LANDING_ROOT);
   });

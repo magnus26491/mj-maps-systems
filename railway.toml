@@ -3,6 +3,10 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# Runs BEFORE the container starts serving traffic. If this fails the deploy is
+# rejected and the old container keeps serving — zero downtime.
+# Migrations are idempotent; a failure here means the DB schema is out of date.
+preDeployCommand = "node dist/services/db/migrate.js"
 startCommand = "sh start.sh"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 60
