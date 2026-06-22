@@ -124,8 +124,10 @@ mj-maps-systems/
 
 ### Architecture
 
-The system uses **Fastify** (port 3000) as the primary API server. A legacy Express server
-(port 3100, entry: `api/index.js`) was used in earlier phases and is no longer maintained.
+The system uses **Fastify** (port 3000) as the primary API server. The server entry
+point is `services/api/server.ts`. For historical reference, decommissioned Express
+bootstraps and old server code are preserved in `legacy/` (see that README for
+details — they are not built or deployed).
 
 ### Running Locally
 

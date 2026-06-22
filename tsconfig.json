@@ -21,18 +21,35 @@
     "noImplicitAny": false,
     "strictNullChecks": false
   },
+  // Wired services: transitively imported by the Fastify server (services/api/server.ts).
+  // All of these are in the request path. "Wired" means at least one file in the
+  // request path (server.ts → routes → ...) imports from the service.
   "include": [
-    "api/**/*",
     "packages/vehicle-profiles/**/*",
+    "packages/subscription-engine/**/*",
+    "packages/vehicle-catalogue/**/*",
     "services/api/**/*",
     "services/auth/**/*",
     "services/billing/**/*",
+    "services/bridge-engine/**/*",
     "services/cache/**/*",
+    "services/cluster-engine/**/*",
     "services/db/**/*",
+    "services/dynamic-replan/**/*",
     "services/notifications/**/*",
+    "services/osm-client/**/*",
+    "services/osm/**/*",
+    "services/pin-resolver/**/*",
+    "services/property-engine/**/*",
+    "services/postcode-resolver/**/*",
+    "services/route-completion/**/*",
     "services/route-engine/**/*",
+    "services/route-optimizer/**/*",
     "services/storage/**/*",
+    "services/stop-precision/**/*",
+    "services/traffic-engine/**/*",
     "services/turn-engine/**/*",
+    "services/workload/**/*",
     "__tests__/**/*"
   ],
   "exclude": [
@@ -43,10 +60,10 @@
     "packages/offline-sync/**/*",
     "packages/driver-app-shared/**/*",
     "packages/stop-point/**/*",
-    "services/api/__tests__/**/*",
+    "packages/sdk/**/*",
     "packages/vehicle-profiles/__tests__/**/*",
-    "services/route-engine/__tests__/**/*",
-    "services/turn-engine/__tests__/**/*",
-    "services/storage/__tests__/**/*"
+    "legacy/**/*",
+    "services/_incubator/**/*",
+    "**/__tests__/**/*"
   ]
 }
