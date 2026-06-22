@@ -131,7 +131,12 @@ const start = async () => {
 
   await server.register(fastifyCors, {
     origin: NODE_ENV === 'production'
-      ? ['https://mjmaps.co.uk', 'https://app.mjmaps.co.uk', ...extraOrigins]
+      ? [
+          'https://mjmapsystems.com',
+          'https://www.mjmapsystems.com',
+          'https://api.mjmapsystems.com',
+          ...extraOrigins,
+        ]
       : true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });

@@ -7,8 +7,6 @@ COPY . .
 # Only run tsc - validation happens in runtime stage after all assets assembled
 RUN npx tsc
 RUN mkdir -p dist/services/db && cp -r services/db/migrations dist/services/db/migrations
-# Copy landing assets during API build for development
-RUN cp apps/landing/robots.txt apps/landing/sitemap.xml apps/landing/favicon.svg dist/landing/ 2>/dev/null || true
 RUN npm prune --omit=dev --legacy-peer-deps
 
 # ── Stage 2: Build Driver App Web (fully isolated) ────────────
