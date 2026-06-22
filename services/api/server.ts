@@ -181,6 +181,33 @@ const start = async () => {
 
   server.get('/api/v1/health', handleHealth as any);
 
+  server.get('/api/v1/health/ready', async (_request, reply) => {
+    const { isConfigured, getPool } = await import('../db/index.js');
+    if (!isConfigured()) {
+      return reply.code(503).send({
+        ok: false,
+        status: 'unavailable',
+        reason: 'DATABASE_URL is not configured',
+      });
+    }
+    try {
+      // Short timeout so the readiness probe doesn't hang the health check
+      await Promise.race([
+        getPool().query('SELECT 1'),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('DB check timed out')), 5_000),
+        ),
+      ]);
+      return reply.send({ ok: true, status: 'ready' });
+    } catch {
+      return reply.code(503).send({
+        ok: false,
+        status: 'unavailable',
+        reason: 'Database connection failed',
+      });
+    }
+  });
+
   server.post('/api/v1/auth/token', async (request, reply) => {
     const parsed = z.object({
       driverId: z.string().min(1),

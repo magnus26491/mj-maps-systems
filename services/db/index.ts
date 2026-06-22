@@ -2,32 +2,89 @@
  * Database helpers — typed pg query wrappers
  * Uses the `pg` Pool. Connection string from POSTGRES_URL env var.
  * Supports DATABASE_URL (Railway) as fallback for POSTGRES_URL.
+ *
+ * IMPORTANT: The pool is constructed LAZILY on first use.
+ * Importing this module NEVER throws — even when DATABASE_URL is unset.
+ * Use getPool() to access the pool; use isConfigured() to check availability.
  */
 
-import { Pool } from 'pg';
+import { Pool, type Pool as PoolType } from 'pg';
 
-function resolveConnectionString(): string {
-  const url =
+function resolveConnectionString(): string | null {
+  return (
     process.env.DATABASE_URL ??
-    process.env.POSTGRES_URL;
-  if (!url) {
-    throw new Error(
-      '[db] No database connection string found. ' +
-      'Set DATABASE_URL or POSTGRES_URL environment variable.',
-    );
-  }
-  return url;
+    process.env.POSTGRES_URL ??
+    null
+  );
 }
 
-export const pool = new Pool({
-  connectionString: resolveConnectionString(),
-  max: 10,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-  ssl: { rejectUnauthorized: false },
-});
+/** Returns true when a connection string is present in the environment. */
+export function isConfigured(): boolean {
+  return resolveConnectionString() !== null;
+}
 
-pool.on('error', (err) => console.error('[db] Pool error:', err.message));
+/**
+ * Lazy pool singleton — created on first call to getPool().
+ * Never throws at module load; pool.connect() will fail at query time
+ * if the database is unreachable (handled by callers).
+ */
+let _pool: PoolType | null = null;
+
+export function getPool(): PoolType {
+  if (!_pool) {
+    const url = resolveConnectionString();
+    if (!url) {
+      // Construct a pool that will fail at connect time — callers must handle this.
+      // We create it with a nonsense connection string so that all subsequent
+      // pool.query() calls fail with a clear error rather than silently doing nothing.
+      _pool = new Pool({
+        connectionString: 'postgres://localhost/__db_not_configured__',
+        max: 0,
+        idleTimeoutMillis: 0,
+        connectionTimeoutMillis: 5_000,
+        ssl: { rejectUnauthorized: false },
+      });
+      _pool.on('error', (err) =>
+        console.error('[db] Unconfigured pool error:', err.message),
+      );
+      return _pool;
+    }
+    _pool = new Pool({
+      connectionString: url,
+      max: 10,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+      ssl: { rejectUnauthorized: false },
+    });
+    _pool.on('error', (err) =>
+      console.error('[db] Pool error:', err.message),
+    );
+  }
+  return _pool;
+}
+
+/**
+ * Backward-compatible pool export.
+ * All existing call sites import `pool` and call pool.query() directly.
+ * The proxy below delegates to getPool() on every property access / method call
+ * so that late-initialisation works transparently.
+ *
+ * Usage note: `pool.query()` will throw if called before the pool is
+ * configured OR if the database is unreachable. Callers in route handlers
+ * should catch these errors (Fastify's error handler handles 500 by default).
+ */
+export const pool: PoolType = new Proxy({} as PoolType, {
+  get(_target, prop: keyof PoolType) {
+    const val = (getPool() as any)[prop];
+    if (typeof val === 'function') {
+      return val.bind(getPool());
+    }
+    return val;
+  },
+  has(_target, prop) {
+    return prop in getPool();
+  },
+});
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
