@@ -114,7 +114,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/driver"
     },
     "web": {
       "bundler": "metro",
