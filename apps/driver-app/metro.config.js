@@ -19,13 +19,7 @@ config.resolver.extraNodeModules = {
   'expo-notifications': path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
   'expo-speech': path.resolve(__dirname, 'shims/expo-speech.web.ts'),
   'expo-sqlite': path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
+  'react-native-maps': path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
 };
-
-config.transformer.getTransformOptions = async () => ({
-  transform: {
-    experimentalImportSupport: false,
-    inlineRequires: true,
-  },
-});
 
 module.exports = config;
