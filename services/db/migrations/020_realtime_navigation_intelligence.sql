@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS restriction_discoveries (
 CREATE INDEX IF NOT EXISTS idx_discovery_location ON restriction_discoveries(lat, lng);
 CREATE INDEX IF NOT EXISTS idx_discovery_type ON restriction_discoveries(restriction_type);
 CREATE INDEX IF NOT EXISTS idx_discovery_verified ON restriction_discoveries(verified) WHERE verified = FALSE;
-CREATE INDEX IF NOT EXISTS idx_discovery_road ON restriction_discoveries USING GIST (ST_SetSRID(ST_MakePoint(lng, lat), 4326));
+CREATE INDEX IF NOT EXISTS idx_discovery_road ON restriction_discoveries(lat, lng);
 
 -- ─────────────────────────────────────────────────────────────
 -- Comments

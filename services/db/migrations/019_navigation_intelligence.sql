@@ -45,8 +45,7 @@ CREATE TABLE IF NOT EXISTS navigation_events (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_nav_events_location 
-    ON navigation_events USING GIST (ST_SetSRID(ST_MakePoint(lng, lat), 4326));
+CREATE INDEX IF NOT EXISTS idx_nav_events_location ON navigation_events(lat, lng);
 CREATE INDEX IF NOT EXISTS idx_nav_events_type ON navigation_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_nav_events_severity ON navigation_events(severity);
 CREATE INDEX IF NOT EXISTS idx_nav_events_active ON navigation_events(active) WHERE active = TRUE;
