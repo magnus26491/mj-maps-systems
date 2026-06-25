@@ -59,6 +59,7 @@ import { stopConfidenceRoute } from './routes/stop-confidence.js';
 import { stopLifecycleRoutes } from './routes/stop-lifecycle.js';
 import { safetyRoutes } from './routes/safety.js';
 import { fleetStreamRoute } from './routes/fleet-stream.js';
+import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -190,6 +191,7 @@ const start = async () => {
   await server.register(stopLifecycleRoutes);
   await server.register(safetyRoutes);
   await server.register(fleetStreamRoute);
+  await server.register(deliveryDifficultyRoutes);
 
   server.get('/api/v1/health', handleHealth as any);
 

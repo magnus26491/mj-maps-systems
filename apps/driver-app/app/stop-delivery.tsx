@@ -28,6 +28,7 @@ import { SlideToConfirm } from '../components/SlideToConfirm';
 import { ShiftProgressBar } from '../components/ShiftProgressBar';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
 import { FailureReasonSheet } from '../features/delivery/components';
+import DifficultyReportSheet from '../components/DifficultyReportSheet';
 
 function StopDeliveryInner() {
   const { colors } = useTheme();
@@ -46,6 +47,7 @@ function StopDeliveryInner() {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [showReasons, setShowReasons] = useState(false);
+  const [showDifficulty, setShowDifficulty] = useState(false);
 
   const handleDelivered = useCallback(async () => {
     if (!stop || !shift) return;
@@ -70,8 +72,31 @@ function StopDeliveryInner() {
     });
 
     completeStop();
-    router.back();
+    // Show the difficulty report sheet before navigating away.
+    // Pressing Skip or Submit both call router.back() after.
+    setShowDifficulty(true);
   }, [stop, shift, notes]);
+
+  const handleDifficultySubmit = useCallback((categories: string[], note: string) => {
+    if (!stop || !shift) { router.back(); return; }
+    // Fire-and-forget — queued offline if no signal
+    enqueue({
+      type: 'DIFFICULTY_REPORT',
+      stopId:     stop.id,
+      address:    stop.address,
+      driverId:   driverId ?? 'unknown',
+      routeId:    shift.routeId ?? 'unknown',
+      categories,
+      notes:      note,
+    } as any);
+    setShowDifficulty(false);
+    router.back();
+  }, [stop, shift, driverId, enqueue]);
+
+  const handleDifficultyDismiss = useCallback(() => {
+    setShowDifficulty(false);
+    router.back();
+  }, []);
 
   const handleFailed = useCallback(() => {
     if (!stop || !shift) return;
@@ -175,6 +200,15 @@ function StopDeliveryInner() {
           </View>
         </View>
       </Modal>
+
+      {/* Difficulty report — appears after delivery confirmed */}
+      <DifficultyReportSheet
+        stopId={stop.id}
+        address={stop.address}
+        visible={showDifficulty}
+        onDismiss={handleDifficultyDismiss}
+        onSubmit={handleDifficultySubmit}
+      />
 
       {/* Bottom actions — thumb zone */}
       <View style={[styles.actions, { paddingBottom: 16, paddingTop: 12 }]}>
