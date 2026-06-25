@@ -28,6 +28,7 @@ import { useTurnScore } from '../hooks/useTurnScore';
 import { apiRegisterFcmToken } from '../lib/api';
 import { setupShiftNotificationChannel } from '../modules/shiftNotification';
 import { usePodDrain } from '../hooks/usePodDrain';
+import { useTokenRefresh } from '../hooks/useTokenRefresh';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +68,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!token && !inAuth) router.replace('/(auth)/login');
     if (token  && inAuth)  router.replace('/(app)/');
   }, [isReady, token, segments]);
+
+  // Silently refresh the JWT 5 min before it expires — prevents mid-shift logouts
+  useTokenRefresh();
 
   return <>{children}</>;
 }

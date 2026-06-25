@@ -17,11 +17,19 @@ export interface NavStep {
   maneuver:    string;
 }
 
+export interface NavGuardWarning {
+  stepIndex: number;
+  severity:  string;
+  title:     string;
+  message:   string;
+}
+
 export interface NavRoute {
   steps:            NavStep[];
   totalDistanceM:   number;
   totalDurationSec: number;
   polyline:         { lat: number; lng: number }[];
+  guardWarnings?:   NavGuardWarning[];
 }
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';

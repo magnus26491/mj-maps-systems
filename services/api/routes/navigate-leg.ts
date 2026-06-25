@@ -19,6 +19,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index.js';
+import { getRoadContext } from '../../osm/overpass-client.js';
 
 const BodySchema = z.object({
   fromLat:   z.number(),
@@ -276,6 +277,25 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
         const { guardNavigation } = await import('../../../services/_incubator/navigation-guard/index.js' as any);
         const profile = VEHICLE_PROFILES[vehicleId];
         if (profile) {
+          // Fetch real road restrictions for the destination segment (5s timeout)
+          type RoadRestriction = { type: string; value?: string; description: string };
+          let roadRestrictions: RoadRestriction[] = [];
+          try {
+            const ctx = await Promise.race([
+              getRoadContext(toLat, toLng),
+              new Promise<null>(r => setTimeout(() => r(null), 5_000)),
+            ]);
+            if (ctx?.road) {
+              const road = ctx.road;
+              if (road.maxWeightT != null && road.maxWeightT < profile.gvwT)
+                roadRestrictions.push({ type: 'weight', value: `${road.maxWeightT}t`, description: `${road.name ?? 'Road'} — max weight ${road.maxWeightT}t` });
+              if (road.maxHeightM != null && road.maxHeightM < profile.heightM)
+                roadRestrictions.push({ type: 'height', value: `${road.maxHeightM}m`, description: `${road.name ?? 'Road'} — max height ${road.maxHeightM}m` });
+              if (road.access && road.access !== 'yes' && road.access !== 'public')
+                roadRestrictions.push({ type: 'access', description: `Access restricted: ${road.access}` });
+            }
+          } catch { /* Overpass unavailable — guard still runs with empty restrictions */ }
+
           const vehicleForGuard = {
             vehicleType: vehicleId,
             height: profile.heightM,
@@ -288,7 +308,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
               ? step.maneuver.replace('-', '_')
               : step.maneuver === 'u-turn' ? 'u_turn'
               : step.maneuver === 'arrive' ? 'arrive' : 'continue') as any;
-            const result = guardNavigation({ action, road: step.instruction, distance: step.distanceM }, vehicleForGuard);
+            const result = guardNavigation({ action, road: step.instruction, distance: step.distanceM }, vehicleForGuard, roadRestrictions);
             if (!result.safe) {
               guardWarnings = guardWarnings.concat(
                 result.warnings.map((w: any) => ({ stepIndex: i, severity: w.severity, title: w.title, message: w.message })),

@@ -173,12 +173,26 @@ function HudInner() {
           )}
         </View>
 
-        {/* Route confidence indicator (Phase 21) */}
-        <View style={[styles.routeOkBadge, { backgroundColor: colors.greenBg }]}>
-          <Text style={[styles.routeOkText, { color: colors.green }]}>
-            ✓ Route suitable for your vehicle
-          </Text>
-        </View>
+        {/* Dynamic route confidence badge — driven by live turn score */}
+        {alert === 'RED' ? (
+          <View style={[styles.routeOkBadge, { backgroundColor: colors.redBg }]}>
+            <Text style={[styles.routeOkText, { color: colors.red }]}>
+              🚫 Do not enter — vehicle too large
+            </Text>
+          </View>
+        ) : alert === 'AMBER' ? (
+          <View style={[styles.routeOkBadge, { backgroundColor: colors.amberBg }]}>
+            <Text style={[styles.routeOkText, { color: colors.amber }]}>
+              ⚠️ Tight access — proceed with care
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.routeOkBadge, { backgroundColor: colors.greenBg }]}>
+            <Text style={[styles.routeOkText, { color: colors.green }]}>
+              ✓ Route clear for your vehicle
+            </Text>
+          </View>
+        )}
 
         {/* Navigate button */}
         <TouchableOpacity

@@ -26,6 +26,7 @@ export default function NavigationScreen() {
   const {
     route, currentStep, stepIndex, distanceToNext,
     isLoading, error, userLat, userLng,
+    guardWarnings,
     startNav, stopNav, speakStep,
   } = useNavigation();
 
@@ -138,6 +139,22 @@ export default function NavigationScreen() {
         </View>
       </View>
 
+      {/* Guard warnings — shown when the route has vehicle restrictions */}
+      {guardWarnings.filter(w => w.stepIndex === stepIndex).map((w, i) => (
+        <View
+          key={i}
+          style={[
+            styles.guardBanner,
+            w.severity === 'critical' ? styles.guardBannerCritical : styles.guardBannerWarning,
+          ]}
+        >
+          <Text style={styles.guardTitle}>
+            {w.severity === 'critical' ? '🚫 ' : '⚠️ '}{w.title}
+          </Text>
+          <Text style={styles.guardMsg}>{w.message}</Text>
+        </View>
+      ))}
+
       {/* Map */}
       <View style={styles.mapWrap}>
         {mapRegion && (
@@ -244,4 +261,11 @@ const styles = StyleSheet.create({
   actionPrimary:  { backgroundColor: '#4fc3f7' },
   actionText:     { fontSize: 16, fontWeight: '600', color: '#c8d8e8' },
   actionPrimaryText: { fontSize: 16, fontWeight: '700', color: '#0f1923' },
+  guardBanner: {
+    paddingHorizontal: 16, paddingVertical: 10, gap: 2,
+  },
+  guardBannerCritical: { backgroundColor: '#2b1111' },
+  guardBannerWarning:  { backgroundColor: '#2b1a00' },
+  guardTitle: { fontSize: 15, fontWeight: '700', color: '#f87171' },
+  guardMsg:   { fontSize: 13, color: '#c8d8e8' },
 });
