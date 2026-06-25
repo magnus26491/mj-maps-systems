@@ -1,13 +1,13 @@
 /**
- * Web Serving Module — Central static file serving for MJ Maps
+ * Web Serving Module - Central static file serving for MJ Maps
  *
  * URL structure:
- *   /            → landing page (pure HTML, no external assets)
- *   /driver      → Expo web driver app (baseUrl: '/driver' in app.json)
- *   /driver/*    → driver app assets — serve file first, SPA fallback last
- *   /dispatcher  → Next.js dispatcher console (basePath: '/dispatcher')
- *   /dispatcher/* → dispatcher assets — serve file first, SPA fallback last
- *   /api/v1/*    → API (registered before this module, never reached here)
+ *   /             -> landing page (pure HTML, no external assets)
+ *   /driver       -> Expo web driver app (baseUrl: '/driver' in app.json)
+ *   /driver/*     -> driver app assets - serve file first, SPA fallback last
+ *   /dispatcher   -> Next.js dispatcher console (basePath: '/dispatcher')
+ *   /dispatcher/* -> dispatcher assets - serve file first, SPA fallback last
+ *   /api/v1/*     -> API (registered before this module, never reached here)
  */
 
 import * as fs from 'fs';
@@ -19,25 +19,25 @@ const DRIVER_ROOT     = 'dist/apps/driver-app/dist';
 const DISPATCHER_ROOT = 'dist/dispatcher';
 
 const MIME_TYPES: Record<string, string> = {
-  '.html':  'text/html; charset=utf-8',
-  '.js':    'application/javascript',
-  '.mjs':   'application/javascript',
-  '.css':   'text/css',
-  '.json':  'application/json',
-  '.png':   'image/png',
-  '.jpg':   'image/jpeg',
-  '.jpeg':  'image/jpeg',
-  '.gif':   'image/gif',
-  '.svg':   'image/svg+xml',
-  '.ico':   'image/x-icon',
-  '.woff':  'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf':   'font/ttf',
-  '.eot':   'application/vnd.ms-fontobject',
-  '.map':   'application/json',
-  '.txt':   'text/plain',
-  '.xml':   'application/xml',
-  '.webp':  'image/webp',
+  '.html':        'text/html; charset=utf-8',
+  '.js':          'application/javascript',
+  '.mjs':         'application/javascript',
+  '.css':         'text/css',
+  '.json':        'application/json',
+  '.png':         'image/png',
+  '.jpg':         'image/jpeg',
+  '.jpeg':        'image/jpeg',
+  '.gif':         'image/gif',
+  '.svg':         'image/svg+xml',
+  '.ico':         'image/x-icon',
+  '.woff':        'font/woff',
+  '.woff2':       'font/woff2',
+  '.ttf':         'font/ttf',
+  '.eot':         'application/vnd.ms-fontobject',
+  '.map':         'application/json',
+  '.txt':         'text/plain',
+  '.xml':         'application/xml',
+  '.webp':        'image/webp',
   '.webmanifest': 'application/manifest+json',
 };
 
@@ -46,7 +46,7 @@ export function getMimeType(filePath: string): string {
 }
 
 export function resolveSafePath(requestedPath: string, rootDir: string): string | null {
-  const normalised = path.normalize(requestedPath).replace(/^(\.\.(\\/|\\))+/, '');
+  const normalised = path.normalize(requestedPath).replace(/^(\.\.(\/|\\))+/, '');
   const absolute   = path.resolve(rootDir, normalised);
   if (!absolute.startsWith(path.resolve(rootDir))) return null;
   return absolute;
@@ -76,7 +76,7 @@ function sendFile(reply: FastifyReply, absPath: string, maxAge = 86400): void {
 async function serveSpa(reply: FastifyReply, rootDir: string): Promise<void> {
   const indexPath = path.join(rootDir, 'index.html');
   if (!fileExists(indexPath)) {
-    reply.code(503).send('Service Unavailable — build not found');
+    reply.code(503).send('Service Unavailable - build not found');
     return;
   }
   reply
@@ -88,9 +88,8 @@ async function serveSpa(reply: FastifyReply, rootDir: string): Promise<void> {
 }
 
 /**
- * Try to serve a file from rootDir at subPath.
- * Falls back to SPA index.html if the file doesn't exist (for client-side routes).
- * Returns true if file was served.
+ * Try to serve a static file from rootDir at subPath.
+ * Falls back to SPA index.html if the file does not exist (client-side routes).
  */
 async function serveFileOrSpa(
   reply: FastifyReply,
@@ -100,7 +99,6 @@ async function serveFileOrSpa(
   if (subPath && subPath !== '/') {
     const safePath = resolveSafePath(subPath.replace(/^\//, ''), rootDir);
     if (safePath && fileExists(safePath)) {
-      // Long cache for hashed assets, short for HTML
       const maxAge = /\.html$/.test(safePath) ? 60 : 31_536_000;
       sendFile(reply, safePath, maxAge);
       return;
@@ -119,7 +117,7 @@ export async function getWebHealth() {
 }
 
 export async function registerWebRoutes(server: any): Promise<void> {
-  // ── Landing page ────────────────────────────────────────────────────────────
+  // Landing page
   server.get('/', async (_req: any, reply: FastifyReply) => {
     await serveSpa(reply, LANDING_ROOT);
   });
@@ -137,14 +135,14 @@ export async function registerWebRoutes(server: any): Promise<void> {
     });
   }
 
-  // ── Landing sub-pages ───────────────────────────────────────────────────────
+  // Landing sub-pages
   for (const page of ['/pricing', '/features', '/about', '/contact']) {
     server.get(page, async (_req: any, reply: FastifyReply) => {
       await serveSpa(reply, LANDING_ROOT);
     });
   }
 
-  // ── Driver app — served at /driver ──────────────────────────────────────────
+  // Driver app - served at /driver
   // app.json sets experiments.baseUrl: '/driver' so all Expo asset URLs are
   // prefixed with /driver/ (e.g. /driver/_expo/static/js/web/entry-xxx.js).
   server.get('/driver', async (_req: any, reply: FastifyReply) => {
@@ -152,14 +150,12 @@ export async function registerWebRoutes(server: any): Promise<void> {
   });
 
   server.get('/driver/*', async (request: any, reply: FastifyReply) => {
-    // Strip the /driver prefix to get the sub-path within DRIVER_ROOT
     const subPath = request.url.replace(/^\/driver/, '') || '/';
-    // Strip query string
     const filePath = subPath.split('?')[0];
     await serveFileOrSpa(reply, filePath, DRIVER_ROOT);
   });
 
-  // ── Dispatcher console — served at /dispatcher ──────────────────────────────
+  // Dispatcher console - served at /dispatcher
   // next.config.js sets basePath: '/dispatcher' so all Next.js asset URLs are
   // prefixed with /dispatcher/ (e.g. /dispatcher/_next/static/chunks/xxx.js).
   server.get('/dispatcher', async (_req: any, reply: FastifyReply) => {
@@ -176,7 +172,7 @@ export async function registerWebRoutes(server: any): Promise<void> {
     reply.redirect('/dispatcher');
   });
 
-  // ── Web health check ────────────────────────────────────────────────────────
+  // Web health check
   server.get('/web-health', async (_req: any, reply: FastifyReply) => {
     const health = await getWebHealth();
     reply.code(health.landing && health.driver && health.dispatcher ? 200 : 503).send(health);
