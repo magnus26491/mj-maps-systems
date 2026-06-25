@@ -195,9 +195,9 @@ export const stopLifecycleRoutes: FastifyPluginAsync = async (fastify) => {
               );
             }
             results.push({ endpoint: url, ok: true });
-          } else if (/\/location/.test(url)) {
+          } else if (/^\/api\/v1\/location$/.test(url)) {
             // Location pings — write to driver_locations if driver known
-            if (driverId && body.lat && body.lng) {
+            if (driverId && body.lat != null && body.lng != null) {
               await pool.query(
                 `INSERT INTO driver_locations (driver_id, route_id, lat, lng, heading, speed_kmh, recorded_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,

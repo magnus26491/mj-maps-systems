@@ -121,11 +121,18 @@ export const safetyRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: [requireAuth, requireRole('dispatcher', 'admin')] },
     async (request, reply) => {
       const { eventId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+        return reply.code(400).send({ ok: false, error: 'Invalid eventId' });
+      }
       const resolverId = (request as any).user?.id ?? null;
-      await pool.query(
-        `UPDATE safety_events SET resolved_at = NOW(), resolved_by = $1 WHERE id = $2`,
-        [resolverId, eventId],
-      );
+      try {
+        await pool.query(
+          `UPDATE safety_events SET resolved_at = NOW(), resolved_by = $1 WHERE id = $2`,
+          [resolverId, eventId],
+        );
+      } catch {
+        return reply.code(500).send({ ok: false, error: 'Database error' });
+      }
       return reply.send({ ok: true });
     },
   );

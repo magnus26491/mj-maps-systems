@@ -45,7 +45,7 @@ export const fleetStreamRoute: FastifyPluginAsync = async (fastify) => {
         if (raw.writableEnded) return;
         try {
           const { rows } = await pool.query(
-            `SELECT
+            `SELECT DISTINCT ON (dl.driver_id)
                dl.driver_id        AS "driverId",
                u.name              AS "driverName",
                dl.lat,
@@ -56,13 +56,8 @@ export const fleetStreamRoute: FastifyPluginAsync = async (fastify) => {
                dl.recorded_at      AS "recordedAt"
              FROM driver_locations dl
              JOIN users u ON u.id = dl.driver_id
-             WHERE dl.recorded_at > NOW() - ($1 * INTERVAL '1 second')
-               AND dl.recorded_at = (
-                 SELECT MAX(dl2.recorded_at)
-                 FROM driver_locations dl2
-                 WHERE dl2.driver_id = dl.driver_id
-               )
-             ORDER BY dl.recorded_at DESC
+             WHERE dl.recorded_at > NOW() - make_interval(secs => $1)
+             ORDER BY dl.driver_id, dl.recorded_at DESC
              LIMIT 200`,
             [LOOKBACK_SECONDS],
           );
@@ -74,25 +69,31 @@ export const fleetStreamRoute: FastifyPluginAsync = async (fastify) => {
         }
       };
 
+      // Register cleanup BEFORE the initial await poll() so a client that
+      // disconnects during the first DB query still clears the timers.
+      let pollTimer: ReturnType<typeof setInterval> | undefined;
+      let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+
+      const closePromise = new Promise<void>((resolve) => {
+        request.raw.once('close', () => {
+          if (pollTimer !== undefined) clearInterval(pollTimer);
+          if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer);
+          if (!raw.writableEnded) raw.end();
+          resolve();
+        });
+      });
+
       // Initial push immediately, then on interval
       await poll();
+      if (raw.writableEnded) return;
 
-      const pollTimer = setInterval(poll, POLL_INTERVAL_MS);
-      const heartbeatTimer = setInterval(() => {
+      pollTimer = setInterval(poll, POLL_INTERVAL_MS);
+      heartbeatTimer = setInterval(() => {
         send('heartbeat', { ts: Date.now() });
       }, HEARTBEAT_MS);
 
-      // Clean up when client disconnects
-      request.raw.on('close', () => {
-        clearInterval(pollTimer);
-        clearInterval(heartbeatTimer);
-        if (!raw.writableEnded) raw.end();
-      });
-
       // Keep the request open (Fastify's reply.send() would close it)
-      await new Promise<void>((resolve) => {
-        request.raw.on('close', resolve);
-      });
+      await closePromise;
     },
   );
 };

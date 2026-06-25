@@ -25,7 +25,7 @@ const BodySchema = z.object({
   fromLng:   z.number(),
   toLat:     z.number(),
   toLng:     z.number(),
-  vehicleId: z.string().default('TRANSIT_LWB_GB'),
+  vehicleId: z.string().default('lwb_van'),
 });
 
 interface NavStep {
@@ -54,7 +54,7 @@ async function routeViaValhalla(
   if (!VALHALLA_URL) return null;
 
   const profile = VEHICLE_PROFILES[vehicleId];
-  const isHeavy = profile && (profile as any).gvwKg && (profile as any).gvwKg > 3_500;
+  const isHeavy = profile ? profile.gvwT > 3.5 : false;
   const costing = isHeavy ? 'truck' : 'auto';
 
   const payload = {
@@ -136,8 +136,8 @@ async function routeViaGeoapify(
   if (!key) return null;
 
   const profile = VEHICLE_PROFILES[vehicleId];
-  const isHeavy = profile && (profile as any).gvwKg && (profile as any).gvwKg > 3_500;
-  const mode = isHeavy ? 'drive' : 'drive';  // Geoapify free tier: drive only
+  const isHeavy = profile ? profile.gvwT > 3.5 : false;
+  const mode = isHeavy ? 'truck' : 'drive';
 
   const url = `https://api.geoapify.com/v1/routing?waypoints=${fromLat},${fromLng}|${toLat},${toLng}&mode=${mode}&details=instruction_details&apiKey=${key}`;
 

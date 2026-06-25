@@ -264,7 +264,7 @@ export async function sendSafetyAlert(payload: SafetyAlertPayload): Promise<void
   const icon = payload.severity === 'CRITICAL' || payload.type === 'EMERGENCY' ? '🆘' :
                payload.severity === 'HIGH' ? '⚠️' : 'ℹ️';
 
-  const locationStr = payload.lat && payload.lng
+  const locationStr = payload.lat != null && payload.lng != null
     ? `\nLocation: ${payload.lat.toFixed(5)}, ${payload.lng.toFixed(5)}`
     : '';
 
