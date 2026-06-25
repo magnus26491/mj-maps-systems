@@ -10,7 +10,8 @@ const filesToStub = [
   'Libraries/EventEmitter/RCTEventEmitter.js',
   'Libraries/ReactPrivate/ReactNativePrivateInterface.js',
   'Libraries/Alert/RCTAlertManager.js',
-  'Libraries/BatchedBridge/NativeModules.js',
+  // NativeModules.js intentionally omitted — RN 0.74 new arch uses TurboModuleRegistry
+  // (polyfilled in app/+html.tsx); stubbing it broke @expo/metro-runtime timer setup
   'Libraries/Components/AccessibilityInfo/legacySendAccessibilityEvent.js',
   'Libraries/Core/RawEventEmitter.js',
   'Libraries/Network/RCTNetworking.js',

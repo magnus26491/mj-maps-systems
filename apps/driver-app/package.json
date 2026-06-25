@@ -10,7 +10,8 @@
     "build:android": "eas build --platform android --profile production",
     "build:ios": "eas build --platform ios --profile production",
     "test": "jest --passWithNoTests",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "postinstall": "node scripts/stub-react-native.js"
   },
   "dependencies": {
     "@amwebexpert/react-native-sign-here": "latest",
