@@ -100,18 +100,31 @@ At £99/yr subscription = **135:1 ROI** for the driver.
 ```
 mj-maps-systems/
 ├── apps/
-│   └── mobile/          # React Native app
+│   ├── driver-app/          # React Native + Expo driver app (iOS/Android/Web)
+│   ├── dispatcher-dashboard/ # Dispatcher web dashboard
+│   └── landing/             # Marketing landing page
 ├── services/
-│   ├── route-engine/    # Anti-backtrack sweep optimiser
-│   ├── turn-engine/     # Vehicle turn-around scoring
-│   ├── stop-resolver/   # Exact-stop GPS pin resolution
-│   └── api/             # Main REST API
+│   ├── api/                 # Live Fastify server (entrypoint)
+│   ├── turn-engine/         # Vehicle turn-around scoring
+│   ├── route-engine/        # Anti-backtrack sweep optimiser
+│   ├── property-engine/     # Stop intelligence, access notes
+│   ├── db/                  # PostgreSQL pool + migrations
+│   ├── auth/                # JWT authentication
+│   ├── billing/             # Subscription/plan management
+│   ├── cache/               # Redis caching
+│   ├── notifications/       # FCM push + Twilio SMS
+│   ├── storage/             # S3/R2 POD photo upload
+│   ├── osm/                 # OpenStreetMap / Overpass client
+│   └── _incubator/          # Services not yet wired into the API
 ├── packages/
-│   ├── vehicle-profiles/ # Vehicle geometry constants
-│   └── map-utils/       # OSM + road width utilities
+│   ├── vehicle-profiles/    # Vehicle geometry constants
+│   └── subscription-engine/ # Plan feature flags
 ├── docs/
-│   └── research/        # Monte Carlo sims, complaint analysis, specs
-└── infra/               # Railway / AWS deployment config
+│   ├── SERVICE_AUDIT.md     # Which services are wired vs incubated
+│   └── research/            # Monte Carlo sims, complaint analysis, specs
+├── legacy/                  # Retired Express/WS bootstraps (not built)
+├── railway.toml             # Railway deployment config
+└── start.sh                 # Container startup (diagnostics + exec server)
 ```
 
 ---
@@ -124,8 +137,11 @@ mj-maps-systems/
 
 ### Architecture
 
-The system uses **Fastify** (port 3000) as the primary API server. A legacy Express server
-(port 3100, entry: `api/index.js`) was used in earlier phases and is no longer maintained.
+The live server is **Fastify** (`services/api/server.ts`, compiled to `dist/services/api/server.js`),
+started by `start.sh`, deployed on Railway (see `railway.toml`).
+
+Earlier Express bootstrap files (`src/server.ts`, `api/index.ts`) are archived in `legacy/` —
+they are not built or deployed.
 
 ### Running Locally
 

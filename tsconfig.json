@@ -39,6 +39,8 @@
     "node_modules",
     "dist",
     "apps/**/*",
+    "legacy/**/*",
+    "services/_incubator/**/*",
     "packages/offline-cache/**/*",
     "packages/offline-sync/**/*",
     "packages/driver-app-shared/**/*",
