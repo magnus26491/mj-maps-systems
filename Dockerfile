@@ -17,6 +17,8 @@ COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
 RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
 COPY apps/driver-app/ .
+# Monorepo packages referenced by relative imports (e.g. vehicle-profiles)
+COPY packages/ /packages/
 ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 RUN npx expo export --platform web --clear
 RUN ls -la dist/ 2>/dev/null || echo "Driver dist empty"
