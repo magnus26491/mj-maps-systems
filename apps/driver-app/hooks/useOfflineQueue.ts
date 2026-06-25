@@ -24,7 +24,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useShiftStore } from '../store/shift';
 
 export type QueuedEvent = {
-  type:       'STOP_COMPLETE' | 'STOP_FAIL' | 'LOCATION_PING';
+  type:       'STOP_COMPLETE' | 'STOP_FAIL' | 'LOCATION_PING' | 'DIFFICULTY_REPORT';
   stopId?:    string;
   driverId:   string;
   routeId:    string;
@@ -33,6 +33,9 @@ export type QueuedEvent = {
   lng?:       number;
   reason?:    string;          // For STOP_FAIL
   notes?:     string;
+  // For DIFFICULTY_REPORT
+  address?:   string;
+  categories?: string[];
   // B2B feature-flagged fields (populated by POD module if enabled)
   parcelId?:  string;
   photoUri?:  string;
@@ -59,8 +62,26 @@ export function useOfflineQueue() {
     if (flushing.current || !queue.current.length || !token) return;
     flushing.current = true;
 
-    while (queue.current.length > 0) {
-      const batch = queue.current.slice(0, BATCH_SIZE);
+    // Drain difficulty reports first — they go to a different endpoint
+    const difficulties = queue.current.filter(e => e.type === 'DIFFICULTY_REPORT');
+    for (const ev of difficulties) {
+      try {
+        const res = await fetch(`${API}/api/v1/stops/${ev.stopId}/difficulty`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ categories: ev.categories ?? [], note: ev.notes, address: ev.address ?? '' }),
+        });
+        if (res.ok) {
+          queue.current = queue.current.filter(e => e !== ev);
+        }
+      } catch {
+        // Network still down — leave in queue
+      }
+    }
+
+    // Flush remaining events to driver event endpoint
+    while (queue.current.filter(e => e.type !== 'DIFFICULTY_REPORT').length > 0) {
+      const batch = queue.current.filter(e => e.type !== 'DIFFICULTY_REPORT').slice(0, BATCH_SIZE);
       try {
         const res = await fetch(`${API}/api/v1/driver/event`, {
           method: 'POST',
@@ -71,14 +92,11 @@ export function useOfflineQueue() {
           body: JSON.stringify({ events: batch }),
         });
         if (res.ok) {
-          // Remove successfully sent events
-          queue.current = queue.current.slice(batch.length);
+          queue.current = queue.current.filter(e => !batch.includes(e));
         } else {
-          // Server error — stop flushing, retry next connection
           break;
         }
       } catch {
-        // Network still down — stop flushing
         break;
       }
     }

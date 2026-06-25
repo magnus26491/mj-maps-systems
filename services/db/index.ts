@@ -51,7 +51,7 @@ export function getPool(): PoolType {
     }
     _pool = new Pool({
       connectionString: url,
-      max: 10,
+      max: 20,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
       ssl: { rejectUnauthorized: false },

@@ -17,11 +17,19 @@ export interface NavStep {
   maneuver:    string;
 }
 
+export interface NavGuardWarning {
+  stepIndex: number;
+  severity:  string;
+  title:     string;
+  message:   string;
+}
+
 export interface NavRoute {
   steps:            NavStep[];
   totalDistanceM:   number;
   totalDurationSec: number;
   polyline:         { lat: number; lng: number }[];
+  guardWarnings?:   NavGuardWarning[];
 }
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
@@ -30,6 +38,7 @@ export async function fetchNavRoute(
   fromLat: number, fromLng: number,
   toLat:   number, toLng:   number,
   vehicleId: string,
+  customHeightM?: number | null,
 ): Promise<NavRoute | null> {
   const token = await SecureStore.getItemAsync('mj_jwt');
 
@@ -39,7 +48,10 @@ export async function fetchNavRoute(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ fromLat, fromLng, toLat, toLng, vehicleId }),
+    body: JSON.stringify({
+      fromLat, fromLng, toLat, toLng, vehicleId,
+      ...(customHeightM != null ? { customHeightM } : {}),
+    }),
   });
 
   if (!res.ok) return null;

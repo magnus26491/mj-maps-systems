@@ -28,6 +28,9 @@ import { useTurnScore } from '../hooks/useTurnScore';
 import { apiRegisterFcmToken } from '../lib/api';
 import { setupShiftNotificationChannel } from '../modules/shiftNotification';
 import { usePodDrain } from '../hooks/usePodDrain';
+import { useTokenRefresh } from '../hooks/useTokenRefresh';
+import { LocaleProvider } from '../components/LocaleProvider';
+import { PermissionGate } from '../components/PermissionGate';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +70,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!token && !inAuth) router.replace('/(auth)/login');
     if (token  && inAuth)  router.replace('/(app)/');
   }, [isReady, token, segments]);
+
+  // Silently refresh the JWT 5 min before it expires — prevents mid-shift logouts
+  useTokenRefresh();
 
   return <>{children}</>;
 }
@@ -145,20 +151,23 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
-          <AuthGuard>
-            <FcmRegistrar>
-              <ShiftAwareProviders>
-                <Stack
-                  screenOptions={{
-                    headerShown:  false,
-                    animation:    'slide_from_right',
-                    contentStyle: { backgroundColor: '#0f1923' },
-                  }}
-                />
-              </ShiftAwareProviders>
-            </FcmRegistrar>
-          </AuthGuard>
+          <LocaleProvider>
+            <StatusBar style="light" />
+            <AuthGuard>
+              <FcmRegistrar>
+                <ShiftAwareProviders>
+                  <Stack
+                    screenOptions={{
+                      headerShown:  false,
+                      animation:    'slide_from_right',
+                      contentStyle: { backgroundColor: '#0f1923' },
+                    }}
+                  />
+                  <PermissionGate />
+                </ShiftAwareProviders>
+              </FcmRegistrar>
+            </AuthGuard>
+          </LocaleProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

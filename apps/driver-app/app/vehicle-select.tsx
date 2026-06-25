@@ -1,218 +1,420 @@
 /**
- * Vehicle Selector Screen — DB-driven
+ * Vehicle Selector Screen
  *
- * Loads vehicle specs from /api/v1/vehicle-specs (authenticated).
- * Falls back to hardcoded FALLBACK_SPECS if API unavailable (offline resilience).
+ * Shows all vehicle profiles grouped by class.
+ * For HGV and articulated vehicles the driver can override the default
+ * height — articulated trailers vary (double-deck, box, curtainsider, no
+ * trailer). Stored as customHeightM in the shift store and used by
+ * bridge + navigation guard checks.
  *
- * Stores profileKey (e.g. 'TRANSIT_LWB_GB') in the shift store, NOT the DB id.
- * profileKey is what the route optimiser uses.
+ * Profile keys match VEHICLE_PROFILES IDs exactly (e.g. 'lwb_van').
  */
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator,
+  TextInput, Platform, KeyboardAvoidingView, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index';
+import type { VehicleId, VehicleClass } from '../../../packages/vehicle-profiles/index';
 import { useShiftStore } from '../store/shift';
-import { useAuthStore } from '../lib/auth';
-import type { VehicleSpec } from '../lib/types';
+import { ThemeProvider, useTheme } from '../components/ThemeContext';
 
-const FALLBACK_SPECS: VehicleSpec[] = [
-  {
-    id:         'vs-transit-lwb',
-    make:       'Ford',
-    model:      'Transit LWB',
-    year:       2023,
-    heightM:    2.77,
-    lengthM:    5.98,
-    widthM:     2.05,
-    gvwKg:      3500,
-    payloadKg:  1400,
-    hazmat:     false,
-    profileKey: 'TRANSIT_LWB_GB',
-  },
-  {
-    id:         'vs-transit-swb',
-    make:       'Ford',
-    model:      'Transit SWB',
-    year:       2023,
-    heightM:    2.77,
-    lengthM:    4.97,
-    widthM:     2.05,
-    gvwKg:      3500,
-    payloadKg:  1235,
-    hazmat:     false,
-    profileKey: 'TRANSIT_SWB_GB',
-  },
-  {
-    id:         'vs-sprinter-lwb',
-    make:       'Mercedes',
-    model:      'Sprinter LWB',
-    year:       2023,
-    heightM:    2.80,
-    lengthM:    6.95,
-    widthM:     2.07,
-    gvwKg:      3500,
-    payloadKg:  1387,
-    hazmat:     false,
-    profileKey: 'SPRINTER_LWB_GB',
-  },
-  {
-    id:         'vs-transit-custom',
-    make:       'Ford',
-    model:      'Transit Custom',
-    year:       2023,
-    heightM:    1.96,
-    lengthM:    4.97,
-    widthM:     1.97,
-    gvwKg:      2800,
-    payloadKg:  900,
-    hazmat:     false,
-    profileKey: 'TRANSIT_CUSTOM_GB',
-  },
-];
+// ── Static display data ───────────────────────────────────────────────────────
 
-export default function VehicleSelectScreen() {
-  const [specs,    setSpecs]    = useState<VehicleSpec[]>([]);
-  const [selected,  setSelected]  = useState<string | null>(null);   // profileKey
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
+const CLASS_META: Record<VehicleClass, { label: string; emoji: string; tagline: string }> = {
+  light: { label: 'Light Vehicles',  emoji: '🚗', tagline: 'Cars, bikes & towed units' },
+  van:   { label: 'Vans',            emoji: '🚐', tagline: 'Panel vans, tippers & minibuses' },
+  hgv:   { label: 'HGV / Rigid',    emoji: '🚚', tagline: 'Heavy goods vehicles, 7.5t – 26t' },
+  artic: { label: 'Articulated',     emoji: '🚛', tagline: 'Artic trucks — set your trailer height below' },
+};
 
-  useEffect(() => {
-    const token = useAuthStore.getState().token;
-    const API   = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
+const VEHICLE_EMOJI: Record<VehicleId, string> = {
+  bicycle:       '🚲',
+  motorbike:     '🏍️',
+  small_car:     '🚗',
+  large_car:     '🚙',
+  swb_van:       '🚐',
+  lwb_van:       '🚐',
+  luton_van:     '📦',
+  tipper_swb:    '🪣',
+  tipper_lwb:    '🪣',
+  '7_5t_rigid':  '🚚',
+  '18t_rigid':   '🚚',
+  '26t_rigid':   '🚚',
+  artic_13_6m:   '🚛',
+  artic_15_5m:   '🚛',
+  car_trailer:   '🚗',
+  horse_trailer: '🐴',
+  caravan_7m:    '🏕️',
+  minibus:       '🚌',
+  coach:         '🚌',
+};
 
-    fetch(`${API}/api/v1/vehicle-specs`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.ok && Array.isArray(data.data)) {
-          setSpecs(data.data);
-        } else {
-          setSpecs(FALLBACK_SPECS);
-        }
-      })
-      .catch(() => {
-        setError('Could not load vehicles. Using defaults.');
-        setSpecs(FALLBACK_SPECS);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+const CLASS_ORDER: VehicleClass[] = ['light', 'van', 'hgv', 'artic'];
 
-  const confirm = () => {
-    if (!selected) return;
-    useShiftStore.getState().vehicleId = selected;
-    router.back();
+const GROUPS = CLASS_ORDER.map(cls => ({
+  cls,
+  meta: CLASS_META[cls],
+  profiles: Object.values(VEHICLE_PROFILES).filter(p => p.vehicleClass === cls),
+}));
+
+const needsHeightOverride = (cls: VehicleClass) => cls === 'hgv' || cls === 'artic';
+
+// ── Inner component ──────────────────────────────────────────────────────────
+
+function VehicleSelectInner() {
+  const { colors } = useTheme();
+  const [selected, setSelected] = useState<VehicleId | null>(null);
+  const [heightUnit, setHeightUnit] = useState<'m' | 'ft'>('m');
+  const [heightInput, setHeightInput] = useState('');
+  const [heightError, setHeightError] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const selectedProfile = selected ? VEHICLE_PROFILES[selected] : null;
+  const showHeightInput = !!selectedProfile && needsHeightOverride(selectedProfile.vehicleClass);
+
+  const handleSelect = useCallback((id: VehicleId) => {
+    Haptics.selectionAsync();
+    setSelected(id);
+    setHeightError(null);
+    const profile = VEHICLE_PROFILES[id];
+    if (needsHeightOverride(profile.vehicleClass)) {
+      const defaultH = profile.heightM;
+      setHeightInput(heightUnit === 'm'
+        ? defaultH.toFixed(1)
+        : (defaultH / 0.3048).toFixed(1),
+      );
+    }
+  }, [heightUnit]);
+
+  const toggleUnit = useCallback((unit: 'm' | 'ft') => {
+    if (unit === heightUnit) return;
+    setHeightUnit(unit);
+    const val = parseFloat(heightInput);
+    if (!isNaN(val)) {
+      setHeightInput(unit === 'ft'
+        ? (val / 0.3048).toFixed(1)
+        : (val * 0.3048).toFixed(2),
+      );
+    }
+  }, [heightUnit, heightInput]);
+
+  const resolveHeightM = (): number | null => {
+    if (!showHeightInput) return null;
+    const val = parseFloat(heightInput);
+    if (isNaN(val)) return null;
+    return heightUnit === 'm' ? val : val * 0.3048;
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#4fc3f7" />
-          <Text style={styles.loadingText}>Loading vehicles…</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const handleConfirm = useCallback(() => {
+    if (!selected) return;
+    Keyboard.dismiss();
+
+    if (showHeightInput && heightInput.trim()) {
+      const hm = resolveHeightM();
+      if (hm === null || hm < 2.0 || hm > 5.5) {
+        setHeightError('Height must be between 2.0 m and 5.5 m (6.6 – 18 ft)');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const store = useShiftStore.getState();
+    store.vehicleId = selected;
+    store.setCustomHeight(resolveHeightM());
+    router.back();
+  }, [selected, showHeightInput, heightInput, heightUnit]);
+
+  const heightM = resolveHeightM();
+  const heightHint = heightM !== null && !heightError
+    ? (heightUnit === 'm'
+        ? `≈ ${(heightM / 0.3048).toFixed(1)} ft`
+        : `= ${heightM.toFixed(2)} m`)
+    : null;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        {error && <Text style={styles.errorBanner}>{error}</Text>}
-        <Text style={styles.title}>What are you driving today?</Text>
-        <Text style={styles.sub}>
-          Route and turn warnings are optimised for your vehicle size.
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>What are you driving?</Text>
+          <Text style={[styles.sub, { color: colors.subtext }]}>
+            Route, turn warnings and bridge checks are optimised for your vehicle.
+          </Text>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {specs.map(spec => (
-          <TouchableOpacity
-            key={spec.id}
-            style={[styles.card, selected === spec.profileKey && styles.cardSelected]}
-            onPress={() => setSelected(spec.profileKey)}
-            activeOpacity={0.75}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: selected === spec.profileKey }}
-            accessibilityLabel={`${spec.make} ${spec.model}`}
-          >
-            <View style={styles.cardMain}>
-              <View style={styles.cardTop}>
-                <Text style={[styles.cardLabel, selected === spec.profileKey && styles.cardLabelSelected]}>
-                  {spec.make} {spec.model}
-                </Text>
-                <Text style={styles.cardYear}>{spec.year}</Text>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {GROUPS.map(({ cls, meta, profiles }) => (
+            <View key={cls} style={styles.section}>
+              {/* Section header */}
+              <View style={[styles.sectionHead, { borderLeftColor: colors.blue }]}>
+                <Text style={styles.sectionEmoji}>{meta.emoji}</Text>
+                <View style={styles.sectionText}>
+                  <Text style={[styles.sectionLabel, { color: colors.text }]}>{meta.label}</Text>
+                  <Text style={[styles.sectionTagline, { color: colors.subtext }]}>{meta.tagline}</Text>
+                </View>
               </View>
-              <View style={styles.cardMeta}>
-                <Text style={styles.cardMetaItem}>🏔 {spec.heightM}m</Text>
-                <Text style={styles.cardMetaItem}>⚖️ {(spec.gvwKg / 1000).toFixed(1)}t</Text>
-                <Text style={styles.cardMetaItem}>📏 {spec.lengthM}m</Text>
+
+              {/* 2-column card grid */}
+              <View style={styles.grid}>
+                {profiles.map(profile => {
+                  const isOn = selected === profile.id;
+                  return (
+                    <TouchableOpacity
+                      key={profile.id}
+                      style={[
+                        styles.card,
+                        { backgroundColor: colors.surface, borderColor: colors.surfaceAlt },
+                        isOn && { borderColor: colors.blue, backgroundColor: `${colors.blue}18` },
+                      ]}
+                      onPress={() => handleSelect(profile.id as VehicleId)}
+                      activeOpacity={0.75}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isOn }}
+                      accessibilityLabel={profile.label}
+                    >
+                      {/* Selected checkmark */}
+                      {isOn && (
+                        <View style={[styles.check, { backgroundColor: colors.blue }]}>
+                          <Text style={styles.checkMark}>✓</Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.cardEmoji}>{VEHICLE_EMOJI[profile.id as VehicleId]}</Text>
+                      <Text
+                        style={[styles.cardLabel, { color: isOn ? colors.blue : colors.text }]}
+                        numberOfLines={2}
+                      >
+                        {profile.label}
+                      </Text>
+
+                      {/* Spec pills */}
+                      <View style={styles.pills}>
+                        <View style={[styles.pill, { backgroundColor: colors.background }]}>
+                          <Text style={[styles.pillText, { color: colors.subtext }]}>{profile.heightM}m</Text>
+                        </View>
+                        <View style={[styles.pill, { backgroundColor: colors.background }]}>
+                          <Text style={[styles.pillText, { color: colors.subtext }]}>{profile.gvwT}t</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
-            {selected === spec.profileKey && (
-              <View style={styles.check}>
-                <Text style={styles.checkMark}>✓</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+          ))}
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.cta, !selected && styles.ctaDisabled]}
-          onPress={confirm}
-          disabled={!selected}
-          accessibilityRole="button"
-          accessibilityLabel="Confirm vehicle and continue"
-        >
-          <Text style={styles.ctaText}>Confirm Vehicle →</Text>
-        </TouchableOpacity>
-      </View>
+          {/* ── Custom height input (HGV / artic) ─────────────────────────── */}
+          {showHeightInput && (
+            <View style={[styles.heightSection, { backgroundColor: colors.surface, borderColor: colors.surfaceAlt }]}>
+              <Text style={[styles.heightTitle, { color: colors.text }]}>📐 Set Your Vehicle Height</Text>
+              <Text style={[styles.heightSub, { color: colors.subtext }]}>
+                {selectedProfile?.vehicleClass === 'artic'
+                  ? 'Artic trailer heights vary — double-deck (4.9m), standard box (4.2m), curtainsider (4.2m), no trailer (3.4m). Set your actual loaded height.'
+                  : 'Your actual loaded height determines which bridges and height restrictions are safe for you.'}
+              </Text>
+
+              {/* m / ft toggle */}
+              <View style={[styles.unitRow, { backgroundColor: colors.background }]}>
+                <TouchableOpacity
+                  style={[styles.unitBtn, heightUnit === 'm' && { backgroundColor: colors.blue }]}
+                  onPress={() => toggleUnit('m')}
+                >
+                  <Text style={[styles.unitText, { color: heightUnit === 'm' ? '#fff' : colors.subtext }]}>
+                    Metres (m)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.unitBtn, heightUnit === 'ft' && { backgroundColor: colors.blue }]}
+                  onPress={() => toggleUnit('ft')}
+                >
+                  <Text style={[styles.unitText, { color: heightUnit === 'ft' ? '#fff' : colors.subtext }]}>
+                    Feet (ft)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Numeric input */}
+              <View style={styles.heightInputRow}>
+                <TextInput
+                  style={[
+                    styles.heightInput,
+                    { backgroundColor: colors.background, color: colors.text, borderColor: colors.surfaceAlt },
+                    !!heightError && { borderColor: colors.red ?? '#ef4444' },
+                  ]}
+                  value={heightInput}
+                  onChangeText={t => { setHeightInput(t); setHeightError(null); }}
+                  keyboardType="decimal-pad"
+                  placeholder={heightUnit === 'm' ? '4.20' : '13.8'}
+                  placeholderTextColor={colors.subtext}
+                  accessibilityLabel="Vehicle height"
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+                <View style={[styles.unitSuffix, { backgroundColor: colors.surfaceAlt }]}>
+                  <Text style={[styles.unitSuffixText, { color: colors.text }]}>{heightUnit}</Text>
+                </View>
+              </View>
+
+              {heightError && (
+                <Text style={[styles.heightError, { color: colors.red ?? '#ef4444' }]}>{heightError}</Text>
+              )}
+              {heightHint && !heightError && (
+                <Text style={[styles.heightHint, { color: colors.subtext }]}>{heightHint}</Text>
+              )}
+            </View>
+          )}
+
+          <View style={{ height: 8 }} />
+        </ScrollView>
+
+        {/* ── Confirm footer ───────────────────────────────────────────────── */}
+        <View style={[styles.footer, { borderTopColor: colors.surfaceAlt }]}>
+          {selectedProfile && (
+            <Text style={[styles.footerMeta, { color: colors.subtext }]} numberOfLines={1}>
+              {VEHICLE_EMOJI[selected!]}{' '}
+              {selectedProfile.label}
+              {'  ·  '}
+              {selectedProfile.lengthM}m long
+              {'  ·  '}
+              {showHeightInput && heightM
+                ? `${heightM.toFixed(2)}m high (custom)`
+                : `${selectedProfile.heightM}m high`}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[
+              styles.cta,
+              { backgroundColor: selected ? colors.blue : colors.surfaceAlt },
+            ]}
+            onPress={handleConfirm}
+            disabled={!selected}
+            accessibilityRole="button"
+            accessibilityLabel="Confirm vehicle selection"
+          >
+            <Text style={[styles.ctaText, { color: selected ? '#fff' : colors.subtext }]}>
+              {selected ? 'Confirm Vehicle →' : 'Select a vehicle above'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+export default function VehicleSelectScreen() {
+  return (
+    <ThemeProvider>
+      <VehicleSelectInner />
+    </ThemeProvider>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  safe:              { flex: 1, backgroundColor: '#0f1923' },
-  center:            { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText:       { color: '#8fa0b0', marginTop: 12, fontSize: 15 },
-  header:            { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
-  errorBanner:       { color: '#f59e0b', fontSize: 13, marginBottom: 8 },
-  title:             { fontSize: 26, fontWeight: '700', color: '#ffffff', marginBottom: 6 },
-  sub:               { fontSize: 15, color: '#8fa0b0', lineHeight: 22 },
-  list:              { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-  card: {
+  safe:         { flex: 1 },
+  flex:         { flex: 1 },
+  header: {
+    paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16,
+  },
+  title:        { fontSize: 26, fontWeight: '800', marginBottom: 6 },
+  sub:          { fontSize: 15, lineHeight: 22 },
+
+  scroll:       { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+
+  section:      { marginBottom: 24 },
+  sectionHead: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#1c2a37', borderRadius: 14,
-    padding: 16, minHeight: 80,
-    borderWidth: 2, borderColor: 'transparent',
+    borderLeftWidth: 3, paddingLeft: 10,
+    marginBottom: 12,
   },
-  cardSelected:      { borderColor: '#4fc3f7', backgroundColor: '#1a2f3f' },
-  cardMain:          { flex: 1 },
-  cardTop:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardLabel:         { fontSize: 17, fontWeight: '700', color: '#c8d8e8' },
-  cardLabelSelected: { color: '#4fc3f7' },
-  cardYear:          { fontSize: 13, color: '#607080' },
-  cardMeta:          { flexDirection: 'row', marginTop: 6, gap: 12 },
-  cardMetaItem:      { fontSize: 13, color: '#8fa0b0' },
+  sectionEmoji: { fontSize: 22, marginRight: 10 },
+  sectionText:  { flex: 1 },
+  sectionLabel: { fontSize: 16, fontWeight: '700' },
+  sectionTagline: { fontSize: 13, marginTop: 2 },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  card: {
+    width: '47.5%',
+    flexGrow: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+    minHeight: 110,
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
   check: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#4fc3f7', alignItems: 'center', justifyContent: 'center',
-    marginLeft: 12,
+    position: 'absolute', top: 8, right: 8,
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
   },
-  checkMark:         { color: '#0f1923', fontWeight: '700', fontSize: 16 },
+  checkMark:    { color: '#fff', fontSize: 12, fontWeight: '800' },
+  cardEmoji:    { fontSize: 26, marginBottom: 6 },
+  cardLabel:    { fontSize: 14, fontWeight: '700', lineHeight: 18, marginBottom: 8 },
+  pills:        { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  pill:         { borderRadius: 6, paddingVertical: 3, paddingHorizontal: 7 },
+  pillText:     { fontSize: 12, fontWeight: '600' },
+
+  heightSection: {
+    borderRadius: 16, borderWidth: 1,
+    padding: 18, marginBottom: 8, gap: 12,
+  },
+  heightTitle:  { fontSize: 16, fontWeight: '800' },
+  heightSub:    { fontSize: 13, lineHeight: 20 },
+
+  unitRow: {
+    flexDirection: 'row', borderRadius: 10, overflow: 'hidden',
+  },
+  unitBtn: {
+    flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10,
+  },
+  unitText:     { fontSize: 14, fontWeight: '700' },
+
+  heightInputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 0,
+  },
+  heightInput: {
+    flex: 1, height: 56, fontSize: 28, fontWeight: '700',
+    paddingHorizontal: 16,
+    borderWidth: 1.5, borderRightWidth: 0,
+    borderTopLeftRadius: 12, borderBottomLeftRadius: 12,
+  },
+  unitSuffix: {
+    width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
+    borderTopRightRadius: 12, borderBottomRightRadius: 12,
+  },
+  unitSuffixText: { fontSize: 18, fontWeight: '700' },
+
+  heightError: { fontSize: 13, fontWeight: '600' },
+  heightHint:  { fontSize: 13 },
+
   footer: {
-    paddingHorizontal: 16, paddingBottom: 16, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: '#1c2a37',
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
   },
+  footerMeta: { fontSize: 13, textAlign: 'center' },
   cta: {
-    backgroundColor: '#4fc3f7', borderRadius: 14,
-    height: 56, alignItems: 'center', justifyContent: 'center',
+    height: 58, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
   },
-  ctaDisabled:       { backgroundColor: '#1c2a37' },
-  ctaText:           { fontSize: 17, fontWeight: '700', color: '#0f1923' },
+  ctaText: { fontSize: 17, fontWeight: '800' },
 });

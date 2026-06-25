@@ -5,12 +5,75 @@
  * POST /api/v1/location — driver GPS ping (every 10 s)
  * Inserts into driver_locations (full history) + Redis mirror (60 s TTL)
  * + publishes to fleet:locations pub/sub channel for live dispatcher map.
+ * + detects route deviation >250m and fires OFF_ROUTE Telegram alert (5-min dedup).
  */
 
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '../middleware/auth.js';
 import { pool } from '../../db/index.js';
 import { redis } from '../../cache/index.js';
+
+const OFF_ROUTE_THRESHOLD_M = 250;
+const OFF_ROUTE_DEDUP_TTL_S = 300; // 5 minutes
+
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function detectOffRoute(
+  driverId: string,
+  lat: number,
+  lng: number,
+  routeId: string,
+): Promise<void> {
+  // Load route polyline
+  const { rows } = await pool.query(
+    `SELECT polyline_json FROM routes WHERE id = $1 AND status = 'active' LIMIT 1`,
+    [routeId],
+  );
+  const polylineJson = rows[0]?.polyline_json;
+  if (!polylineJson) return;
+
+  let polyline: { lat: number; lng: number }[];
+  try { polyline = JSON.parse(polylineJson); } catch { return; }
+  if (!polyline.length) return;
+
+  // Check minimum distance from driver to any polyline point
+  let minDist = Infinity;
+  for (const pt of polyline) {
+    const d = haversineM(lat, lng, pt.lat, pt.lng);
+    if (d < minDist) minDist = d;
+    if (minDist <= OFF_ROUTE_THRESHOLD_M) return; // within route — no alert
+  }
+
+  // Driver is off route — deduplicate alerts
+  const dedupeKey = `offroute:alerted:${driverId}`;
+  const alreadyAlerted = await redis.get(dedupeKey).catch(() => null);
+  if (alreadyAlerted) return;
+
+  await redis.setex(dedupeKey, OFF_ROUTE_DEDUP_TTL_S, '1').catch(() => {});
+
+  // Fire Telegram OFF_ROUTE alert
+  const botToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
+  const dispatcherChatId = process.env.TELEGRAM_DISPATCHER_CHAT_ID ?? '';
+  const driverChatIds: Record<string, string> = (() => {
+    try { return JSON.parse(process.env.TELEGRAM_DRIVER_CHAT_IDS ?? '{}'); } catch { return {}; }
+  })();
+  if (!botToken || !dispatcherChatId) return;
+
+  const { sendAlert } = await import('../../notifications/telegram-alerts.js');
+  await sendAlert(
+    { botToken, driverChatIds, dispatcherChatId },
+    { type: 'OFF_ROUTE', driverId, routeId },
+  ).catch(() => {});
+}
 
 export async function locationRoute(server: FastifyInstance): Promise<void> {
   server.post(
@@ -103,6 +166,11 @@ export async function locationRoute(server: FastifyInstance): Promise<void> {
         .catch((err: unknown) => {
           console.warn('[location] Redis publish failed (non-fatal):', err);
         });
+
+      // OFF_ROUTE detection — fire-and-forget, never blocks the response
+      if (typeof routeId === 'string') {
+        detectOffRoute(driverId, lat, lng, routeId).catch(() => {});
+      }
 
       return reply.code(204).send();
     },

@@ -129,11 +129,32 @@ export async function dispatcherRoutes(server: FastifyInstance): Promise<void> {
         ORDER BY s.sequence ASC
       `, [routeId]);
 
+      // ── ETA computation ──────────────────────────────────────────────────
+      // 3-min average dwell per stop is a conservative UK urban estimate.
+      const AVG_STOP_DWELL_MS = 3 * 60 * 1_000;
+      const now = Date.now();
+
+      const completedSeqs = stopsRes.rows
+        .filter((s: any) => s.status === 'completed')
+        .map((s: any) => (s.sequence as number) ?? 0);
+      const lastCompletedSeq = completedSeqs.length > 0 ? Math.max(...completedSeqs) : 0;
+
+      const stopsWithEta = stopsRes.rows.map((stop: any) => {
+        if (stop.status === 'completed' || stop.status === 'failed') {
+          return { ...stop, eta: stop.updated_at ?? null };
+        }
+        const stepsAhead = Math.max(1, (stop.sequence ?? 0) - lastCompletedSeq);
+        return { ...stop, eta: new Date(now + stepsAhead * AVG_STOP_DWELL_MS).toISOString() };
+      });
+
+      const pendingCount = stopsRes.rows.filter((s: any) => s.status === 'pending').length;
+      const estimatedCompletion = new Date(now + pendingCount * AVG_STOP_DWELL_MS).toISOString();
+
       return reply.send({
         ok: true,
         data: {
-          route: routeRes.rows,
-          stops: stopsRes.rows,
+          route: { ...routeRes.rows[0], estimatedCompletion },
+          stops: stopsWithEta,
         },
       });
     },

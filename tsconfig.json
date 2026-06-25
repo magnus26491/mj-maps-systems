@@ -33,12 +33,16 @@
     "services/route-engine/**/*",
     "services/storage/**/*",
     "services/turn-engine/**/*",
+    "services/routing/**/*",
+    "services/geocoding/**/*",
     "__tests__/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "apps/**/*",
+    "legacy/**/*",
+    "services/_incubator/**/*",
     "packages/offline-cache/**/*",
     "packages/offline-sync/**/*",
     "packages/driver-app-shared/**/*",

@@ -3,7 +3,9 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-config.watchFolders = [__dirname];
+// Include monorepo root so packages/* and services/* can be imported via relative paths
+const monorepoRoot = path.resolve(__dirname, '../..');
+config.watchFolders = [__dirname, monorepoRoot];
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, 'node_modules'),
 ];
@@ -17,13 +19,7 @@ config.resolver.extraNodeModules = {
   'expo-notifications': path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
   'expo-speech': path.resolve(__dirname, 'shims/expo-speech.web.ts'),
   'expo-sqlite': path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
+  'react-native-maps': path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
 };
-
-config.transformer.getTransformOptions = async () => ({
-  transform: {
-    experimentalImportSupport: false,
-    inlineRequires: true,
-  },
-});
 
 module.exports = config;

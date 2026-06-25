@@ -53,6 +53,14 @@ import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
 import { locationRoute } from './routes/location.js';
+import { pinCorrectionRoute } from './routes/pin-correction.js';
+import { navigateLegRoute } from './routes/navigate-leg.js';
+import { stopConfidenceRoute } from './routes/stop-confidence.js';
+import { stopLifecycleRoutes } from './routes/stop-lifecycle.js';
+import { safetyRoutes } from './routes/safety.js';
+import { fleetStreamRoute } from './routes/fleet-stream.js';
+import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
+import { poisRoute } from './routes/pois.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -162,6 +170,7 @@ const start = async () => {
   // ── Routes ──────────────────────────────────────────────────────────────────
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
   await server.register(confirmPinRoute);
+  await server.register(pinCorrectionRoute);
   await server.register(mapConfigRoute);
   await server.register(autocompleteRoute);
   await server.register(podRoute);
@@ -178,6 +187,13 @@ const start = async () => {
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
   await server.register(locationRoute);
+  await server.register(navigateLegRoute);
+  await server.register(stopConfidenceRoute);
+  await server.register(stopLifecycleRoutes);
+  await server.register(safetyRoutes);
+  await server.register(fleetStreamRoute);
+  await server.register(deliveryDifficultyRoutes);
+  await server.register(poisRoute);
 
   server.get('/api/v1/health', handleHealth as any);
 

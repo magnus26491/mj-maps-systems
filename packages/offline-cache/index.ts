@@ -161,6 +161,29 @@ export async function markStopFailed(stopId: string, reason: string): Promise<vo
   await enqueueSync(`/api/v1/stops/${stopId}/fail`, 'POST', { reason, failedAt: Date.now() });
 }
 
+/**
+ * Queue a GPS ping for background sync.
+ * Called by the location tracking hook when offline — the ping will be
+ * flushed to POST /api/v1/location once connectivity returns.
+ */
+export async function recordLocationPing(ping: {
+  lat: number;
+  lng: number;
+  routeId?: string;
+  heading?: number;
+  speedKmh?: number;
+  recordedAt?: number;
+}): Promise<void> {
+  await enqueueSync('/api/v1/location', 'POST', {
+    lat:        ping.lat,
+    lng:        ping.lng,
+    routeId:    ping.routeId ?? null,
+    heading:    ping.heading ?? null,
+    speedKmh:   ping.speedKmh ?? null,
+    recordedAt: ping.recordedAt ?? Date.now(),
+  });
+}
+
 export async function getStopsForShift(shiftId: string): Promise<OfflineStop[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<DbStopRow>(

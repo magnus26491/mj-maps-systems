@@ -1,0 +1,80 @@
+##
+## MJ Maps — Local Development Stack
+##
+## Provides OSRM, Valhalla, and the OR-Tools solver sidecar.
+## ⚠️  You MUST run scripts/prepare-osm.sh before starting this compose file
+##     to download and pre-process the OSM data.
+##
+## Usage:
+##   ./scripts/prepare-osm.sh     # one-time, takes ~20 min
+##   docker compose -f docker-compose.dev.yml up
+##
+## Then set in your .env:
+##   OSRM_URL=http://localhost:5000
+##   VALHALLA_URL=http://localhost:8002
+##   ROUTE_SOLVER_URL=http://localhost:8080
+##
+
+services:
+
+  # ── OSRM (fast N×N matrix) ──────────────────────────────────────────────────
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v5.28.0
+    container_name: mjmaps-osrm
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data/osrm:/data
+    command: >
+      osrm-routed
+      --algorithm mld
+      --max-table-size 1000
+      /data/great-britain-latest.osrm
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Valhalla (van/truck routing + turn-by-turn maneuvers) ──────────────────
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: mjmaps-valhalla
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./data/valhalla:/custom_files
+    environment:
+      - use_tiles_ignore_pbf=true
+      - serve_tiles=true
+      - build_elevation=false
+      - build_admins=true
+      - build_time_zones=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8002/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── OR-Tools solver sidecar ─────────────────────────────────────────────────
+  route-solver:
+    build:
+      context: ./services/route-solver
+      dockerfile: Dockerfile
+    container_name: mjmaps-route-solver
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  osrm_data:
+  valhalla_data:

@@ -5,7 +5,7 @@
  * Route params: { stopId: string }
  * Gets stop from shift store, starts nav automatically.
  */
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Linking,
@@ -17,6 +17,8 @@ import { useNavigation } from '../hooks/useNavigation';
 import { useShiftStore } from '../store/shift';
 import { maneuverArrow, formatDistance, formatDuration } from '../lib/navigation';
 import { useDrivingMode } from '../hooks/useDrivingMode';
+import { useNearbyPOI } from '../hooks/useNearbyPOI';
+import { FuelMarker, EVMarker, POIToggle } from '../components/POIMarkers';
 
 export default function NavigationScreen() {
   const { stopId } = useLocalSearchParams<{ stopId: string }>();
@@ -26,8 +28,13 @@ export default function NavigationScreen() {
   const {
     route, currentStep, stepIndex, distanceToNext,
     isLoading, error, userLat, userLng,
+    guardWarnings,
     startNav, stopNav, speakStep,
   } = useNavigation();
+
+  const [showFuel, setShowFuel] = useState(true);
+  const [showEV,   setShowEV]   = useState(true);
+  const { fuel, evCharging } = useNearbyPOI(userLat ?? null, userLng ?? null);
 
   // Resolve stop from shift store and start navigation
   useEffect(() => {
@@ -138,6 +145,22 @@ export default function NavigationScreen() {
         </View>
       </View>
 
+      {/* Guard warnings — shown when the route has vehicle restrictions */}
+      {guardWarnings.filter(w => w.stepIndex === stepIndex).map((w, i) => (
+        <View
+          key={i}
+          style={[
+            styles.guardBanner,
+            w.severity === 'critical' ? styles.guardBannerCritical : styles.guardBannerWarning,
+          ]}
+        >
+          <Text style={styles.guardTitle}>
+            {w.severity === 'critical' ? '🚫 ' : '⚠️ '}{w.title}
+          </Text>
+          <Text style={styles.guardMsg}>{w.message}</Text>
+        </View>
+      ))}
+
       {/* Map */}
       <View style={styles.mapWrap}>
         {mapRegion && (
@@ -149,6 +172,7 @@ export default function NavigationScreen() {
             followsUserLocation
             rotateEnabled
           >
+            {/* Route polyline */}
             {route && (
               <Polyline
                 coordinates={route.polyline.map(p => ({ latitude: p.lat, longitude: p.lng }))}
@@ -156,14 +180,36 @@ export default function NavigationScreen() {
                 strokeWidth={4}
               />
             )}
+
+            {/* Destination */}
             {destLat !== 0 && (
               <Marker
                 coordinate={{ latitude: destLat, longitude: destLng }}
                 pinColor="green"
               />
             )}
+
+            {/* Fuel stations */}
+            {showFuel && fuel.map(s => (
+              <FuelMarker key={s.id} station={s} />
+            ))}
+
+            {/* EV charging points */}
+            {showEV && evCharging.map(c => (
+              <EVMarker key={c.id} charger={c} />
+            ))}
           </MapView>
         )}
+
+        {/* POI layer toggles — bottom-left corner of map */}
+        <View style={styles.poiToggleWrap} pointerEvents="box-none">
+          <POIToggle
+            showFuel={showFuel}
+            showEV={showEV}
+            onToggleFuel={() => setShowFuel(v => !v)}
+            onToggleEV={() => setShowEV(v => !v)}
+          />
+        </View>
       </View>
 
       {/* Status bar */}
@@ -225,6 +271,12 @@ const styles = StyleSheet.create({
   bannerDist:     { fontSize: 16, color: '#8fa0b0', marginTop: 4 },
   mapWrap:       { flex: 1 },
   map:           { flex: 1 },
+  poiToggleWrap: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    flexDirection: 'row',
+  },
   statusBar: {
     height: 44, flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 16,
@@ -244,4 +296,11 @@ const styles = StyleSheet.create({
   actionPrimary:  { backgroundColor: '#4fc3f7' },
   actionText:     { fontSize: 16, fontWeight: '600', color: '#c8d8e8' },
   actionPrimaryText: { fontSize: 16, fontWeight: '700', color: '#0f1923' },
+  guardBanner: {
+    paddingHorizontal: 16, paddingVertical: 10, gap: 2,
+  },
+  guardBannerCritical: { backgroundColor: '#2b1111' },
+  guardBannerWarning:  { backgroundColor: '#2b1a00' },
+  guardTitle: { fontSize: 15, fontWeight: '700', color: '#f87171' },
+  guardMsg:   { fontSize: 13, color: '#c8d8e8' },
 });

@@ -9,7 +9,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Speech from 'expo-speech';
-import { fetchNavRoute, type NavRoute, type NavStep } from '../lib/navigation';
+import { fetchNavRoute, type NavRoute, type NavStep, type NavGuardWarning } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
 import { subscribeSharedLocation, type SharedLocation } from '../lib/shared-location';
 
@@ -53,13 +53,15 @@ interface UseNavigationResult {
   userLat:        number | null;
   userLng:        number | null;
   bearing:        number;
+  guardWarnings:  NavGuardWarning[];
   startNav:       (toLat: number, toLng: number) => void;
   stopNav:        () => void;
   speakStep:      (step: NavStep) => void;
 }
 
 export function useNavigation(): UseNavigationResult {
-  const vehicleId  = useShiftStore(s => s.vehicleId);
+  const vehicleId     = useShiftStore(s => s.vehicleId);
+  const customHeightM = useShiftStore(s => s.customHeightM);
   const [route,    setRoute]      = useState<NavRoute | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +69,7 @@ export function useNavigation(): UseNavigationResult {
   const [userLat,  setUserLat]    = useState<number | null>(null);
   const [userLng,  setUserLng]    = useState<number | null>(null);
   const [bearing,  setBearing]    = useState(0);
+  const [guardWarnings, setGuardWarnings] = useState<NavGuardWarning[]>([]);
   const lastSpokenStep = useRef(-1);
   const destLat = useRef<number | null>(null);
   const destLng = useRef<number | null>(null);
@@ -124,7 +127,8 @@ export function useNavigation(): UseNavigationResult {
     const navRoute = await fetchNavRoute(
       fromLat, fromLng,
       toLat, toLng,
-      vehicleId ?? 'TRANSIT_LWB_GB',
+      vehicleId ?? 'lwb_van',
+      customHeightM,
     );
 
     if (!navRoute) {
@@ -135,6 +139,7 @@ export function useNavigation(): UseNavigationResult {
 
     setRoute(navRoute);
     routeRef.current = navRoute;
+    setGuardWarnings(navRoute.guardWarnings ?? []);
     destLat.current = toLat;
     destLng.current = toLng;
     setIsLoading(false);
@@ -161,7 +166,8 @@ export function useNavigation(): UseNavigationResult {
           fetchNavRoute(
             loc.latitude, loc.longitude,
             destLat.current!, destLng.current!,
-            vehicleId ?? 'TRANSIT_LWB_GB',
+            vehicleId ?? 'lwb_van',
+            customHeightM,
           ).then(newRoute => {
             if (newRoute) {
               routeRef.current = newRoute;
@@ -188,10 +194,11 @@ export function useNavigation(): UseNavigationResult {
     destLng.current = null;
     setStepIndex(0);
     setError(null);
+    setGuardWarnings([]);
   }, []);
 
   useEffect(() => () => {
-    locationSub.current?.remove();
+    locUnsubRef.current?.();
     Speech.stop();
   }, []);
 
@@ -201,6 +208,7 @@ export function useNavigation(): UseNavigationResult {
   return {
     route, currentStep, stepIndex, distanceToNext,
     isLoading, error, userLat, userLng, bearing,
+    guardWarnings,
     startNav, stopNav, speakStep,
   };
 }
