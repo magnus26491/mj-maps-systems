@@ -1,0 +1,16 @@
+{
+  "name": "@mj-maps/offline-cache",
+  "version": "1.0.0",
+  "description": "Offline-first SQLite cache and sync queue for the MJ Maps driver app",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "expo-sqlite": ">=14.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

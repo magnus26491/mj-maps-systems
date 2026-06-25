@@ -241,6 +241,43 @@ export async function handleOptimiseRoute(
     enrichStopDoorPins(stops).catch(err =>
       console.warn('[geocoding] enrichStopDoorPins failed (non-fatal):', (err as Error).message),
     );
+
+    // 7. Bridge restriction pre-departure check (fire-and-forget)
+    //    Alerts dispatcher via Telegram if any stop has RED bridge alerts.
+    (async () => {
+      try {
+        const { fetchRestrictionsForSegment } = await import('../bridge-engine/src/osm-restrictions.js');
+        const { sendAlert } = await import('../notifications/telegram-alerts.js');
+        const { VEHICLE_PROFILES: VP } = await import('../../packages/vehicle-profiles/index.js');
+        const profile = VP[config.vehicleId];
+        if (!profile) return;
+
+        const telegramConfig = {
+          botToken:        process.env.TELEGRAM_BOT_TOKEN ?? '',
+          driverChatIds:   {},
+          dispatcherChatId: process.env.TELEGRAM_DISPATCHER_CHAT_ID ?? '',
+        };
+        if (!telegramConfig.botToken || !telegramConfig.dispatcherChatId) return;
+
+        for (const stop of result.orderedStops) {
+          const bridges = await fetchRestrictionsForSegment(stop.lat, stop.lng, profile);
+          const redAlerts = bridges.filter(b => b.alert.level === 'red');
+          if (redAlerts.length > 0) {
+            await sendAlert(telegramConfig, {
+              type:       'VEHICLE_MISMATCH',
+              driverId:   'system',
+              routeId,
+              stopId:     stop.id,
+              stopAddress: (stop as any).notes ?? stop.id,
+              vehicleId:  config.vehicleId,
+              message:    redAlerts.map(b => b.alert.message).join('; '),
+            }).catch(() => {});
+          }
+        }
+      } catch {
+        // bridge pre-check is always non-fatal
+      }
+    })();
   } catch (err) {
     reply.code(500).send(fail((err as Error).message, t0));
   }

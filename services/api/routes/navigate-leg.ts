@@ -270,7 +270,37 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
         (await routeViaGeoapify(fromLat, fromLng, toLat, toLng, vehicleId)) ??
         routeHaversineStub(fromLat, fromLng, toLat, toLng);
 
-      return reply.send({ ok: true, data: route });
+      // Navigation guard — non-fatal restriction warnings for each step
+      let guardWarnings: { stepIndex: number; severity: string; title: string; message: string }[] = [];
+      try {
+        const { guardNavigation } = await import('../../../services/_incubator/navigation-guard/index.js' as any);
+        const profile = VEHICLE_PROFILES[vehicleId];
+        if (profile) {
+          const vehicleForGuard = {
+            vehicleType: vehicleId,
+            height: profile.heightM,
+            weight: profile.gvwT,
+            width:  profile.widthM,
+            length: (profile as any).lengthM,
+          };
+          route.steps.forEach((step, i) => {
+            const action = (step.maneuver === 'turn-left' || step.maneuver === 'turn-right'
+              ? step.maneuver.replace('-', '_')
+              : step.maneuver === 'u-turn' ? 'u_turn'
+              : step.maneuver === 'arrive' ? 'arrive' : 'continue') as any;
+            const result = guardNavigation({ action, road: step.instruction, distance: step.distanceM }, vehicleForGuard);
+            if (!result.safe) {
+              guardWarnings = guardWarnings.concat(
+                result.warnings.map((w: any) => ({ stepIndex: i, severity: w.severity, title: w.title, message: w.message })),
+              );
+            }
+          });
+        }
+      } catch {
+        // guard is incubator code — never fail the route response
+      }
+
+      return reply.send({ ok: true, data: { ...route, guardWarnings } });
     },
   );
 };
