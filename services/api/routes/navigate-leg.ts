@@ -275,7 +275,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
       // Navigation guard — non-fatal restriction warnings for each step
       let guardWarnings: { stepIndex: number; severity: string; title: string; message: string }[] = [];
       try {
-        const { guardNavigation } = await import('../../../services/_incubator/navigation-guard/index.js' as any);
+        const { guardNavigation } = await import('../../../services/_incubator/navigation-guard/index.js');
         const profile = VEHICLE_PROFILES[vehicleId];
         if (profile) {
           // Use custom height if driver set one (e.g. artic trailer override)
@@ -312,7 +312,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
               ? step.maneuver.replace('-', '_')
               : step.maneuver === 'u-turn' ? 'u_turn'
               : step.maneuver === 'arrive' ? 'arrive' : 'continue') as any;
-            const result = guardNavigation({ action, road: step.instruction, distance: step.distanceM }, vehicleForGuard, roadRestrictions);
+            const result = guardNavigation({ action, road: step.instruction, distance: step.distanceM }, vehicleForGuard, roadRestrictions as any[]);
             if (!result.safe) {
               guardWarnings = guardWarnings.concat(
                 result.warnings.map((w: any) => ({ stepIndex: i, severity: w.severity, title: w.title, message: w.message })),

@@ -230,17 +230,8 @@ async function updateConsensusForAddress(addressHash: string): Promise<void> {
   await pool.query(
     `UPDATE stops
      SET access_notes = $1, updated_at = NOW()
-     WHERE (SELECT normalise_address(address)) = $2
+     WHERE LOWER(REGEXP_REPLACE(address, '[^a-zA-Z0-9 ]', '', 'g')) = $2
        AND access_notes IS DISTINCT FROM $1`,
     [note, addressHash],
-  ).catch(async () => {
-    // normalise_address() function may not exist — fall back to ILIKE match
-    await pool.query(
-      `UPDATE stops
-       SET access_notes = $1, updated_at = NOW()
-       WHERE LOWER(REGEXP_REPLACE(address, '[^a-zA-Z0-9 ]', '', 'g')) = $2
-         AND access_notes IS DISTINCT FROM $1`,
-      [note, addressHash],
-    );
-  });
+  );
 }

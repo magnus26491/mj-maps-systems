@@ -3,14 +3,8 @@
 -- PostGIS ST_DWithin for correctness and index use.
 -- Idempotent — safe to re-run.
 --
--- Requires: migration 022 (PostGIS + idx_stops_geom) must have run first.
+-- Requires: migration 022 (PostGIS + idx_geocode_pins_geom) must have run first.
 -- If PostGIS is not available this migration is a no-op (no table changes).
-
--- Create a materialised view for community pin scores so the dispatcher
--- analytics query stays fast even with millions of rows.
---
--- Clustered within 50 m: stops that share a pin area are considered the
--- same delivery point for scoring purposes.
 
 DO $$
 BEGIN
@@ -20,12 +14,21 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Drop + recreate is safe because this is a VIEW, not a base table
+  -- geom column must exist (added by 022) — double-check
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'geocode_pins' AND column_name = 'geom'
+  ) THEN
+    RAISE NOTICE '025: geocode_pins.geom column not found — skipping (run 022 with PostGIS first)';
+    RETURN;
+  END IF;
+
+  -- Drop + recreate is safe because this is a VIEW, not a base table.
+  -- Note: geocode_pins has no stop_id column; joins happen via stops.geocode_pin_id.
   EXECUTE $sql$
     CREATE OR REPLACE VIEW community_pin_scores AS
     SELECT
       p.id                                AS pin_id,
-      p.stop_id,
       p.lat,
       p.lng,
       p.confidence,
@@ -39,14 +42,19 @@ BEGIN
                 neighbour.geom::geography,
                 50           -- 50 metre cluster radius
               )
-    GROUP BY p.id, p.stop_id, p.lat, p.lng, p.confidence
+    GROUP BY p.id, p.lat, p.lng, p.confidence
   $sql$;
 
   RAISE NOTICE '025: community_pin_scores view created/updated';
-END
-$$;
 
--- Index to speed up the ST_DWithin join on geocode_pins.geom
--- (idx_geocode_pins_geom was created in 022; this is a safety net)
-CREATE INDEX IF NOT EXISTS idx_geocode_pins_geom_spatial
-  ON geocode_pins USING GIST(geom);
+  -- Safety-net index (idx_geocode_pins_geom was created in 022)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'geocode_pins' AND indexname = 'idx_geocode_pins_geom_spatial'
+  ) THEN
+    EXECUTE 'CREATE INDEX idx_geocode_pins_geom_spatial ON geocode_pins USING GIST(geom)';
+  END IF;
+
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING '025: spatial view/index skipped: %', SQLERRM;
+END $$;

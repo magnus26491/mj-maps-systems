@@ -25,7 +25,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyCompress from '@fastify/compress';
-import { registerWebRoutes } from './web-serving';
+import { registerWebRoutes } from './web-serving.js';
 import { z } from 'zod';
 import {
   handleOptimiseRoute,
@@ -36,13 +36,13 @@ import {
   handleHealth,
   handleRouteAlerts,
   handleRouteAlertsRed,
-} from './driver-api';
-import { resolveTurnScore } from '../turn-engine/src/resolver';
-import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index';
-import { confirmPinRoute } from './routes/confirm-pin';
-import { mapConfigRoute } from './routes/map-config';
-import { autocompleteRoute } from './routes/autocomplete';
-import { authRoutes } from './routes/auth';
+} from './driver-api.js';
+import { resolveTurnScore } from '../turn-engine/src/resolver.js';
+import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index.js';
+import { confirmPinRoute } from './routes/confirm-pin.js';
+import { mapConfigRoute } from './routes/map-config.js';
+import { autocompleteRoute } from './routes/autocomplete.js';
+import { authRoutes } from './routes/auth.js';
 import { podRoute } from './routes/pod.js';
 import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
