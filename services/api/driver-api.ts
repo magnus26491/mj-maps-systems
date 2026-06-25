@@ -20,6 +20,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { optimiseRoute, type Stop, type RouteConfig } from '../route-engine/route-engine';
 import { buildRouteIntelligence, type StopIntelligenceInput } from '../property-engine/stop-intelligence';
 import { processDriverEvent, createSession, getSession, type DriverEvent } from '../route-engine/dynamic-replan';
+import { runRoutingPipeline } from '../routing/provider.js';
 import {
   buildAlertEvents,
   getRedEvents,
@@ -108,7 +109,62 @@ export async function handleOptimiseRoute(
     }
 
     // 1. Optimise stop order
-    const result = await optimiseRoute(stops, config);
+    // Try the external routing pipeline (OSRM + OR-Tools + Valhalla).
+    // Falls back per-step when env URLs are unset so behaviour is identical
+    // to pre-Stage-2 when no engines are configured.
+    let routingTimings: { matrixMs: number; solveMs: number; maneuverMs: number; totalMs: number } | undefined;
+    let routingManeuvers: unknown | undefined;
+    let routingSources: { matrix: string; solver: string; maneuvers: string } | undefined;
+
+    const OSRM_URL = process.env.OSRM_URL;
+    const ROUTE_SOLVER_URL = process.env.ROUTE_SOLVER_URL;
+    const useExternalPipeline = !!(OSRM_URL || ROUTE_SOLVER_URL);
+
+    let result = await optimiseRoute(stops, config);
+
+    if (useExternalPipeline) {
+      try {
+        const pipelineInput = {
+          depot: { lat: config.depotLat, lng: config.depotLng },
+          stops: stops.map(s => ({
+            id: s.id,
+            lat: s.lat,
+            lng: s.lng,
+            serviceSeconds: (s as any).serviceMinutes ? (s as any).serviceMinutes * 60 : 300,
+            timeWindowOpen: s.timeWindow?.earliestEpoch,
+            timeWindowClose: s.timeWindow?.latestEpoch,
+            priority: (s as any).priority ?? 0,
+          })),
+          vehicleConstraints: {
+            vehicleId: config.vehicleId,
+            heightM: config.vehicleHeightM,
+            widthM: undefined,
+            lengthM: config.vehicleLengthM,
+            weightKg: config.vehicleGvwKg,
+          },
+          shiftStartEpoch: config.shiftStartEpoch,
+          departAt: config.shiftStartEpoch ? new Date(config.shiftStartEpoch * 1000) : new Date(),
+        };
+
+        const pipelineResult = await runRoutingPipeline(pipelineInput);
+        routingTimings = pipelineResult.timings;
+        routingManeuvers = pipelineResult.maneuvers;
+        routingSources = pipelineResult.sources;
+
+        // Re-order the TS result's orderedStops to match the pipeline sequence
+        if (pipelineResult.orderedIds.length === stops.length) {
+          const stopMap = new Map(result.orderedStops.map(s => [s.id, s]));
+          const reordered = pipelineResult.orderedIds
+            .map(id => stopMap.get(id))
+            .filter((s): s is Stop => s !== undefined);
+          if (reordered.length === result.orderedStops.length) {
+            result = { ...result, orderedStops: reordered };
+          }
+        }
+      } catch (pipelineErr) {
+        console.warn('[routing] Pipeline failed, using TS-only result:', (pipelineErr as Error).message);
+      }
+    }
 
     // 2. Generate a stable routeId for this run
     const routeId = generateRouteId(
@@ -120,8 +176,14 @@ export async function handleOptimiseRoute(
     // 3. Create live session for dynamic replanning
     createSession(routeId, 'driver', stops, config);
 
-    // 4. Return result to client immediately — don’t wait for enrichment
-    reply.send(ok({ routeId, ...result }, t0));
+    // 4. Return result to client immediately — don't wait for enrichment
+    reply.send(ok({
+      routeId,
+      ...result,
+      ...(routingTimings ? { durationMs: routingTimings } : {}),
+      ...(routingManeuvers ? { maneuvers: routingManeuvers } : {}),
+      ...(routingSources ? { routingSources } : {}),
+    }, t0));
 
     // 4b. Workload guard (fire-and-forget, runs after reply is sent)
     (async () => {

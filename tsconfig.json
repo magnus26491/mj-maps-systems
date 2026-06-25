@@ -33,6 +33,7 @@
     "services/route-engine/**/*",
     "services/storage/**/*",
     "services/turn-engine/**/*",
+    "services/routing/**/*",
     "__tests__/**/*"
   ],
   "exclude": [
