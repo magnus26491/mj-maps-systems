@@ -4,7 +4,7 @@
 -- Driver experience feedback table
 CREATE TABLE IF NOT EXISTS driver_experience_feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    driver_id UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+    driver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     route_id UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
     
     -- Overall experience

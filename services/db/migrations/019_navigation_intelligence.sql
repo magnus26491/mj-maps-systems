@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS navigation_route_decisions (
     
     -- Route context
     route_id UUID REFERENCES routes(id) ON DELETE SET NULL,
-    driver_id UUID REFERENCES drivers(id) ON DELETE SET NULL,
+    driver_id UUID REFERENCES users(id) ON DELETE SET NULL,
     
     -- Decision metadata
     decision_type VARCHAR(20) NOT NULL CHECK (decision_type IN (

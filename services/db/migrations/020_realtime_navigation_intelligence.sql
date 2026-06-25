@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS restriction_discoveries (
     
     -- Verification
     verified BOOLEAN NOT NULL DEFAULT FALSE,
-    verified_by UUID REFERENCES drivers(id) ON DELETE SET NULL,
+    verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
     verified_at TIMESTAMPTZ,
     
     -- Timestamps
