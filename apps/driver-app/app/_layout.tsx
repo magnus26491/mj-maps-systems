@@ -29,6 +29,8 @@ import { apiRegisterFcmToken } from '../lib/api';
 import { setupShiftNotificationChannel } from '../modules/shiftNotification';
 import { usePodDrain } from '../hooks/usePodDrain';
 import { useTokenRefresh } from '../hooks/useTokenRefresh';
+import { LocaleProvider } from '../components/LocaleProvider';
+import { PermissionGate } from '../components/PermissionGate';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -149,20 +151,23 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
-          <AuthGuard>
-            <FcmRegistrar>
-              <ShiftAwareProviders>
-                <Stack
-                  screenOptions={{
-                    headerShown:  false,
-                    animation:    'slide_from_right',
-                    contentStyle: { backgroundColor: '#0f1923' },
-                  }}
-                />
-              </ShiftAwareProviders>
-            </FcmRegistrar>
-          </AuthGuard>
+          <LocaleProvider>
+            <StatusBar style="light" />
+            <AuthGuard>
+              <FcmRegistrar>
+                <ShiftAwareProviders>
+                  <Stack
+                    screenOptions={{
+                      headerShown:  false,
+                      animation:    'slide_from_right',
+                      contentStyle: { backgroundColor: '#0f1923' },
+                    }}
+                  />
+                  <PermissionGate />
+                </ShiftAwareProviders>
+              </FcmRegistrar>
+            </AuthGuard>
+          </LocaleProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

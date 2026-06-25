@@ -27,19 +27,21 @@ import { SlideToConfirm } from '../components/SlideToConfirm';
 import { ShiftProgressBar } from '../components/ShiftProgressBar';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
 import { useAuthStore } from '../lib/auth';
+import { useLocale } from '../components/LocaleProvider';
 
 // ─── Lifecycle greeting helper ─────────────────────────────────────────────────
-// "Good morning {name}" fires ONLY on ROUTE_PREPARED → READY_TO_GO transition
-function getTimeGreeting(): string {
+type GreetingKey = 'voice_good_morning' | 'voice_good_afternoon' | 'voice_good_evening';
+function getGreetingKey(): GreetingKey {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return 'voice_good_morning';
+  if (hour < 17) return 'voice_good_afternoon';
+  return 'voice_good_evening';
 }
 
 function HudInner() {
   const { colors } = useTheme();
   const { isDriving } = useDrivingMode();
+  const { speechLang, t } = useLocale();
   const shift        = useShiftStore(s => s.shift);
   const currentStop = useShiftStore(s => s.currentStop);
   const completeStop = useShiftStore(s => s.completeStop);
@@ -58,13 +60,13 @@ function HudInner() {
     if (shift && currentStop && !hasGreeted.current) {
       hasGreeted.current = true;
       const driverName = user?.name?.split(' ')[0] || 'driver';
-      const greeting = `${getTimeGreeting()} ${driverName}. Your route is ready with ${shift.totalStops} stops. Let's go!`;
-      
+      const greeting = `${t(getGreetingKey())} ${driverName}. ${t('voice_route_ready', { n: shift.totalStops })}`;
+
       if (Platform.OS !== 'web') {
-        Speech.speak(greeting, { language: 'en-GB', rate: 0.95 });
+        Speech.speak(greeting, { language: speechLang, rate: 0.95 });
       }
     }
-  }, [shift, currentStop, user]);
+  }, [shift, currentStop, user, speechLang]);
 
   useEffect(() => {
     if (!alert || alert === lastAlert) return;
@@ -73,14 +75,10 @@ function HudInner() {
     if (alert === 'RED') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Vibration.vibrate(Platform.OS === 'android' ? [0, 300, 100, 300] : 400);
-      Speech.speak('Warning. Do not enter. Vehicle too large to turn around.', {
-        language: 'en-GB', rate: 1.1,
-      });
+      Speech.speak(t('voice_turn_warning'), { language: speechLang, rate: 1.1 });
     } else if (alert === 'AMBER') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Speech.speak('Caution. Tight ahead. Turn around may be difficult.', {
-        language: 'en-GB', rate: 1.0,
-      });
+      Speech.speak(t('voice_tight_road'), { language: speechLang, rate: 1.0 });
     }
 
     Animated.sequence([
