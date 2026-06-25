@@ -22,11 +22,12 @@ import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index.js';
 import { getRoadContext } from '../../osm/overpass-client.js';
 
 const BodySchema = z.object({
-  fromLat:   z.number(),
-  fromLng:   z.number(),
-  toLat:     z.number(),
-  toLng:     z.number(),
-  vehicleId: z.string().default('lwb_van'),
+  fromLat:       z.number(),
+  fromLng:       z.number(),
+  toLat:         z.number(),
+  toLng:         z.number(),
+  vehicleId:     z.string().default('lwb_van'),
+  customHeightM: z.number().min(1.0).max(6.0).optional(),
 });
 
 interface NavStep {
@@ -264,7 +265,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send({ ok: false, error: parsed.error.message });
       }
 
-      const { fromLat, fromLng, toLat, toLng, vehicleId } = parsed.data;
+      const { fromLat, fromLng, toLat, toLng, vehicleId, customHeightM } = parsed.data;
 
       const route =
         (await routeViaValhalla(fromLat, fromLng, toLat, toLng, vehicleId)) ??
@@ -277,6 +278,9 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
         const { guardNavigation } = await import('../../../services/_incubator/navigation-guard/index.js' as any);
         const profile = VEHICLE_PROFILES[vehicleId];
         if (profile) {
+          // Use custom height if driver set one (e.g. artic trailer override)
+          const effectiveHeightM = customHeightM ?? profile.heightM;
+
           // Fetch real road restrictions for the destination segment (5s timeout)
           type RoadRestriction = { type: string; value?: string; description: string };
           let roadRestrictions: RoadRestriction[] = [];
@@ -289,7 +293,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
               const road = ctx.road;
               if (road.maxWeightT != null && road.maxWeightT < profile.gvwT)
                 roadRestrictions.push({ type: 'weight', value: `${road.maxWeightT}t`, description: `${road.name ?? 'Road'} — max weight ${road.maxWeightT}t` });
-              if (road.maxHeightM != null && road.maxHeightM < profile.heightM)
+              if (road.maxHeightM != null && road.maxHeightM < effectiveHeightM)
                 roadRestrictions.push({ type: 'height', value: `${road.maxHeightM}m`, description: `${road.name ?? 'Road'} — max height ${road.maxHeightM}m` });
               if (road.access && road.access !== 'yes' && road.access !== 'public')
                 roadRestrictions.push({ type: 'access', description: `Access restricted: ${road.access}` });
@@ -298,7 +302,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
 
           const vehicleForGuard = {
             vehicleType: vehicleId,
-            height: profile.heightM,
+            height: effectiveHeightM,
             weight: profile.gvwT,
             width:  profile.widthM,
             length: (profile as any).lengthM,

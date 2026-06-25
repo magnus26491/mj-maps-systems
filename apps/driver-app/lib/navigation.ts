@@ -38,6 +38,7 @@ export async function fetchNavRoute(
   fromLat: number, fromLng: number,
   toLat:   number, toLng:   number,
   vehicleId: string,
+  customHeightM?: number | null,
 ): Promise<NavRoute | null> {
   const token = await SecureStore.getItemAsync('mj_jwt');
 
@@ -47,7 +48,10 @@ export async function fetchNavRoute(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ fromLat, fromLng, toLat, toLng, vehicleId }),
+    body: JSON.stringify({
+      fromLat, fromLng, toLat, toLng, vehicleId,
+      ...(customHeightM != null ? { customHeightM } : {}),
+    }),
   });
 
   if (!res.ok) return null;

@@ -60,7 +60,8 @@ interface UseNavigationResult {
 }
 
 export function useNavigation(): UseNavigationResult {
-  const vehicleId  = useShiftStore(s => s.vehicleId);
+  const vehicleId     = useShiftStore(s => s.vehicleId);
+  const customHeightM = useShiftStore(s => s.customHeightM);
   const [route,    setRoute]      = useState<NavRoute | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -127,6 +128,7 @@ export function useNavigation(): UseNavigationResult {
       fromLat, fromLng,
       toLat, toLng,
       vehicleId ?? 'lwb_van',
+      customHeightM,
     );
 
     if (!navRoute) {
@@ -165,6 +167,7 @@ export function useNavigation(): UseNavigationResult {
             loc.latitude, loc.longitude,
             destLat.current!, destLng.current!,
             vehicleId ?? 'lwb_van',
+            customHeightM,
           ).then(newRoute => {
             if (newRoute) {
               routeRef.current = newRoute;

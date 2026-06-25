@@ -48,11 +48,13 @@ export interface Vehicle {
 
 interface ShiftState {
   // ── Auth / identity ──────────────────────────────────────────────────────
-  token:       string | null;
-  driverId:    string | null;
-  vehicleId:   string | null;
-  vehicle:     Vehicle | null;
-  setAuth:     (token: string, driverId: string) => void;
+  token:          string | null;
+  driverId:       string | null;
+  vehicleId:      string | null;
+  vehicle:        Vehicle | null;
+  customHeightM:  number | null;
+  setAuth:        (token: string, driverId: string) => void;
+  setCustomHeight: (m: number | null) => void;
 
   // ── Shift ─────────────────────────────────────────────────────────────────
   isActive:    boolean;
@@ -90,12 +92,14 @@ const afterPending = (stops: DeliveryStop[], excludeId?: string) =>
 // ─── Store ────────────────────────────────────────────────────────────────────
 export const useShiftStore = create<ShiftState>((set, get) => ({
   // Auth
-  token:    null,
-  driverId: null,
-  vehicleId: null,
-  vehicle:   null,
+  token:         null,
+  driverId:      null,
+  vehicleId:     null,
+  vehicle:       null,
+  customHeightM: null,
 
   setAuth: (token, driverId) => set({ token, driverId }),
+  setCustomHeight: (m) => set({ customHeightM: m }),
 
   // Shift state
   isActive:     false,
@@ -149,7 +153,7 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   // ── endShift ───────────────────────────────────────────────────────────────
   endShift: () => set({
     isActive: false, shift: null, stops: [],
-    currentStop: null, nextStop: null, vehicleId: null,
+    currentStop: null, nextStop: null, vehicleId: null, customHeightM: null,
   }),
 
   // ── setStops ───────────────────────────────────────────────────────────────

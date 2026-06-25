@@ -3,7 +3,9 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-config.watchFolders = [__dirname];
+// Include monorepo root so packages/* and services/* can be imported via relative paths
+const monorepoRoot = path.resolve(__dirname, '../..');
+config.watchFolders = [__dirname, monorepoRoot];
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, 'node_modules'),
 ];
