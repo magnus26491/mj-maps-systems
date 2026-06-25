@@ -151,6 +151,26 @@ export const apiGetDriverRoute = (routeId: string) =>
     `/api/v1/driver/routes/${encodeURIComponent(routeId)}`,
   );
 
+// ── Points of Interest ────────────────────────────────────────────────────────
+export interface FuelStation {
+  id: string; lat: number; lng: number;
+  name: string | null; brand: string | null; openingHours: string | null;
+}
+export interface EVCharger {
+  id: string; lat: number; lng: number;
+  name: string | null; network: string | null;
+  capacity: number | null; maxKw: number | null;
+  sockets: string[]; freeToUse: boolean | null;
+}
+export interface POIData {
+  fuel: FuelStation[]; evCharging: EVCharger[]; radiusM: number; cachedAt: string;
+}
+
+export const apiGetPOIs = (lat: number, lng: number, radiusM = 3000) =>
+  apiFetch<{ ok: boolean; data: POIData }>(
+    `/api/v1/pois?lat=${lat}&lng=${lng}&radius=${radiusM}`,
+  );
+
 // ── Generic API client (for DeleteAccountModal) ─────────────────────────────
 interface ApiClient {
   delete: (path: string, token: string | null) => Promise<{ ok: boolean; json: () => Promise<{ message?: string }> }>;
