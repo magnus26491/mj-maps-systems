@@ -17,16 +17,16 @@ COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
 RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
 COPY apps/driver-app/ .
-ENV EXPO_PUBLIC_API_URL=https://api.mjmapsystems.com
+ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 RUN npx expo export --platform web --clear
 RUN ls -la dist/ 2>/dev/null || echo "Driver dist empty"
 
-# ── Stage 3: Build Dispatcher Dashboard ─────────────────────
+# ── Stage 3: Build Dispatcher Console ───────────────────────
 FROM node:20-alpine AS dispatcher-builder
 WORKDIR /dispatcher
-COPY apps/dispatcher-dashboard/package.json apps/dispatcher-dashboard/package-lock.json* ./
+COPY apps/dispatcher-console/package.json apps/dispatcher-console/package-lock.json* ./
 RUN npm install --legacy-peer-deps
-COPY apps/dispatcher-dashboard/ .
+COPY apps/dispatcher-console/ .
 RUN npm run build
 
 # ── Stage 4: Build Landing Page ───────────────────────────────
