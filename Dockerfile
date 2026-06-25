@@ -29,6 +29,7 @@ WORKDIR /dispatcher
 COPY apps/dispatcher-console/package.json apps/dispatcher-console/package-lock.json* ./
 RUN npm install --legacy-peer-deps
 COPY apps/dispatcher-console/ .
+ENV NEXT_EXPORT=1
 RUN npm run build
 
 # ── Stage 4: Build Landing Page ───────────────────────────────
