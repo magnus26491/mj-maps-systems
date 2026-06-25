@@ -33,6 +33,7 @@ import {
 } from '../turn-engine/src/enrichment-pipeline';
 import { triggerEtaNotifications } from '../notifications/eta-notifier.js';
 import { getAccessBrief } from '../db/failed-store.js';
+import { enrichStopDoorPins } from '../geocoding/stop-intake.js';
 import { scoreShiftWorkload, type WorkloadInput } from '../workload/shift-load-scorer.js';
 import {
   triggerFcmDeliveredPush,
@@ -235,6 +236,11 @@ export async function handleOptimiseRoute(
 
     // 5. Enrich in background (fire-and-forget, never throws to HTTP layer)
     enrichRouteBackground(result.orderedStops, config.vehicleId, routeId);
+
+    // 6. Geocode door pins in background (fire-and-forget)
+    enrichStopDoorPins(stops).catch(err =>
+      console.warn('[geocoding] enrichStopDoorPins failed (non-fatal):', (err as Error).message),
+    );
   } catch (err) {
     reply.code(500).send(fail((err as Error).message, t0));
   }

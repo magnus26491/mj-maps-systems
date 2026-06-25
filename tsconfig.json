@@ -34,6 +34,7 @@
     "services/storage/**/*",
     "services/turn-engine/**/*",
     "services/routing/**/*",
+    "services/geocoding/**/*",
     "__tests__/**/*"
   ],
   "exclude": [
