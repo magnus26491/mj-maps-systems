@@ -46,7 +46,7 @@ export function getMimeType(filePath: string): string {
 }
 
 export function resolveSafePath(requestedPath: string, rootDir: string): string | null {
-  const normalised = path.normalize(requestedPath).replace(/^(\.\.(\/|\\))+/, '');
+  const normalised = path.normalize(requestedPath).replace(/^(\.\.(\\/|\\))+/, '');
   const absolute   = path.resolve(rootDir, normalised);
   if (!absolute.startsWith(path.resolve(rootDir))) return null;
   return absolute;
@@ -68,6 +68,7 @@ function sendFile(reply: FastifyReply, absPath: string, maxAge = 86400): void {
     .header('Content-Type', getMimeType(absPath))
     .header('Cache-Control', `public, max-age=${maxAge}`)
     .header('X-Content-Type-Options', 'nosniff')
+    .header('x-no-compression', '1')
     .code(200)
     .send(content);
 }
@@ -81,6 +82,7 @@ async function serveSpa(reply: FastifyReply, rootDir: string): Promise<void> {
   reply
     .header('Content-Type', 'text/html; charset=utf-8')
     .header('Cache-Control', 'public, max-age=60')
+    .header('x-no-compression', '1')
     .code(200)
     .send(fs.readFileSync(indexPath));
 }
