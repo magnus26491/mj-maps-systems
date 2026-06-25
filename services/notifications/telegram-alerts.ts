@@ -242,3 +242,39 @@ export async function sendWorkloadOverloadAlert(payload: WorkloadAlertPayload): 
     payload.safeStopCount,
   ).catch(() => {});
 }
+
+// ── Safety event alert (Stage 9) ──────────────────────────────────────────────
+
+export interface SafetyAlertPayload {
+  driverId: string | null;
+  type: string;
+  severity: string;
+  note: string;
+  lat?: number;
+  lng?: number;
+  routeId?: string;
+  stopId?: string;
+}
+
+export async function sendSafetyAlert(payload: SafetyAlertPayload): Promise<void> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
+  const dispatcherChatId = process.env.TELEGRAM_DISPATCHER_CHAT_ID ?? '';
+  if (!botToken || !dispatcherChatId) return;
+
+  const icon = payload.severity === 'CRITICAL' || payload.type === 'EMERGENCY' ? '🆘' :
+               payload.severity === 'HIGH' ? '⚠️' : 'ℹ️';
+
+  const locationStr = payload.lat && payload.lng
+    ? `\nLocation: ${payload.lat.toFixed(5)}, ${payload.lng.toFixed(5)}`
+    : '';
+
+  const message =
+    `${icon} SAFETY EVENT — ${payload.type}\n\n` +
+    `Severity: ${payload.severity}\n` +
+    `Driver: ${payload.driverId ?? 'unknown'}` +
+    locationStr +
+    (payload.note ? `\nNote: ${payload.note}` : '') +
+    (payload.routeId ? `\nRoute: ${payload.routeId}` : '');
+
+  await sendTelegramMessage(botToken, dispatcherChatId, message);
+}

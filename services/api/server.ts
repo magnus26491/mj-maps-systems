@@ -54,6 +54,10 @@ import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
 import { locationRoute } from './routes/location.js';
 import { pinCorrectionRoute } from './routes/pin-correction.js';
+import { navigateLegRoute } from './routes/navigate-leg.js';
+import { stopConfidenceRoute } from './routes/stop-confidence.js';
+import { stopLifecycleRoutes } from './routes/stop-lifecycle.js';
+import { safetyRoutes } from './routes/safety.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -180,6 +184,10 @@ const start = async () => {
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
   await server.register(locationRoute);
+  await server.register(navigateLegRoute);
+  await server.register(stopConfidenceRoute);
+  await server.register(stopLifecycleRoutes);
+  await server.register(safetyRoutes);
 
   server.get('/api/v1/health', handleHealth as any);
 
