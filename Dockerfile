@@ -17,12 +17,18 @@ FROM node:20-alpine AS driver-builder
 WORKDIR /app/apps/driver-app
 COPY apps/driver-app/package.json apps/driver-app/package-lock.json* ./
 COPY apps/driver-app/scripts/ ./scripts/
-RUN npm install --legacy-peer-deps
-RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
+# --ignore-scripts skips native postinstall scripts (pod-install, gyp) that
+# crash on Alpine; we run stub-react-native.js explicitly below
+RUN npm install --legacy-peer-deps --ignore-scripts
+RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save --ignore-scripts
 COPY apps/driver-app/ .
 # Only copy the packages the driver app actually imports via relative paths
 COPY packages/vehicle-profiles/ /app/packages/vehicle-profiles/
 ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
+# stub-react-native.js patches react-native internals for web; run it explicitly
+# after --ignore-scripts so native-only postinstall scripts (pod-install, etc.)
+# don't crash on Alpine Linux
+RUN node scripts/stub-react-native.js
 RUN npx expo export --platform web --clear
 # Expo's static renderer strips ALL <script> tags from +html.tsx.
 # public/polyfill.js is copied to dist/ by expo export.
@@ -47,7 +53,7 @@ WORKDIR /landing
 COPY packages/plans/ /packages/plans/
 # Install and build
 COPY apps/landing/package.json apps/landing/package-lock.json* ./
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 COPY apps/landing/ .
 # Make packages available at the resolved path
 COPY packages/ /packages/
