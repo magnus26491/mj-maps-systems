@@ -219,10 +219,22 @@ export async function registerWebRoutes(server: any): Promise<void> {
     await serveAstroPage(reply, '/');
   });
 
-  // Landing static assets (Astro emits to _assets/)
+  // Landing static assets (Astro emits content-hashed files to _assets/)
   server.get('/_assets/*', async (request: any, reply: FastifyReply) => {
     const subPath = request.url.split('?')[0].replace(/^\/_assets\//, '');
-    await safeServeFile(reply, `_assets/${subPath}`, LANDING_ROOT);
+    const filePath = `_assets/${subPath}`;
+    const safePath = resolveSafePath(filePath, LANDING_ROOT);
+    if (!safePath || !fileExists(safePath)) {
+      reply.code(404).send('Not Found');
+      return;
+    }
+    const content = readFileSafe(safePath);
+    if (!content) { reply.code(500).send('Internal Server Error'); return; }
+    reply
+      .header('Content-Type', getMimeType(safePath))
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('X-Content-Type-Options', 'nosniff')
+      .code(200).send(content);
   });
 
   // Root-level static files (favicon, robots, sitemap, OG image)
