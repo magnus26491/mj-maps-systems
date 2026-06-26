@@ -28,12 +28,14 @@ RUN npx expo export --platform web --clear
 RUN sed -i 's|<link rel="shortcut icon"|<script src="/driver/polyfill.js"></script><link rel="shortcut icon"|' dist/index.html
 RUN ls -la dist/ 2>/dev/null || echo "Driver dist empty"
 
-# ── Stage 3: Dispatcher Console (static HTML — no build needed) ─
+# ── Stage 3: Build Dispatcher Console ───────────────────────
 FROM node:20-alpine AS dispatcher-builder
 WORKDIR /dispatcher
-COPY apps/dispatcher-console/index.html ./dist/
-COPY apps/dispatcher-console/app.js ./dist/
-COPY apps/dispatcher-console/style.css ./dist/
+COPY apps/dispatcher-console/package.json apps/dispatcher-console/package-lock.json* ./
+RUN npm install --legacy-peer-deps
+COPY apps/dispatcher-console/ .
+ENV NEXT_EXPORT=1
+RUN npm run build
 
 # ── Stage 4: Build Landing Page ───────────────────────────────
 FROM node:20-alpine AS landing-builder
