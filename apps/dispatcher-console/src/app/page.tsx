@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Map, Bell, LayoutList, RefreshCw, Settings, Truck } from 'lucide-react';
+import { Bell, LayoutList, RefreshCw, LogOut } from 'lucide-react';
 import { FleetOverview } from '@/components/FleetOverview';
 import { AlertFeed } from '@/components/AlertFeed';
 import { RoutePanel } from '@/components/RoutePanel';
 import { useActiveRoutes, useFleetStats, useRouteDetail } from '@/hooks/useFleetData';
 import { useAlerts } from '@/hooks/useAlerts';
+import { isLoggedIn, logout } from '@/lib/auth';
 import clsx from 'clsx';
 
 // Leaflet must be dynamically imported (no SSR)
@@ -21,6 +22,23 @@ type RightPanel = 'alerts' | 'route';
 export default function DispatcherDashboard() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<RightPanel>('alerts');
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      window.location.href = '/dispatcher/login';
+    } else {
+      setAuthChecked(true);
+    }
+  }, []);
+
+  if (!authChecked) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[#0d1117]">
+        <div className="text-zinc-600 text-sm">Checking access…</div>
+      </div>
+    );
+  }
 
   const { routes, isLoading: routesLoading, refresh: refreshRoutes } = useActiveRoutes();
   const { stats, isLoading: statsLoading } = useFleetStats();
@@ -74,6 +92,15 @@ export default function DispatcherDashboard() {
             aria-label="Refresh"
           >
             <RefreshCw size={15} />
+          </button>
+
+          <button
+            onClick={() => logout()}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut size={15} />
           </button>
         </div>
       </header>

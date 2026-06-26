@@ -363,6 +363,44 @@ const start = async () => {
     async (_request, reply) => reply.send({ ok: true, data: {} }),
   );
 
+  // ── Admin setup (one-time, protected by ADMIN_SETUP_SECRET) ──────────────────
+  // Used to create the initial admin account. Disabled once ADMIN_SETUP_SECRET is unset.
+  server.post('/api/v1/admin/setup', async (request, reply) => {
+    const setupSecret = process.env.ADMIN_SETUP_SECRET;
+    if (!setupSecret) {
+      return reply.code(404).send({ error: 'Not found' });
+    }
+
+    const parsed = z.object({
+      secret:   z.string().min(1),
+      email:    z.string().email(),
+      password: z.string().min(8),
+    }).safeParse(request.body);
+
+    if (!parsed.success || parsed.data.secret !== setupSecret) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const { email, password } = parsed.data;
+    const { hashPassword } = await import('../auth/index.js');
+    const { getPool }      = await import('../db/index.js');
+
+    const hash = await hashPassword(password);
+    const { rows } = await getPool().query(
+      `INSERT INTO users (email, password_hash, role, plan_id, is_active)
+       VALUES ($1, $2, 'admin', 'custom', true)
+       ON CONFLICT (email) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         role          = 'admin',
+         plan_id       = 'custom',
+         is_active     = true
+       RETURNING id, email, role, plan_id`,
+      [email, hash],
+    );
+
+    return reply.code(201).send({ ok: true, user: rows[0] });
+  });
+
   // ── WebSocket ──────────────────────────────────────────────────────────────────────
   server.register(async function wsRoutes(fastify: any) {
     fastify.get(

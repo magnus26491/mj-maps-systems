@@ -134,7 +134,7 @@ export async function registerWebRoutes(server: any): Promise<void> {
   }
 
   // Landing sub-pages
-  for (const page of ['/pricing', '/features', '/about', '/contact']) {
+  for (const page of ['/pricing', '/features', '/about', '/contact', '/login', '/register', '/signup']) {
     server.get(page, async (_req: any, reply: FastifyReply) => {
       await serveSpa(reply, LANDING_ROOT);
     });

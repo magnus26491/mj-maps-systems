@@ -1,12 +1,13 @@
 'use client';
 
 import useSWR from 'swr';
+import { authFetch } from '@/lib/auth';
 import type { ActiveRoute, FleetStats } from '@/types';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const fetcher = (url: string) =>
-  fetch(url).then((r) => {
+  authFetch(url).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   });
