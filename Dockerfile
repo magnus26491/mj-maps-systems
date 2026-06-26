@@ -21,6 +21,11 @@ COPY apps/driver-app/ .
 COPY packages/ /packages/
 ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 RUN npx expo export --platform web --clear
+# Expo's static renderer strips ALL <script> tags from +html.tsx.
+# public/polyfill.js is copied to dist/ by expo export.
+# Inject the <script src> into the generated index.html so it loads
+# synchronously (no defer) before the deferred Expo bundle.
+RUN sed -i 's|<link rel="shortcut icon"|<script src="/driver/polyfill.js"></script><link rel="shortcut icon"|' dist/index.html
 RUN ls -la dist/ 2>/dev/null || echo "Driver dist empty"
 
 # ── Stage 3: Build Dispatcher Console ───────────────────────
