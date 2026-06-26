@@ -31,6 +31,10 @@ google-play-service-account.json
 .eas/
 .expo/
 
+# Next.js build cache
+.next/
+*/.next/
+
 # Vite build output (dispatcher dashboard)
 apps/dispatcher-dashboard/dist/
 
