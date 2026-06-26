@@ -17,8 +17,9 @@ COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
 RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
 COPY apps/driver-app/ .
-# Monorepo packages referenced by relative imports (e.g. vehicle-profiles)
-COPY packages/ /packages/
+# Only copy the specific monorepo packages the driver app imports (vehicle-profiles).
+# Do NOT copy packages/plans — it uses TS module syntax Metro can't parse.
+COPY packages/vehicle-profiles/ /packages/vehicle-profiles/
 ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 RUN npx expo export --platform web --clear
 # Expo's static renderer strips ALL <script> tags from +html.tsx.
