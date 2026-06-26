@@ -11,15 +11,17 @@ RUN npm prune --omit=dev --legacy-peer-deps
 
 # ── Stage 2: Build Driver App Web (fully isolated) ────────────
 FROM node:20-alpine AS driver-builder
-WORKDIR /driver
+# Mirror the real monorepo layout: /app/apps/driver-app + /app/packages/*
+# This ensures metro.config.js path.resolve(__dirname,'../..') → /app (not /)
+# and Metro only watches /app instead of the entire container filesystem.
+WORKDIR /app/apps/driver-app
 COPY apps/driver-app/package.json apps/driver-app/package-lock.json* ./
 COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
 RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
 COPY apps/driver-app/ .
-# Only copy the specific monorepo packages the driver app imports (vehicle-profiles).
-# Do NOT copy packages/plans — it uses TS module syntax Metro can't parse.
-COPY packages/vehicle-profiles/ /packages/vehicle-profiles/
+# Only copy the packages the driver app actually imports via relative paths
+COPY packages/vehicle-profiles/ /app/packages/vehicle-profiles/
 ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 RUN npx expo export --platform web --clear
 # Expo's static renderer strips ALL <script> tags from +html.tsx.
@@ -62,7 +64,7 @@ COPY --from=api-builder /app/node_modules ./node_modules
 COPY --from=api-builder /app/dist ./dist
 
 # Copy from Driver builder
-COPY --from=driver-builder /driver/dist ./dist/apps/driver-app/dist
+COPY --from=driver-builder /app/apps/driver-app/dist ./dist/apps/driver-app/dist
 
 # Copy from Dispatcher builder
 COPY --from=dispatcher-builder /dispatcher/dist ./dist/dispatcher
