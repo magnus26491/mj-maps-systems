@@ -185,33 +185,70 @@ export async function registerWebRoutes(server: any): Promise<void> {
   const DRIVER_ROOT = 'dist/apps/driver-app/dist';
   const DISPATCHER_ROOT = 'dist/dispatcher';
   
+  // Helper: serve an Astro static page (directory routing: /foo → /foo/index.html)
+  async function serveAstroPage(reply: FastifyReply, subPath: string): Promise<void> {
+    if (!directoryExists(LANDING_ROOT)) {
+      reply.code(503).send('Landing page not built');
+      return;
+    }
+    // Try exact file
+    if (subPath && subPath !== '/') {
+      const clean = subPath.replace(/^\//, '');
+      const exact = resolveSafePath(clean, LANDING_ROOT);
+      if (exact && fileExists(exact)) {
+        const maxAge = /\.html$/.test(exact) ? 60 : 31_536_000;
+        await safeServeFile(reply, clean, LANDING_ROOT);
+        return;
+      }
+      // Astro directory routing: /pricing → /pricing/index.html
+      const dirIdx = resolveSafePath(`${clean}/index.html`, LANDING_ROOT);
+      if (dirIdx && fileExists(dirIdx)) {
+        const content = fs.readFileSync(dirIdx);
+        reply.header('Content-Type', 'text/html; charset=utf-8')
+             .header('Cache-Control', 'public, max-age=60')
+             .header('X-Content-Type-Options', 'nosniff')
+             .code(200).send(content);
+        return;
+      }
+    }
+    await safeServeSpa(reply, LANDING_ROOT);
+  }
+
   // Landing page - root
   server.get('/', async (_request: any, reply: FastifyReply) => {
-    if (directoryExists(LANDING_ROOT)) {
-      await safeServeSpa(reply, LANDING_ROOT);
-    } else {
-      reply.code(503).send('Landing page not built');
-    }
+    await serveAstroPage(reply, '/');
   });
-  
-  // Pricing page - same as landing (landing contains pricing info)
-  server.get('/pricing', async (_request: any, reply: FastifyReply) => {
-    if (directoryExists(LANDING_ROOT)) {
-      await safeServeSpa(reply, LANDING_ROOT);
-    } else {
-      reply.code(503).send('Landing page not built');
-    }
+
+  // Landing static assets (Astro emits to _assets/)
+  server.get('/_assets/*', async (request: any, reply: FastifyReply) => {
+    const subPath = request.url.split('?')[0].replace(/^\/_assets\//, '');
+    await safeServeFile(reply, `_assets/${subPath}`, LANDING_ROOT);
   });
-  
-  // Features page - same as landing
-  server.get('/features', async (_request: any, reply: FastifyReply) => {
-    if (directoryExists(LANDING_ROOT)) {
-      await safeServeSpa(reply, LANDING_ROOT);
-    } else {
-      reply.code(503).send('Landing page not built');
-    }
+
+  // Root-level static files (favicon, robots, sitemap, OG image)
+  for (const file of ['favicon.svg', 'favicon.ico', 'robots.txt', 'sitemap.xml', 'sitemap-index.xml', 'apple-touch-icon.png', 'og-image.png']) {
+    const f = file;
+    server.get(`/${f}`, async (_request: any, reply: FastifyReply) => {
+      await safeServeFile(reply, f, LANDING_ROOT);
+    });
+  }
+
+  // Landing sub-pages (Astro directory routing)
+  for (const page of ['/pricing', '/features', '/drivers', '/fleet', '/about', '/contact', '/register', '/login']) {
+    const p = page;
+    server.get(p, async (_request: any, reply: FastifyReply) => {
+      await serveAstroPage(reply, p);
+    });
+  }
+
+  // Legal sub-pages
+  server.get('/legal/privacy', async (_request: any, reply: FastifyReply) => {
+    await serveAstroPage(reply, '/legal/privacy');
   });
-  
+  server.get('/legal/terms', async (_request: any, reply: FastifyReply) => {
+    await serveAstroPage(reply, '/legal/terms');
+  });
+
   // Driver app
   server.get('/driver', async (_request: any, reply: FastifyReply) => {
     if (directoryExists(DRIVER_ROOT)) {
@@ -243,12 +280,6 @@ export async function registerWebRoutes(server: any): Promise<void> {
   // Enterprise alias
   server.get('/enterprise', async (_request: any, reply: FastifyReply) => {
     reply.redirect('/dispatcher');
-  });
-  
-  // Global static assets (from landing)
-  server.get('/assets/:file', async (request: any, reply: FastifyReply) => {
-    const file = request.params.file;
-    await safeServeFile(reply, file, LANDING_ROOT);
   });
   
   // Web health check

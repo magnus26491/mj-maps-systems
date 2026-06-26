@@ -1,0 +1,193 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+---
+
+<BaseLayout
+  title="Privacy Policy — MJ Maps"
+  description="MJ Maps privacy policy. How we collect, use, and protect your data under UK GDPR."
+  noindex={false}
+>
+  <Nav />
+  <main id="main-content">
+    <div class="legal-hero">
+      <div class="container">
+        <h1>Privacy Policy</h1>
+        <p class="text-muted">Last updated: 7 June 2026</p>
+        <p class="text-muted">Data Controller: MJ Maps Systems Ltd | <a href="mailto:contact@mjmaps.co.uk">contact@mjmaps.co.uk</a></p>
+      </div>
+    </div>
+
+    <section class="legal-body">
+      <div class="container">
+        <div class="legal-content">
+
+          <h2>1. Who We Are</h2>
+          <p>MJ Maps Systems Ltd ("we", "us", "our") operates the MJ Maps Driver application and related services. We are registered in England and Wales. For data protection enquiries, contact us at <a href="mailto:contact@mjmaps.co.uk">contact@mjmaps.co.uk</a>.</p>
+
+          <h2>2. Data We Collect</h2>
+          <div class="legal-table-wrap">
+            <table>
+              <thead>
+                <tr><th>Data Type</th><th>Purpose</th><th>Lawful Basis</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Email address &amp; password (hashed)</td><td>Account authentication</td><td>Contract performance</td></tr>
+                <tr><td>Precise GPS location (continuous, background)</td><td>Delivery route tracking, turn analysis, customer ETAs</td><td>Consent + Legitimate interests</td></tr>
+                <tr><td>Camera photos (proof of delivery)</td><td>Delivery confirmation audit trail</td><td>Legitimate interests</td></tr>
+                <tr><td>Device FCM token</td><td>Push notifications (shift alerts, dispatch updates)</td><td>Consent</td></tr>
+                <tr><td>Vehicle specification</td><td>Route and turn-clearance calculations</td><td>Contract performance</td></tr>
+                <tr><td>Delivery stop data (addresses, outcomes, timestamps)</td><td>Operational records</td><td>Legitimate interests</td></tr>
+                <tr><td>IP address &amp; device metadata</td><td>Security and fraud prevention</td><td>Legitimate interests</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>3. Background Location</h2>
+          <p>MJ Maps collects your precise location data <strong>even when the app is closed or not in use</strong>, for the duration of an active delivery shift. This is used exclusively for:</p>
+          <ul>
+            <li>Real-time delivery route progress tracking</li>
+            <li>Turn difficulty analysis and vehicle clearance alerts</li>
+            <li>Accurate ETA calculation for customer SMS notifications</li>
+          </ul>
+          <p>You can withdraw consent at any time by ending your shift or disabling location permissions in your device settings.</p>
+
+          <h2>4. Third Parties We Share Data With</h2>
+          <div class="legal-table-wrap">
+            <table>
+              <thead>
+                <tr><th>Party</th><th>Purpose</th><th>Location</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Railway.app</td><td>Secure server hosting</td><td>EU West (Netherlands) — EEA</td></tr>
+                <tr><td>Google Firebase</td><td>Push notification delivery (FCM)</td><td>EU servers</td></tr>
+                <tr><td>Twilio</td><td>Customer ETA SMS messages</td><td>EU infrastructure</td></tr>
+                <tr><td>Google Maps Platform</td><td>Routing and map display</td><td>EU servers</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>We <strong>never sell</strong> your personal data. No data is shared with advertising networks.</p>
+
+          <h2>5. Data Retention</h2>
+          <div class="legal-table-wrap">
+            <table>
+              <thead>
+                <tr><th>Data Type</th><th>Retention Period</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Account data</td><td>Until account deletion</td></tr>
+                <tr><td>GPS location logs</td><td>30 days after each delivery</td></tr>
+                <tr><td>Delivery records (routes, stops)</td><td>7 years (UK Companies Act 2006)</td></tr>
+                <tr><td>Proof-of-delivery photos</td><td>7 years</td></tr>
+                <tr><td>Push notification audit logs</td><td>90 days</td></tr>
+                <tr><td>Refresh tokens</td><td>30 days</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>6. Your Rights (UK GDPR)</h2>
+          <p>You have the right to:</p>
+          <ul>
+            <li><strong>Access</strong> a copy of your personal data (email: <a href="mailto:contact@mjmaps.co.uk">contact@mjmaps.co.uk</a>)</li>
+            <li><strong>Erasure</strong> — delete your account in-app via Settings → Delete Account</li>
+            <li><strong>Rectification</strong> — correct inaccurate data via your profile settings</li>
+            <li><strong>Portability</strong> — receive your data in a machine-readable format on request</li>
+            <li><strong>Object</strong> — object to processing based on legitimate interests</li>
+            <li><strong>Withdraw consent</strong> — for location tracking and push notifications at any time</li>
+          </ul>
+          <p>To exercise any right, email <a href="mailto:contact@mjmaps.co.uk">contact@mjmaps.co.uk</a> (response within 30 days).</p>
+
+          <h2>7. Security</h2>
+          <p>All data is transmitted using TLS 1.3 encryption. Passwords are stored as bcrypt hashes and never in plaintext. Authentication uses short-lived JWTs (15-minute access tokens) with server-side refresh token rotation.</p>
+
+          <h2>8. Children</h2>
+          <p>MJ Maps is a professional logistics tool intended for adults (18+). We do not knowingly collect data from children under 18.</p>
+
+          <h2>9. Supervisory Authority</h2>
+          <p>If you have concerns about how we handle your data, you have the right to lodge a complaint with the <strong>Information Commissioner's Office (ICO)</strong>:</p>
+          <ul>
+            <li>Website: <a href="https://ico.org.uk" rel="noopener noreferrer" target="_blank">ico.org.uk</a></li>
+            <li>Phone: 0303 123 1113</li>
+          </ul>
+
+          <h2>10. Changes to This Policy</h2>
+          <p>We will notify users of material changes via in-app notification. The "Last updated" date at the top reflects the current version.</p>
+
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .legal-hero {
+    padding-block: 120px 48px;
+    background: var(--void);
+    border-bottom: 1px solid var(--glass-brd);
+  }
+  .legal-hero h1 { margin-bottom: 8px; }
+
+  .legal-body { padding-block: 64px; }
+
+  .legal-content {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .legal-content h2 {
+    font-size: 1.125rem;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .legal-content p, .legal-content li {
+    color: var(--ink-muted);
+    line-height: 1.7;
+    font-size: 0.9375rem;
+  }
+
+  .legal-content ul {
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .legal-content strong { color: var(--ink); }
+
+  .legal-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    border: 1px solid var(--glass-brd);
+  }
+
+  .legal-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    min-width: 400px;
+  }
+
+  .legal-content th {
+    background: var(--surface-2);
+    padding: 10px 14px;
+    text-align: left;
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom: 1px solid var(--glass-brd);
+  }
+
+  .legal-content td {
+    padding: 10px 14px;
+    color: var(--ink-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+  }
+
+  .legal-content tr:last-child td { border-bottom: none; }
+</style>

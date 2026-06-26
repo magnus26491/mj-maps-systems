@@ -1,0 +1,134 @@
+---
+// Solo driver vs Fleet split section
+---
+
+<section class="svf-section below-fold" aria-labelledby="svf-heading">
+  <div class="container">
+    <h2 id="svf-heading" class="reveal">Built for drivers. Scaled for fleets.</h2>
+    <p class="section-sub reveal">Whether you're one driver or fifty, MJ Maps fits how you work.</p>
+
+    <div class="svf-grid">
+      <!-- Solo -->
+      <div class="svf-card card reveal">
+        <div class="svf-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="20" fill="rgba(0,194,168,0.1)"/>
+            <circle cx="20" cy="15" r="6" fill="#2EE6CE"/>
+            <path d="M8 34 C8 26 32 26 32 34" stroke="#2EE6CE" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3>Solo driver or small team</h3>
+        <p class="text-muted">Get the app, pick Driver Pro, and you're routing in under 5 minutes. No setup call, no minimum commitment. Cancel any month.</p>
+        <ul class="svf-list">
+          <li>All vehicle profiles</li>
+          <li>Turn-by-turn with turn-score chips</li>
+          <li>Bridge and HGV restrictions</li>
+          <li>Offline mode — no signal needed</li>
+          <li>what3words pin delivery</li>
+          <li>Unlimited stops per shift</li>
+        </ul>
+        <div class="svf-cta">
+          <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+          <a href="/drivers" class="btn btn-secondary">Learn more</a>
+        </div>
+      </div>
+
+      <!-- Fleet -->
+      <div class="svf-card card svf-card-fleet reveal">
+        <div class="svf-badge chip chip-brand">Enterprise</div>
+        <div class="svf-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="40" cy="40" r="40" fill="rgba(59,130,246,0.1)" cx="20" cy="20"/>
+            <rect x="4" y="20" width="32" height="16" rx="3" fill="none" stroke="#3B82F6" stroke-width="1.5"/>
+            <path d="M4 24 L36 24" stroke="#3B82F6" stroke-width="1.5"/>
+            <circle cx="10" cy="28" r="3" fill="#3B82F6"/>
+            <circle cx="20" cy="28" r="3" fill="#3B82F6"/>
+            <circle cx="30" cy="28" r="3" fill="#3B82F6"/>
+          </svg>
+        </div>
+        <h3>Fleet operations team</h3>
+        <p class="text-muted">Full dispatcher console with live fleet map, route assignment, POD photo capture, signature collection, and instant exception alerts.</p>
+        <ul class="svf-list">
+          <li>Everything in Driver Pro</li>
+          <li>Live dispatcher dashboard</li>
+          <li>Photo proof of delivery (POD)</li>
+          <li>Signature capture + PDF export</li>
+          <li>Real-time Telegram alerts</li>
+          <li>Multi-driver management</li>
+          <li>Analytics &amp; reporting</li>
+        </ul>
+        <div class="svf-cta">
+          <a href="mailto:hello@mjmaps.app" class="btn btn-primary">Talk to us</a>
+          <a href="/fleet" class="btn btn-secondary">See fleet features</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .svf-section h2 {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .svf-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  @media (min-width: 768px) {
+    .svf-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .svf-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+  }
+
+  .svf-card-fleet {
+    border-color: rgba(59, 130, 246, 0.25);
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(59,130,246,0.05) 100%);
+  }
+
+  .svf-badge {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+  }
+
+  .svf-icon { flex-shrink: 0; }
+
+  .svf-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .svf-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink-muted);
+    font-size: 0.9375rem;
+  }
+
+  .svf-list li::before {
+    content: '✓';
+    color: var(--green);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .svf-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: auto;
+  }
+</style>

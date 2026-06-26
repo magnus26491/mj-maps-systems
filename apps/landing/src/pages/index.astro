@@ -1,0 +1,87 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import HeroHUD from '../components/HeroHUD.astro';
+import TrustBar from '../components/TrustBar.astro';
+import ProblemSolution from '../components/ProblemSolution.astro';
+import HowItWorks from '../components/HowItWorks.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import SoloVsFleet from '../components/SoloVsFleet.astro';
+import PricingCards from '../components/PricingCards.astro';
+import FAQ from '../components/FAQ.astro';
+---
+
+<BaseLayout
+  title="MJ Maps — Delivery routing that knows your van"
+  description="Turn-by-turn navigation for UK delivery drivers. HGV routing, bridge warnings, turn-score alerts, and exact gate-pin delivery — works fully offline."
+>
+  <Nav />
+  <main id="main-content">
+    <HeroHUD />
+    <TrustBar />
+    <ProblemSolution />
+    <HowItWorks />
+    <FeatureGrid />
+    <SoloVsFleet />
+    <PricingCards />
+    <FAQ />
+
+    <!-- Final CTA -->
+    <section class="final-cta below-fold" aria-labelledby="final-cta-heading">
+      <div class="container">
+        <div class="final-cta-inner glass">
+          <div class="final-cta-glow" aria-hidden="true"></div>
+          <h2 id="final-cta-heading" class="reveal">Ready to route smarter?</h2>
+          <p class="section-sub reveal">Join drivers already using MJ Maps to deliver faster, safer, and without the stress of wrong turns.</p>
+          <div class="final-cta-btns reveal">
+            <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+            <a href="/contact" class="btn btn-secondary">Book a fleet demo</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .final-cta {
+    padding-block: var(--section-py);
+  }
+
+  .final-cta-inner {
+    position: relative;
+    border-radius: var(--r-panel);
+    padding: 64px var(--gutter);
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .final-cta-glow {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(0,194,168,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .final-cta-inner h2 {
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .final-cta-inner .section-sub {
+    margin-bottom: 32px;
+  }
+
+  .final-cta-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+</style>

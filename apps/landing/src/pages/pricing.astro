@@ -1,0 +1,170 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import PricingCards from '../components/PricingCards.astro';
+import FAQ from '../components/FAQ.astro';
+import { PLAN_FEATURES, FEATURE_META, PLAN_META, type PlanId, type FeatureKey } from '@plans';
+
+// Build full feature comparison table
+const allFeatureKeys: FeatureKey[] = [
+  'NAVIGATION', 'HGV_ROUTING', 'BRIDGE_RESTRICTIONS', 'LIVE_TRAFFIC',
+  'ROADWORKS_AVOIDANCE', 'TIME_AWARE_OPTIMIZER', 'OFFLINE_CACHE',
+  'PARKING_ADVISORY', 'TIDAL_AVOIDANCE', 'UNPAVED_SCORING',
+  'TURN_SCORE', 'W3W_PIN',
+  'ROUTE_OPTIMISE', 'STOP_MANAGEMENT', 'PIN_CONFIRM', 'ACCESS_NOTES',
+  'FAILED_DELIVERY', 'STOP_STATUS', 'ETA_NOTIFICATIONS',
+  'BARCODE_SCANNING', 'POD_PHOTO', 'SIGNATURE_CAPTURE',
+  'DISPATCHER', 'LIVE_TRACKING_WS', 'WORKLOAD_GUARD',
+  'TROLLEY_ADVISORY', 'ROUTE_INTEL', 'RED_ALERTS', 'ADMIN_ANALYTICS',
+];
+
+const plans: PlanId[] = ['navigation', 'custom'];
+---
+
+<BaseLayout
+  title="Pricing — MJ Maps"
+  description="Simple, honest pricing for MJ Maps. Driver Pro at £9.97/mo. Enterprise with custom pricing. No auto-renew, cancel anytime."
+>
+  <Nav activePage="/pricing" />
+  <main id="main-content">
+    <div class="page-hero">
+      <div class="container">
+        <h1 class="reveal">Pricing</h1>
+        <p class="page-hero-sub reveal">One plan for solo drivers. Enterprise for fleets. No hidden fees.</p>
+      </div>
+    </div>
+
+    <PricingCards />
+
+    <!-- Full feature comparison table -->
+    <section class="compare-section below-fold" aria-labelledby="compare-heading">
+      <div class="container">
+        <h2 id="compare-heading" class="reveal">Full feature comparison</h2>
+
+        <div class="compare-table-wrap reveal">
+          <table class="compare-table" role="table">
+            <thead>
+              <tr>
+                <th scope="col" class="feature-col">Feature</th>
+                {plans.map(p => (
+                  <th scope="col" class="plan-col">
+                    {PLAN_META[p].displayName}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allFeatureKeys.map(key => {
+                const meta = FEATURE_META[key];
+                return (
+                  <tr>
+                    <td class="feature-name">
+                      {meta.label}
+                      {meta.comingSoon && <span class="chip chip-brand ml-8">Soon</span>}
+                    </td>
+                    {plans.map(planId => {
+                      const has = (PLAN_FEATURES[planId] as readonly string[]).includes(key);
+                      return (
+                        <td class={`plan-cell ${has ? 'has-feature' : 'no-feature'}`} aria-label={has ? 'Included' : 'Not included'}>
+                          {has ? (
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                              <circle cx="10" cy="10" r="9" fill="rgba(34,197,94,0.15)"/>
+                              <path d="M6 10l3 3 5-5" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                          ) : (
+                            <span class="no-feature-dash" aria-hidden="true">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <FAQ />
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-block: 120px 64px;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
+    text-align: center;
+  }
+
+  .page-hero-sub {
+    color: var(--ink-muted);
+    font-size: 1.125rem;
+    margin-top: 12px;
+    max-width: 480px;
+    margin-inline: auto;
+  }
+
+  .compare-section h2 {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .compare-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--r-card);
+    border: 1px solid var(--glass-brd);
+  }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+    min-width: 480px;
+  }
+
+  .compare-table thead tr {
+    background: var(--surface-2);
+  }
+
+  .compare-table th {
+    padding: 16px 20px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--ink);
+    border-bottom: 1px solid var(--glass-brd);
+  }
+
+  .plan-col { text-align: center; }
+
+  .compare-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .compare-table tbody tr:hover {
+      background: var(--surface);
+    }
+  }
+
+  .feature-col  { width: 55%; }
+  .plan-col     { width: 22.5%; }
+
+  .feature-name {
+    padding: 14px 20px;
+    color: var(--ink-muted);
+  }
+
+  .plan-cell {
+    text-align: center;
+    padding: 14px 20px;
+  }
+
+  .no-feature-dash { color: var(--ink-faint); }
+
+  .ml-8 { margin-left: 8px; }
+</style>

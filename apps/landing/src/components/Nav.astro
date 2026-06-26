@@ -1,0 +1,372 @@
+---
+interface Props {
+  activePage?: string;
+}
+const { activePage = '' } = Astro.props;
+
+const links = [
+  { href: '/features',  label: 'Features' },
+  { href: '/pricing',   label: 'Pricing' },
+  { href: '/drivers',   label: 'For Drivers' },
+  { href: '/fleet',     label: 'For Fleets' },
+  { href: '/about',     label: 'About' },
+  { href: '/contact',   label: 'Book a demo' },
+];
+---
+
+<header id="site-nav" aria-label="Main navigation">
+  <div class="container nav-inner">
+    <!-- Logo -->
+    <a href="/" class="nav-logo" aria-label="MJ Maps home">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#00C2A8" fill-opacity="0.15"/>
+        <path d="M8 22 L16 8 L24 22" stroke="url(#ng)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="16" cy="8" r="2.5" fill="#2EE6CE"/>
+        <circle cx="8" cy="22" r="2" fill="#3B82F6"/>
+        <circle cx="24" cy="22" r="2" fill="#3B82F6"/>
+        <defs>
+          <linearGradient id="ng" x1="8" y1="22" x2="24" y2="8" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#3B82F6"/>
+            <stop offset="1" stop-color="#2EE6CE"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="nav-wordmark">MJ Maps</span>
+    </a>
+
+    <!-- Desktop links -->
+    <nav class="nav-links" aria-label="Site pages">
+      {links.map(l => (
+        <a
+          href={l.href}
+          class={`nav-link${activePage === l.href ? ' active' : ''}`}
+          aria-current={activePage === l.href ? 'page' : undefined}
+        >
+          {l.label}
+        </a>
+      ))}
+    </nav>
+
+    <!-- Desktop CTA -->
+    <a href="/register?plan=navigation" class="btn btn-primary nav-cta">Start free trial</a>
+
+    <!-- Hamburger (mobile only) -->
+    <button
+      id="nav-hamburger"
+      class="hamburger"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="nav-drawer"
+    >
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+    </button>
+  </div>
+</header>
+
+<!-- Mobile drawer -->
+<div id="nav-drawer" class="nav-drawer glass" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Navigation menu">
+  <div class="drawer-inner">
+    <button id="nav-close" class="drawer-close" aria-label="Close menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <nav class="drawer-links" aria-label="Mobile navigation">
+      {links.map(l => (
+        <a
+          href={l.href}
+          class={`drawer-link${activePage === l.href ? ' active' : ''}`}
+          aria-current={activePage === l.href ? 'page' : undefined}
+        >
+          {l.label}
+        </a>
+      ))}
+    </nav>
+    <a href="/register?plan=navigation" class="btn btn-primary btn-full drawer-cta">Start free trial</a>
+  </div>
+</div>
+<div id="nav-overlay" class="nav-overlay" aria-hidden="true"></div>
+
+<style>
+  #site-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: 56px;
+    padding-top: env(safe-area-inset-top);
+    transition: background var(--dur-std) var(--ease),
+                border-color var(--dur-std) var(--ease),
+                box-shadow var(--dur-std) var(--ease);
+    border-bottom: 1px solid transparent;
+  }
+
+  #site-nav.scrolled {
+    backdrop-filter: blur(18px) saturate(140%);
+    background: var(--glass-bg);
+    border-bottom-color: var(--glass-brd);
+    box-shadow: var(--sh-md);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    #site-nav.scrolled {
+      background: rgba(19, 27, 38, 0.95);
+    }
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    height: 56px;
+    gap: 24px;
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .nav-wordmark {
+    font-family: 'Space Grotesk Variable', sans-serif;
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .nav-links {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .nav-link {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink-muted);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: color var(--dur-micro) ease-out,
+                background var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .nav-link:hover {
+      color: var(--ink);
+      background: var(--surface-2);
+    }
+  }
+
+  .nav-link.active {
+    color: var(--brand-bright);
+  }
+
+  .nav-cta {
+    display: none;
+    flex-shrink: 0;
+    font-size: 0.9375rem;
+    height: 40px;
+    padding: 0 18px;
+  }
+
+  .hamburger {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 10px;
+    margin-left: auto;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .hamburger:hover {
+      background: var(--surface-2);
+    }
+  }
+
+  .hamburger-bar {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--ink);
+    border-radius: 2px;
+    transition: transform var(--dur-std) var(--ease),
+                opacity var(--dur-std) var(--ease);
+  }
+
+  /* Drawer */
+  .nav-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--dur-std) var(--ease),
+                opacity var(--dur-std) var(--ease);
+    opacity: 0;
+    overscroll-behavior: contain;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .nav-drawer.open {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .drawer-inner {
+    padding: 20px var(--gutter);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    padding-top: 72px;
+  }
+
+  .drawer-close {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 8px);
+    right: var(--gutter);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink);
+    border-radius: 8px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    height: 56px;
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--ink);
+    text-decoration: none;
+    border-radius: 12px;
+    padding: 0 16px;
+    transition: background var(--dur-micro) ease-out;
+  }
+
+  .drawer-link.active {
+    color: var(--brand-bright);
+  }
+
+  .drawer-link:active {
+    background: var(--surface-2);
+  }
+
+  .drawer-cta {
+    margin-top: 16px;
+  }
+
+  .nav-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 190;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-std) var(--ease);
+  }
+
+  .nav-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (min-width: 768px) {
+    .nav-links { display: flex; }
+    .nav-cta   { display: inline-flex; }
+    .hamburger { display: none; }
+    .nav-drawer,
+    .nav-overlay { display: none !important; }
+  }
+</style>
+
+<script>
+  // ─── Sticky nav frost ───────────────────────────────────────────────
+  const nav = document.getElementById('site-nav')!;
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    requestAnimationFrame(() => {
+      nav.classList.toggle('scrolled', window.scrollY > 80);
+      ticking = false;
+    });
+    ticking = true;
+  }, { passive: true });
+
+  // ─── Mobile menu ────────────────────────────────────────────────────
+  const hamburger = document.getElementById('nav-hamburger')!;
+  const drawer    = document.getElementById('nav-drawer')!;
+  const overlay   = document.getElementById('nav-overlay')!;
+  const closeBtn  = document.getElementById('nav-close')!;
+
+  function openMenu() {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    drawer.removeAttribute('aria-hidden');
+    hamburger.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    closeBtn.focus();
+  }
+
+  function closeMenu() {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    hamburger.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+    hamburger.focus();
+  }
+
+  hamburger.addEventListener('click', openMenu);
+  closeBtn.addEventListener('click', closeMenu);
+  overlay.addEventListener('click', closeMenu);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer.classList.contains('open')) closeMenu();
+  });
+
+  // Focus trap
+  drawer.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const focusable = Array.from(
+      drawer.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    );
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+</script>

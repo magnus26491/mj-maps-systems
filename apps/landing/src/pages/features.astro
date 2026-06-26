@@ -1,0 +1,56 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import { type FeatureKey } from '@plans';
+
+const allKeys: FeatureKey[] = [
+  'NAVIGATION', 'HGV_ROUTING', 'BRIDGE_RESTRICTIONS', 'LIVE_TRAFFIC',
+  'ROADWORKS_AVOIDANCE', 'TIME_AWARE_OPTIMIZER', 'OFFLINE_CACHE',
+  'PARKING_ADVISORY', 'TIDAL_AVOIDANCE', 'UNPAVED_SCORING',
+  'TURN_SCORE', 'W3W_PIN',
+  'ROUTE_OPTIMISE', 'STOP_MANAGEMENT', 'PIN_CONFIRM', 'ACCESS_NOTES',
+  'FAILED_DELIVERY', 'STOP_STATUS', 'ETA_NOTIFICATIONS',
+  'BARCODE_SCANNING', 'POD_PHOTO', 'SIGNATURE_CAPTURE',
+  'DISPATCHER', 'LIVE_TRACKING_WS', 'WORKLOAD_GUARD',
+  'TROLLEY_ADVISORY', 'ROUTE_INTEL', 'RED_ALERTS', 'ADMIN_ANALYTICS',
+];
+---
+
+<BaseLayout
+  title="Features — MJ Maps"
+  description="Every feature built into MJ Maps — HGV routing, bridge alerts, turn-score chips, offline maps, dispatcher console, POD photo capture, and more."
+>
+  <Nav activePage="/features" />
+  <main id="main-content">
+    <div class="page-hero">
+      <div class="container">
+        <h1 class="reveal">Built for the full delivery shift</h1>
+        <p class="page-hero-sub reveal">Every feature in MJ Maps exists because someone needed it on a real UK delivery route.</p>
+      </div>
+    </div>
+
+    <FeatureGrid
+      title="All features"
+      subtitle="From the first stop to the last signature — everything a driver or fleet needs."
+      featureKeys={allKeys}
+    />
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-block: 120px 64px;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
+    text-align: center;
+  }
+  .page-hero-sub {
+    color: var(--ink-muted);
+    font-size: 1.125rem;
+    margin-top: 12px;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+</style>

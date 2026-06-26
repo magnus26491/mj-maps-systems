@@ -1,0 +1,97 @@
+/* ─── Design Tokens ─────────────────────────────────────────────────── */
+
+:root {
+  /* Colours */
+  --void:         #0A0E14;
+  --void-2:       #070A0F;
+  --surface:      #131B26;
+  --surface-2:    #1A2533;
+  --glass-bg:     rgba(19, 27, 38, 0.55);
+  --glass-brd:    rgba(255, 255, 255, 0.08);
+  --brand:        #00C2A8;
+  --brand-bright: #2EE6CE;
+  --route-from:   #2EE6CE;
+  --route-to:     #3B82F6;
+  --green:        #22C55E;
+  --amber:        #F59E0B;
+  --red:          #EF4444;
+  --ink:          #EAF2FA;
+  --ink-muted:    #8AA0B2;
+  --ink-faint:    #5C6F7E;
+
+  /* Green / Amber / Red tinted backgrounds for chips */
+  --green-bg:  rgba(34, 197, 94, 0.12);
+  --amber-bg:  rgba(245, 158, 11, 0.12);
+  --red-bg:    rgba(239, 68, 68, 0.12);
+
+  /* Shadows */
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --sh-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --sh-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
+  --glow:  0 0 40px rgba(0, 194, 168, 0.25);
+
+  /* Radii */
+  --r-btn:   12px;
+  --r-card:  16px;
+  --r-panel: 20px;
+  --r-pill:  999px;
+
+  /* Motion */
+  --ease:     cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-micro:    150ms;
+  --dur-std:      240ms;
+  --dur-reveal:   500ms;
+  --dur-route:   1100ms;
+
+  /* Layout */
+  --container-max: 1200px;
+  --gutter: 20px;
+
+  /* Section padding */
+  --section-py: 64px;
+}
+
+@media (min-width: 481px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --section-py: 80px;
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    --section-py: 104px;
+  }
+}
+
+/* Glass mixin helper class */
+.glass {
+  backdrop-filter: blur(18px) saturate(140%);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-brd);
+  box-shadow: var(--sh-md), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 767px) {
+  .glass {
+    backdrop-filter: blur(12px) saturate(140%);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: rgba(19, 27, 38, 0.92);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: rgba(19, 27, 38, 0.96);
+    backdrop-filter: none;
+  }
+}

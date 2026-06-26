@@ -1,0 +1,138 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import { type FeatureKey } from '@plans';
+
+const driverKeys: FeatureKey[] = [
+  'NAVIGATION', 'HGV_ROUTING', 'BRIDGE_RESTRICTIONS', 'TURN_SCORE',
+  'UNPAVED_SCORING', 'OFFLINE_CACHE', 'W3W_PIN', 'LIVE_TRAFFIC',
+  'ROADWORKS_AVOIDANCE', 'TIME_AWARE_OPTIMIZER', 'PARKING_ADVISORY',
+  'TIDAL_AVOIDANCE',
+];
+---
+
+<BaseLayout
+  title="For Drivers — MJ Maps"
+  description="MJ Maps for solo delivery drivers. HGV routing, bridge alerts, turn-score warnings, offline navigation. Works without signal. Cancel anytime."
+>
+  <Nav activePage="/drivers" />
+  <main id="main-content">
+    <div class="page-hero">
+      <div class="container">
+        <div class="chip chip-green hero-chip reveal">For Drivers</div>
+        <h1 class="reveal">Every shift, every road, every turn.</h1>
+        <p class="page-hero-sub reveal">MJ Maps is built for professional UK delivery drivers. It knows your vehicle, warns you before problem turns, and keeps routing even when the signal drops.</p>
+        <div class="hero-ctas reveal">
+          <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+          <a href="/pricing" class="btn btn-secondary">View pricing</a>
+        </div>
+      </div>
+    </div>
+
+    <FeatureGrid
+      title="Driver features"
+      subtitle="Everything included in Driver Pro — all in one app, offline-capable."
+      featureKeys={driverKeys}
+    />
+
+    <!-- Driver workflow -->
+    <section class="driver-workflow below-fold">
+      <div class="container">
+        <h2 class="reveal">A shift in your pocket</h2>
+        <div class="workflow-grid">
+          <div class="workflow-item reveal">
+            <div class="workflow-step mono">6:00</div>
+            <h3>Load your stops</h3>
+            <p class="text-muted">Paste your manifest or import from your depot system. MJ Maps pins each stop to the exact gate — not the postcode centre.</p>
+          </div>
+          <div class="workflow-item reveal">
+            <div class="workflow-step mono">6:05</div>
+            <h3>Route optimises for your van</h3>
+            <p class="text-muted">Select your vehicle profile. The engine scores every turn for your specific weight and height, then optimises the stop sequence.</p>
+          </div>
+          <div class="workflow-item reveal">
+            <div class="workflow-step mono">All day</div>
+            <h3>Drive with confidence</h3>
+            <p class="text-muted">Turn-score chips tell you what to expect at every junction. Bridge alerts fire 300m early. Rerouting kicks in automatically if you deviate.</p>
+          </div>
+          <div class="workflow-item reveal">
+            <div class="workflow-step mono">Each stop</div>
+            <h3>Confirm delivery</h3>
+            <p class="text-muted">Scan the barcode, take a photo, capture a signature. One tap marks delivered and advances to the next stop.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Driver CTA -->
+    <section class="driver-cta below-fold">
+      <div class="container">
+        <div class="driver-cta-inner glass reveal">
+          <h2>Try it on your next shift</h2>
+          <p class="text-muted">Free trial, no card required. Install the app, set up your profile, and route your first shift in under 5 minutes.</p>
+          <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-block: 120px 64px;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
+    text-align: center;
+  }
+  .hero-chip { margin-bottom: 16px; display: inline-flex; }
+  .page-hero-sub {
+    color: var(--ink-muted);
+    font-size: 1.125rem;
+    margin-top: 12px;
+    max-width: 540px;
+    margin-inline: auto;
+    margin-bottom: 24px;
+  }
+  .hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 40px;
+  }
+  @media (min-width: 640px) { .workflow-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .workflow-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .workflow-item {
+    background: var(--surface);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-card);
+    padding: 24px;
+  }
+  .workflow-step {
+    font-size: 0.875rem;
+    color: var(--brand-bright);
+    margin-bottom: 12px;
+  }
+  .workflow-item h3 { margin-bottom: 8px; }
+
+  .driver-cta { padding-block: var(--section-py); }
+  .driver-cta-inner {
+    border-radius: var(--r-panel);
+    padding: 48px 32px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .driver-cta-inner p { max-width: 480px; }
+</style>

@@ -1,0 +1,127 @@
+---
+const faqs = [
+  {
+    q: 'Does MJ Maps work without a phone signal?',
+    a: 'Yes. The Offline Cache feature downloads the map tiles, road network, and restriction data for your region before you set off. Navigation, turn warnings, and route scoring all work with zero signal.',
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Cancel from your account settings at any time. Your subscription stays active until the end of the paid period — there is no early termination fee and we will not charge you again.',
+  },
+  {
+    q: 'Is there an auto-renew on yearly plans?',
+    a: 'No auto-renew surprises. Yearly plans do not renew automatically. We will email you 30 days before your plan expires so you can choose whether to continue.',
+  },
+  {
+    q: 'Does it support HGVs and articulated lorries?',
+    a: 'Yes. MJ Maps ships profiles for light vans, long-wheelbase vans, HGVs (3.5t–44t), and articulated lorries. The routing engine filters weight limits, height barriers, width restrictions, and bridge clearances for your specific vehicle.',
+  },
+  {
+    q: 'What is a turn score?',
+    a: 'Every turn in your route is scored green (safe and clear), amber (tight — proceed with care), or red (do not enter with your vehicle). Scores are calculated from road curvature, entry width, surface quality, and restriction data.',
+  },
+  {
+    q: 'What is what3words pin delivery?',
+    a: 'Instead of routing to a postcode centroid (which can be 50 metres from the actual gate), drivers or dispatchers can pin the exact delivery point using a what3words three-word address — accurate to a 3-metre square.',
+  },
+  {
+    q: 'Is the Dispatcher Dashboard available on Driver Pro?',
+    a: 'The Dispatcher Dashboard is an Enterprise feature. It gives fleet managers a live map of all drivers, remote route control, and real-time exception alerts. Driver Pro includes everything a solo driver or small team needs.',
+  },
+  {
+    q: 'How is MJ Maps different from Google Maps or Waze?',
+    a: 'Consumer maps route to postcodes and do not understand your vehicle. MJ Maps routes to exact delivery pins, applies your vehicle\'s weight and height profile on every turn, scores tight turns before you reach them, works fully offline, and feeds a dispatcher console with real-time fleet visibility.',
+  },
+];
+---
+
+<section class="faq-section below-fold" aria-labelledby="faq-heading">
+  <div class="container">
+    <h2 id="faq-heading" class="reveal">Frequently asked questions</h2>
+
+    <div class="faq-list">
+      {faqs.map((faq, i) => (
+        <details class="faq-item reveal" data-delay={String(i * 50)}>
+          <summary class="faq-q">{faq.q}</summary>
+          <div class="faq-a">
+            <p>{faq.a}</p>
+          </div>
+        </details>
+      ))}
+    </div>
+
+    <div class="faq-footer reveal">
+      <p class="text-muted">Still have questions?</p>
+      <a href="/contact" class="btn btn-secondary">Book a demo</a>
+      <a href="mailto:hello@mjmaps.app" class="btn btn-secondary">Email us</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq-section h2 {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 720px;
+    margin-inline: auto;
+    margin-bottom: 48px;
+  }
+
+  .faq-item {
+    border-bottom: 1px solid var(--glass-brd);
+  }
+
+  .faq-item:first-child {
+    border-top: 1px solid var(--glass-brd);
+  }
+
+  .faq-q {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    list-style: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-height: 48px;
+  }
+
+  .faq-q::-webkit-details-marker { display: none; }
+
+  .faq-q::after {
+    content: '+';
+    font-size: 1.25rem;
+    color: var(--brand-bright);
+    flex-shrink: 0;
+    transition: transform var(--dur-std) var(--ease);
+  }
+
+  .faq-item[open] .faq-q::after {
+    transform: rotate(45deg);
+  }
+
+  .faq-a {
+    padding-bottom: 20px;
+    color: var(--ink-muted);
+    line-height: 1.65;
+  }
+
+  .faq-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+  }
+</style>

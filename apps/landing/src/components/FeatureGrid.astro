@@ -1,0 +1,132 @@
+---
+import { HOME_FEATURE_KEYS, FEATURE_META, hasFeature, type FeatureKey } from '@plans';
+
+interface Props {
+  title?: string;
+  subtitle?: string;
+  featureKeys?: FeatureKey[];
+}
+
+const {
+  title = 'Every feature a delivery driver needs',
+  subtitle = 'Built around the ten things that matter most on a real UK delivery shift.',
+  featureKeys = HOME_FEATURE_KEYS,
+} = Astro.props;
+
+const features = featureKeys.map(key => ({
+  key,
+  ...FEATURE_META[key],
+  inPro: hasFeature('navigation', key),
+  inEnterprise: hasFeature('custom', key),
+}));
+---
+
+<section class="fg-section below-fold" aria-labelledby="fg-heading">
+  <div class="container">
+    <div class="section-label reveal">Features</div>
+    <h2 id="fg-heading" class="reveal">{title}</h2>
+    <p class="section-sub reveal">{subtitle}</p>
+
+    <div class="fg-grid">
+      {features.map((f, i) => (
+        <div class="fg-card card reveal" data-delay={String(i * 60)}>
+          <div class="fg-card-top">
+            <h3 class="fg-card-title">{f.label}</h3>
+            {f.signal && (
+              <span class={`chip chip-${f.signal}`} aria-label={`Turn-score: ${f.signal}`}>
+                {f.signal === 'green' ? '● Safe' : f.signal === 'amber' ? '⚠ Caution' : '✕ Alert'}
+              </span>
+            )}
+            {f.comingSoon && (
+              <span class="chip chip-brand">Soon</span>
+            )}
+          </div>
+          <p class="fg-card-desc text-muted">{f.description}</p>
+          <div class="fg-plan-dots" aria-label={`Available in: ${f.inPro ? 'Driver Pro' : ''}${f.inPro && f.inEnterprise ? ', ' : ''}${f.inEnterprise ? 'Enterprise' : ''}`}>
+            {f.inPro && <span class="plan-dot plan-dot-pro" title="Driver Pro">Pro</span>}
+            {f.inEnterprise && !f.inPro && <span class="plan-dot plan-dot-ent" title="Enterprise">Enterprise</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="fg-cta reveal">
+      <a href="/features" class="btn btn-secondary">View all features</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .fg-section h2 {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .fg-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  @media (min-width: 640px) {
+    .fg-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (min-width: 1024px) {
+    .fg-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .fg-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: background var(--dur-micro) ease-out,
+                box-shadow var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .fg-card:hover {
+      background: var(--surface-2);
+      box-shadow: var(--sh-md);
+    }
+  }
+
+  .fg-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .fg-card-title {
+    font-size: 1rem;
+    flex: 1;
+  }
+
+  .fg-card-desc {
+    flex: 1;
+  }
+
+  .fg-plan-dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .plan-dot {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--r-pill);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .plan-dot-pro  { background: rgba(0,194,168,0.12); color: var(--brand-bright); }
+  .plan-dot-ent  { background: rgba(59,130,246,0.12); color: #93C5FD; }
+
+  .fg-cta {
+    text-align: center;
+  }
+</style>

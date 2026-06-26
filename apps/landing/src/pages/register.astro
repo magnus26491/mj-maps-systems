@@ -1,0 +1,23 @@
+---
+// /register redirects to the driver app signup with plan pre-selected
+// The driver app at /driver handles the actual auth flow
+---
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=/driver" />
+    <title>Sign up — MJ Maps</title>
+    <style>
+      body { background: #0A0E14; color: #EAF2FA; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <p>Taking you to the app&hellip; <a href="/driver">Click here if not redirected.</a></p>
+    <script>
+      // Pass plan query param to driver app
+      const params = new URLSearchParams(window.location.search);
+      const plan = params.get('plan') ?? 'navigation';
+      window.location.replace(`/driver?signup=1&plan=${encodeURIComponent(plan)}`);
+    </script>
+  </body>
+</html>
