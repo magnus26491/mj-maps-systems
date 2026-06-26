@@ -152,6 +152,10 @@ const start = async () => {
   await server.register(fastifyCompress, {
     threshold: 1024,
     encodings: ['gzip', 'deflate'],
+    // Only compress API JSON responses. Static files (HTML/JS/CSS) are served
+    // raw so Railway's edge proxy compresses them without double-encoding.
+    // @fastify/compress only checks REQUEST header x-no-compression, not reply.
+    compressibleTypes: /^application\/json/,
   });
 
   await server.register(fastifyRateLimit, {
