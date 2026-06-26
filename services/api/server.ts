@@ -24,7 +24,6 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
-import fastifyCompress from '@fastify/compress';
 import { registerWebRoutes } from './web-serving.js';
 import { z } from 'zod';
 import {
@@ -149,14 +148,11 @@ const start = async () => {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
-  await server.register(fastifyCompress, {
-    threshold: 1024,
-    encodings: ['gzip', 'deflate'],
-    // Only compress API JSON responses. Static files (HTML/JS/CSS) are served
-    // raw so Railway's edge proxy compresses them without double-encoding.
-    // @fastify/compress only checks REQUEST header x-no-compression, not reply.
-    customTypes: /^application\/json/,
-  });
+  // @fastify/compress is intentionally NOT registered here.
+  // Railway's edge proxy handles gzip/brotli compression transparently.
+  // Adding Fastify-level compression causes double-encoding of static files
+  // (customTypes cannot override mimedb's compressible fallback, so HTML/JS/CSS
+  // always get compressed regardless of the regex, and Railway compresses again).
 
   await server.register(fastifyRateLimit, {
     global: true,
