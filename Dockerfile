@@ -17,17 +17,23 @@ COPY apps/driver-app/scripts/ ./scripts/
 RUN npm install --legacy-peer-deps
 RUN npx expo install react-native-web@0.19.10 react-dom@18.2.0 -- --no-save
 COPY apps/driver-app/ .
+# Monorepo packages referenced by relative imports (e.g. vehicle-profiles)
+COPY packages/ /packages/
 ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 RUN npx expo export --platform web --clear
+# Expo's static renderer strips ALL <script> tags from +html.tsx.
+# public/polyfill.js is copied to dist/ by expo export.
+# Inject the <script src> into the generated index.html so it loads
+# synchronously (no defer) before the deferred Expo bundle.
+RUN sed -i 's|<link rel="shortcut icon"|<script src="/driver/polyfill.js"></script><link rel="shortcut icon"|' dist/index.html
 RUN ls -la dist/ 2>/dev/null || echo "Driver dist empty"
 
-# ── Stage 3: Build Dispatcher Console ───────────────────────
+# ── Stage 3: Dispatcher Console (static HTML — no build needed) ─
 FROM node:20-alpine AS dispatcher-builder
 WORKDIR /dispatcher
-COPY apps/dispatcher-console/package.json apps/dispatcher-console/package-lock.json* ./
-RUN npm install --legacy-peer-deps
-COPY apps/dispatcher-console/ .
-RUN npm run build
+COPY apps/dispatcher-console/index.html ./dist/
+COPY apps/dispatcher-console/app.js ./dist/
+COPY apps/dispatcher-console/style.css ./dist/
 
 # ── Stage 4: Build Landing Page ───────────────────────────────
 FROM node:20-alpine AS landing-builder
