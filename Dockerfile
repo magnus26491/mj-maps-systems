@@ -37,11 +37,18 @@ COPY apps/dispatcher-console/ .
 ENV NEXT_EXPORT=1
 RUN npm run build
 
-# ── Stage 4: Build Landing Page ───────────────────────────────
+# ── Stage 4: Build Landing Page (Astro static site) ───────────
 FROM node:20-alpine AS landing-builder
 WORKDIR /landing
-# Landing page is just static HTML, copy as-is
-COPY apps/landing/ ./dist/
+# Copy the plans package (imported via Vite alias in astro.config.mjs)
+COPY packages/plans/ /packages/plans/
+# Install and build
+COPY apps/landing/package.json apps/landing/package-lock.json* ./
+RUN npm ci --legacy-peer-deps
+COPY apps/landing/ .
+# Make packages available at the resolved path
+COPY packages/ /packages/
+RUN npm run build
 
 # ── Stage 5: Runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime

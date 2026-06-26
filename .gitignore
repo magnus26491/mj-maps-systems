@@ -43,3 +43,6 @@ apps/dispatcher-dashboard/src/*.js
 apps/dispatcher-dashboard/src/**/*.js
 # OSM data (managed by scripts/prepare-osm.sh)
 data/
+apps/landing/.astro/
+apps/landing/dist/
+apps/landing/node_modules/

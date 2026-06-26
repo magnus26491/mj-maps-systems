@@ -1,0 +1,11 @@
+{
+  "name": "@mj-maps/plans",
+  "version": "1.0.0",
+  "description": "Single source of truth for MJ Maps plan definitions, pricing, and feature sets",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {},
+  "dependencies": {}
+}

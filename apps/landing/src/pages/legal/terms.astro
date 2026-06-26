@@ -1,0 +1,115 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+---
+
+<BaseLayout
+  title="Terms of Service — MJ Maps"
+  description="MJ Maps Terms of Service. Read our subscription terms, cancellation policy, and acceptable use conditions."
+  noindex={false}
+>
+  <Nav />
+  <main id="main-content">
+    <div class="legal-hero">
+      <div class="container">
+        <h1>Terms of Service</h1>
+        <p class="text-muted">Last updated: 7 June 2026</p>
+      </div>
+    </div>
+
+    <section class="legal-body">
+      <div class="container">
+        <div class="legal-content">
+
+          <h2>1. Agreement</h2>
+          <p>By creating an account or using MJ Maps ("the Service"), you agree to these Terms. If you're using MJ Maps on behalf of a company, you confirm you have authority to bind that company.</p>
+
+          <h2>2. Subscription &amp; Billing</h2>
+          <ul>
+            <li><strong>Driver Pro</strong> is billed monthly or yearly at the rates shown on the pricing page at the time of purchase.</li>
+            <li><strong>Enterprise</strong> is billed on custom terms agreed with MJ Maps Systems Ltd.</li>
+            <li>All prices include VAT where applicable for UK and EU customers.</li>
+            <li>Annual plans <strong>do not auto-renew</strong>. We will email you 30 days before expiry. You choose whether to renew.</li>
+            <li>Monthly plans renew automatically each month. Cancel at any time to stop renewal.</li>
+          </ul>
+
+          <h2>3. Cancellation</h2>
+          <ul>
+            <li>Cancel at any time from your account settings.</li>
+            <li>Your subscription remains active until the end of the current paid period. We do not pro-rate refunds for unused time.</li>
+            <li>Your data is retained for 30 days after cancellation, after which it is deleted (except delivery records retained for legal purposes — see Privacy Policy §5).</li>
+          </ul>
+
+          <h2>4. Acceptable Use</h2>
+          <p>You may use MJ Maps for lawful professional delivery and logistics purposes. You may not:</p>
+          <ul>
+            <li>Reverse-engineer, decompile, or copy any part of the Service</li>
+            <li>Use the Service to track people without their knowledge or consent</li>
+            <li>Resell or sublicense access to the Service</li>
+            <li>Attempt to gain unauthorised access to any part of the Service or its infrastructure</li>
+          </ul>
+
+          <h2>5. Availability &amp; Accuracy</h2>
+          <p>MJ Maps aims for high availability but cannot guarantee uninterrupted service. Road restriction data (bridge heights, weight limits, access restrictions) is sourced from OpenStreetMap and other sources. While we work to keep it current, you must use your own judgement on the road — the driver is always responsible for their vehicle and its safe operation.</p>
+
+          <h2>6. Limitation of Liability</h2>
+          <p>To the maximum extent permitted by UK law, MJ Maps Systems Ltd is not liable for any indirect, incidental, or consequential damages arising from use of the Service, including routing decisions made in reliance on the data provided. Our total liability in any 12-month period is limited to the fees you paid in that period.</p>
+
+          <h2>7. Intellectual Property</h2>
+          <p>MJ Maps and all associated software, designs, and data remain the property of MJ Maps Systems Ltd. You receive a limited, non-exclusive licence to use the Service during your subscription.</p>
+
+          <h2>8. Governing Law</h2>
+          <p>These Terms are governed by the laws of England and Wales. Any disputes will be subject to the exclusive jurisdiction of the courts of England and Wales.</p>
+
+          <h2>9. Changes to Terms</h2>
+          <p>We may update these Terms. Material changes will be notified via email or in-app notice at least 30 days before they take effect. Continued use after that date constitutes acceptance.</p>
+
+          <h2>10. Contact</h2>
+          <p>For any questions about these Terms: <a href="mailto:hello@mjmaps.app">hello@mjmaps.app</a></p>
+
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .legal-hero {
+    padding-block: 120px 48px;
+    background: var(--void);
+    border-bottom: 1px solid var(--glass-brd);
+  }
+  .legal-hero h1 { margin-bottom: 8px; }
+
+  .legal-body { padding-block: 64px; }
+
+  .legal-content {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .legal-content h2 {
+    font-size: 1.125rem;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .legal-content p, .legal-content li {
+    color: var(--ink-muted);
+    line-height: 1.7;
+    font-size: 0.9375rem;
+  }
+
+  .legal-content ul {
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .legal-content strong { color: var(--ink); }
+</style>

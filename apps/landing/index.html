@@ -4,1120 +4,377 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MJ Maps Systems — Delivery Route Intelligence</title>
-  <meta name="description" content="AI-powered delivery route intelligence platform for UK courier drivers and fleets.">
+  <meta name="description" content="AI-powered delivery route intelligence platform for UK courier drivers">
+  
+  <!-- OpenGraph / Social -->
   <meta property="og:title" content="MJ Maps Systems — Delivery Route Intelligence">
-  <meta property="og:description" content="Smart routing, turn warnings, and live fleet intelligence for UK courier operations.">
+  <meta property="og:description" content="AI-powered delivery route intelligence for UK courier drivers. Smart routing, turn warnings, voice navigation.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://mjmapsystems.com">
   <meta property="og:image" content="https://mjmapsystems.com/og-image.png">
+  
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MJ Maps Systems">
+  <meta name="twitter:description" content="AI-powered delivery route intelligence for UK courier drivers.">
+  
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-
+  
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:           #0d1117;
-      --surface:      #161b22;
-      --surface2:     #1c2332;
-      --border:       #30363d;
-      --primary:      #00c2a8;
-      --primary-dark: #009e88;
-      --primary-glow: rgba(0,194,168,0.18);
-      --text:         #e6edf3;
-      --muted:        #7d8590;
-      --green:        #3fb950;
-      --amber:        #d29922;
-      --radius:       14px;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-
-    html { scroll-behavior: smooth; }
-
+    
+    :root {
+      --primary: #00c2a8;
+      --primary-dark: #00a090;
+      --bg: #0f1117;
+      --surface: #1c2a37;
+      --text: #e0eaf4;
+      --text-muted: #8fa0b0;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --blue: #3b82f6;
+    }
+    
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    a { color: inherit; text-decoration: none; }
-
-    /* ── Nav ─────────────────────────────────────────── */
-    nav {
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      min-height: 100vh;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 2rem;
-      height: 60px;
-      background: rgba(13,17,23,0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      flex-direction: column;
     }
-
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--text);
-    }
-
-    .logo-mark {
-      width: 32px;
-      height: 32px;
-      background: var(--primary);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-
-    .nav-links a {
-      padding: 0.4rem 0.85rem;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      color: var(--muted);
-      transition: color 0.15s, background 0.15s;
-    }
-    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      padding: 0.5rem 1.1rem;
-      border-radius: 10px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      border: none;
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid transparent;
-    }
-    .btn-ghost:hover { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.05); }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #0d1117;
-      font-weight: 700;
-    }
-    .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 20px var(--primary-glow); }
-
-    .btn-outline {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
-
-    .btn-lg {
-      padding: 0.85rem 1.75rem;
-      font-size: 1rem;
-      border-radius: 12px;
-    }
-
-    /* ── Hero ─────────────────────────────────────────── */
+    
     .hero {
+      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
+      padding: 2rem;
       text-align: center;
-      padding: 5rem 2rem 4rem;
-      position: relative;
-      overflow: hidden;
+      background: linear-gradient(180deg, var(--bg) 0%, #0a1628 100%);
     }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: -80px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(0,194,168,0.12) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .hero-badge {
-      display: inline-flex;
+    
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: var(--primary);
+      border-radius: 20px;
+      display: flex;
       align-items: center;
-      gap: 0.4rem;
-      background: rgba(0,194,168,0.1);
-      border: 1px solid rgba(0,194,168,0.25);
-      color: var(--primary);
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 0.3rem 0.8rem;
-      border-radius: 100px;
-      margin-bottom: 1.5rem;
-      letter-spacing: 0.02em;
+      justify-content: center;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 194, 168, 0.3);
     }
-
-    .hero h1 {
-      font-size: clamp(2.2rem, 5vw, 3.75rem);
+    
+    .logo svg {
+      width: 48px;
+      height: 48px;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
       font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -0.03em;
-      margin-bottom: 1.25rem;
-      max-width: 780px;
-      background: linear-gradient(160deg, var(--text) 30%, #6b8fa8 100%);
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-
-    .hero-sub {
-      font-size: clamp(1rem, 2vw, 1.2rem);
-      color: var(--muted);
-      max-width: 520px;
-      margin-bottom: 2.5rem;
-      line-height: 1.7;
+    
+    .tagline {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      margin-bottom: 3rem;
+      max-width: 500px;
     }
-
-    .hero-ctas {
+    
+    .cta-group {
       display: flex;
-      gap: 0.75rem;
+      gap: 1rem;
       flex-wrap: wrap;
       justify-content: center;
     }
-
-    .hero-stats {
-      display: flex;
-      gap: 2.5rem;
-      margin-top: 3.5rem;
-      padding-top: 2rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 1.75rem;
-      font-weight: 800;
-      color: var(--primary);
-      line-height: 1;
-    }
-
-    .stat-label {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
-    }
-
-    /* ── Product Preview ──────────────────────────────── */
-    .preview-wrap {
-      margin: 3.5rem auto 0;
-      max-width: 860px;
-      width: 100%;
-      padding: 0 2rem;
-    }
-
-    .preview-frame {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
-    }
-
-    .preview-bar {
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
-      padding: 0.65rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .dot-r { background: #f85149; }
-    .dot-a { background: #d29922; }
-    .dot-g { background: #3fb950; }
-
-    .preview-url {
-      margin-left: 0.5rem;
-      font-size: 0.75rem;
-      color: var(--muted);
-      background: rgba(255,255,255,0.04);
-      padding: 0.2rem 0.75rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-    }
-
-    .preview-body {
-      padding: 1.25rem;
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 1rem;
-      min-height: 280px;
-    }
-
-    .preview-sidebar {
-      background: var(--surface2);
-      border-radius: 12px;
-      padding: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-
-    .preview-route {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0.6rem;
-      border-radius: 8px;
-      font-size: 0.72rem;
-      color: var(--muted);
-    }
-
-    .preview-route.active {
-      background: rgba(0,194,168,0.12);
-      color: var(--primary);
-    }
-
-    .preview-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .preview-map {
-      background: #1a2332;
-      border-radius: 12px;
-      position: relative;
-      overflow: hidden;
-      display: flex;
+    
+    .btn {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-    }
-
-    .preview-map-grid {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-      background-size: 32px 32px;
-    }
-
-    .preview-route-line {
-      position: absolute;
-      width: 60%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--primary), transparent);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-15deg);
-      border-radius: 2px;
-    }
-
-    .preview-pins {
-      display: flex;
-      gap: 1.5rem;
-      position: relative;
-      z-index: 1;
-    }
-
-    .pin {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.3rem;
-    }
-
-    .pin-dot {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 2px solid #0d1117;
-    }
-
-    .pin-label {
-      font-size: 0.65rem;
-      font-weight: 600;
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      white-space: nowrap;
-    }
-
-    .alert-badge {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      background: rgba(242,108,35,0.15);
-      border: 1px solid rgba(242,108,35,0.3);
-      color: #f26c23;
-      font-size: 0.7rem;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-size: 1rem;
       font-weight: 700;
-      padding: 0.2rem 0.55rem;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      min-width: 180px;
     }
-
-    /* ── Sections ─────────────────────────────────────── */
-    .section {
-      padding: 5rem 2rem;
-      max-width: 1100px;
-      margin: 0 auto;
+    
+    .btn-primary {
+      background: var(--primary);
+      color: var(--bg);
     }
-
-    .section-label {
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--primary);
-      margin-bottom: 0.75rem;
+    
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 194, 168, 0.4);
     }
-
-    .section-title {
-      font-size: clamp(1.75rem, 3vw, 2.5rem);
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      margin-bottom: 1rem;
-      line-height: 1.15;
+    
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
-
-    .section-sub {
-      font-size: 1.05rem;
-      color: var(--muted);
-      max-width: 540px;
-      line-height: 1.7;
+    
+    .btn-secondary:hover {
+      background: #243447;
+      border-color: rgba(255, 255, 255, 0.2);
     }
-
-    .section-header {
-      margin-bottom: 3rem;
-    }
-
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--border), transparent);
-      margin: 0 2rem;
-    }
-
-    /* ── Feature Cards ────────────────────────────────── */
-    .features-grid {
+    
+    .features {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.25rem;
+      gap: 1.5rem;
+      max-width: 900px;
+      margin-top: 3rem;
+      padding: 0 1rem;
     }
-
+    
     .feature-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.75rem;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.05);
     }
-
-    .feature-card:hover {
-      border-color: rgba(0,194,168,0.3);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    }
-
+    
     .feature-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-      margin-bottom: 1rem;
-    }
-
-    .feature-title {
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-
-    .feature-desc {
-      font-size: 0.875rem;
-      color: var(--muted);
-      line-height: 1.65;
-    }
-
-    /* ── Pricing ──────────────────────────────────────── */
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
-      max-width: 760px;
-    }
-
-    .pricing-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2rem;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .pricing-card-featured {
-      border-color: var(--primary);
-      background: linear-gradient(160deg, rgba(0,194,168,0.08), var(--surface));
-      box-shadow: 0 0 0 1px var(--primary), 0 20px 60px rgba(0,194,168,0.1);
-    }
-
-    .pricing-badge {
-      position: absolute;
-      top: -13px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--primary);
-      color: #0d1117;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      padding: 0.25rem 1rem;
-      border-radius: 100px;
-      white-space: nowrap;
-    }
-
-    .pricing-tier {
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
-    }
-
-    .pricing-name {
-      font-size: 1.4rem;
-      font-weight: 800;
-      margin-bottom: 0.25rem;
-    }
-
-    .pricing-price {
-      font-size: 2.75rem;
-      font-weight: 800;
-      color: var(--primary);
-      line-height: 1;
-      margin: 0.75rem 0 0.25rem;
-    }
-
-    .pricing-price span {
-      font-size: 1rem;
-      font-weight: 400;
-      color: var(--muted);
-    }
-
-    .pricing-desc {
-      font-size: 0.875rem;
-      color: var(--muted);
-      margin-bottom: 1.5rem;
-    }
-
-    .pricing-features {
-      list-style: none;
-      margin-bottom: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-      flex: 1;
-    }
-
-    .pricing-features li {
-      font-size: 0.875rem;
-      color: var(--text);
-      display: flex;
-      align-items: flex-start;
-      gap: 0.6rem;
-    }
-
-    .pricing-features li::before {
-      content: '';
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: rgba(63,185,80,0.15);
-      border: 1.5px solid var(--green);
-      flex-shrink: 0;
-      margin-top: 2px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6l2.5 2.5 4.5-5' stroke='%233fb950' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: center;
-      background-size: 10px;
-    }
-
-    .pricing-card .btn { width: 100%; justify-content: center; }
-
-    /* ── Enterprise Banner ────────────────────────────── */
-    .enterprise-banner {
-      background: linear-gradient(135deg, var(--surface2) 0%, rgba(0,194,168,0.06) 100%);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 3rem 2.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
-      flex-wrap: wrap;
-    }
-
-    .enterprise-text h2 {
-      font-size: 1.5rem;
-      font-weight: 800;
-      margin-bottom: 0.5rem;
-    }
-
-    .enterprise-text p {
-      color: var(--muted);
-      font-size: 0.95rem;
-      max-width: 480px;
-    }
-
-    /* ── Footer ───────────────────────────────────────── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    footer p {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 1.25rem;
-    }
-
-    .footer-links a {
-      font-size: 0.8rem;
-      color: var(--muted);
-      transition: color 0.15s;
-    }
-    .footer-links a:hover { color: var(--primary); }
-
-    /* ── Modal ────────────────────────────────────────── */
-    .modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(4px);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-
-    .modal-backdrop.open { display: flex; }
-
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2rem;
-      width: 100%;
-      max-width: 420px;
-      position: relative;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
-    }
-
-    .modal-close {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 1.25rem;
-      line-height: 1;
-      padding: 0.25rem;
-      border-radius: 6px;
-      transition: color 0.15s;
-    }
-    .modal-close:hover { color: var(--text); }
-
-    .modal h2 {
-      font-size: 1.3rem;
-      font-weight: 800;
-      margin-bottom: 0.4rem;
-    }
-
-    .modal p {
-      font-size: 0.875rem;
-      color: var(--muted);
-      margin-bottom: 1.5rem;
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 0.4rem;
-    }
-
-    .form-input {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-size: 0.95rem;
-      padding: 0.65rem 0.85rem;
-      outline: none;
-      transition: border-color 0.15s;
-      font-family: inherit;
-    }
-
-    .form-input:focus { border-color: var(--primary); }
-    .form-input::placeholder { color: var(--muted); }
-
-    .form-error {
-      color: #f85149;
-      font-size: 0.8rem;
-      margin-top: 0.75rem;
-      display: none;
-    }
-
-    .form-error.visible { display: block; }
-
-    .form-success {
-      text-align: center;
-      padding: 1.5rem 0;
-      display: none;
-    }
-
-    .form-success.visible { display: block; }
-
-    .form-success .success-icon {
-      font-size: 3rem;
+      font-size: 2rem;
       margin-bottom: 0.75rem;
     }
-
-    .form-success h3 {
+    
+    .feature-title {
       font-size: 1.1rem;
       font-weight: 700;
       margin-bottom: 0.5rem;
+      color: var(--text);
     }
-
-    .form-success p {
-      margin-bottom: 1.25rem;
+    
+    .feature-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
     }
-
-    .login-link {
+    
+    footer {
+      padding: 1.5rem;
       text-align: center;
-      margin-top: 1rem;
-      font-size: 0.825rem;
-      color: var(--muted);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
-
-    .login-link a {
+    
+    footer a {
       color: var(--primary);
-      font-weight: 600;
+      text-decoration: none;
     }
-
-    /* ── Responsive ───────────────────────────────────── */
-    @media (max-width: 720px) {
-      nav { padding: 0 1rem; }
-      .nav-links { display: none; }
-      .hero { padding: 3.5rem 1.25rem 3rem; }
-      .hero-stats { gap: 1.5rem; }
-      .preview-body { grid-template-columns: 1fr; }
-      .preview-sidebar { display: none; }
-      .section { padding: 3.5rem 1.25rem; }
-      .enterprise-banner { padding: 2rem 1.25rem; }
-      footer { flex-direction: column; text-align: center; }
+    
+    footer a:hover {
+      text-decoration: underline;
+    }
+    
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.75rem;
+      }
+      
+      .tagline {
+        font-size: 1rem;
+      }
+      
+      .btn {
+        width: 100%;
+      }
+    }
+    
+    .pricing {
+      padding: 4rem 2rem;
+      background: var(--surface);
+      margin-top: 4rem;
+    }
+    
+    .pricing h2 {
+      font-size: 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      color: var(--text);
+    }
+    
+    .pricing-cards {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .pricing-card {
+      background: var(--bg);
+      border-radius: 20px;
+      padding: 2rem;
+      min-width: 280px;
+      max-width: 350px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+    
+    .pricing-card-enterprise {
+      border-color: var(--primary);
+      box-shadow: 0 0 40px rgba(0, 194, 168, 0.15);
+    }
+    
+    .pricing-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: var(--bg);
+      padding: 0.25rem 1rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    
+    .pricing-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    
+    .pricing-price {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+    
+    .pricing-price span {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+    
+    .pricing-desc {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .pricing-features {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 2rem;
+    }
+    
+    .pricing-features li {
+      padding: 0.5rem 0;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    
+    .pricing-features li::before {
+      content: '✓ ';
+      color: var(--green);
+      font-weight: 700;
     }
   </style>
 </head>
 <body>
-
-<!-- ── Nav ───────────────────────────────────────────── -->
-<nav>
-  <a href="/" class="nav-logo">
-    <div class="logo-mark">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-        <path d="M3 14L7.5 4L9 8.5L10.5 5.5L15 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="15" cy="5.5" r="1.75" fill="white" fill-opacity="0.7"/>
+  <div class="hero">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 24L16 8L24 24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="16" cy="18" r="2.5" fill="white"/>
       </svg>
     </div>
-    MJ Maps Systems
-  </a>
-
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#enterprise">Enterprise</a>
-  </div>
-
-  <div class="nav-actions">
-    <a href="/dispatcher" class="btn btn-ghost" style="font-size:0.875rem">Sign In</a>
-    <button class="btn btn-primary" onclick="openSignup('pro')">Get Started</button>
-  </div>
-</nav>
-
-<!-- ── Hero ──────────────────────────────────────────── -->
-<section class="hero">
-  <div class="hero-badge">
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
-    Built for UK Courier Drivers
-  </div>
-
-  <h1>Route intelligence that keeps your deliveries moving</h1>
-
-  <p class="hero-sub">
-    AI-optimised routes, real-time turn warnings, and live fleet oversight — so every driver delivers more, faster, and safer.
-  </p>
-
-  <div class="hero-ctas">
-    <button class="btn btn-primary btn-lg" onclick="openSignup('pro')">Start free trial</button>
-    <a href="#enterprise" class="btn btn-outline btn-lg">Fleet &amp; Enterprise</a>
-  </div>
-
-  <div class="hero-stats">
-    <div class="stat"><div class="stat-value">40%</div><div class="stat-label">Fewer missed turns</div></div>
-    <div class="stat"><div class="stat-value">12%</div><div class="stat-label">More stops per shift</div></div>
-    <div class="stat"><div class="stat-value">Live</div><div class="stat-label">Fleet visibility</div></div>
-  </div>
-</section>
-
-<!-- ── Product Preview ──────────────────────────────── -->
-<div class="preview-wrap">
-  <div class="preview-frame">
-    <div class="preview-bar">
-      <div class="dot dot-r"></div>
-      <div class="dot dot-a"></div>
-      <div class="dot dot-g"></div>
-      <div class="preview-url">mjmapsystems.com/dispatcher</div>
+    
+    <h1>MJ Maps Systems</h1>
+    <p class="tagline">AI-powered delivery route intelligence for UK courier drivers. Optimise routes, avoid tight turns, deliver with confidence.</p>
+    
+    <div class="cta-group">
+      <a href="/driver" class="btn btn-primary">🚚 Driver App</a>
+      <a href="/dispatcher" class="btn btn-secondary">📊 Dispatcher Dashboard</a>
     </div>
-    <div class="preview-body">
-      <div class="preview-sidebar">
-        <div style="font-size:0.7rem;font-weight:700;color:var(--muted);padding:0.25rem 0.6rem;margin-bottom:0.2rem;letter-spacing:0.06em">ACTIVE ROUTES</div>
-        <div class="preview-route active">
-          <div class="preview-dot" style="background:var(--primary)"></div>
-          MNJ-0042 · 18 stops
-        </div>
-        <div class="preview-route">
-          <div class="preview-dot" style="background:var(--green)"></div>
-          MNJ-0039 · 23 stops
-        </div>
-        <div class="preview-route">
-          <div class="preview-dot" style="background:var(--amber)"></div>
-          MNJ-0041 · 9 stops
-        </div>
-        <div class="preview-route">
-          <div class="preview-dot" style="background:var(--muted)"></div>
-          MNJ-0038 · 31 stops
-        </div>
+    
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <div class="feature-title">Smart Route Planning</div>
+        <div class="feature-desc">AI-optimised delivery routes that minimise backtracking and maximise efficiency.</div>
       </div>
-
-      <div class="preview-map">
-        <div class="preview-map-grid"></div>
-        <div class="preview-route-line"></div>
-        <div class="preview-pins">
-          <div class="pin">
-            <div class="pin-dot" style="background:var(--primary)"></div>
-            <div class="pin-label" style="background:rgba(0,194,168,0.15);color:var(--primary)">Depot</div>
-          </div>
-          <div class="pin">
-            <div class="pin-dot" style="background:var(--green)"></div>
-            <div class="pin-label" style="background:rgba(63,185,80,0.12);color:var(--green)">Stop 7</div>
-          </div>
-          <div class="pin">
-            <div class="pin-dot" style="background:var(--amber)"></div>
-            <div class="pin-label" style="background:rgba(210,153,34,0.12);color:var(--amber)">Stop 9 ⚠</div>
-          </div>
-        </div>
-        <div class="alert-badge">⚠ Tight turn · 23 m</div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">⚠️</div>
+        <div class="feature-title">Turn Warnings</div>
+        <div class="feature-desc">Green, amber, and red alerts warn you about tight turns before you commit.</div>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <div class="feature-title">Mobile First</div>
+        <div class="feature-desc">Designed for one-handed operation while driving. Voice alerts included.</div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ── Features ──────────────────────────────────────── -->
-<div class="divider" style="margin-top:5rem"></div>
-<section class="section" id="features">
-  <div class="section-header">
-    <div class="section-label">Features</div>
-    <h2 class="section-title">Everything a courier driver needs</h2>
-    <p class="section-sub">From route planning to live turn warnings — MJ Maps handles the hard parts so drivers can focus on delivering.</p>
-  </div>
+  <div class="pricing" id="pricing">
+    <h2>Simple, Transparent Pricing</h2>
 
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(0,194,168,0.12)">🗺️</div>
-      <div class="feature-title">AI Route Optimisation</div>
-      <div class="feature-desc">Automatically sequences stops to minimise backtracking and dead mileage. Import from CSV or your own system.</div>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(210,153,34,0.12)">⚠️</div>
-      <div class="feature-title">Turn Quality Warnings</div>
-      <div class="feature-desc">Green, amber, and red alerts warn your driver about tight junctions before they commit — reducing write-offs and stress.</div>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(63,185,80,0.12)">📱</div>
-      <div class="feature-title">Mobile-First Driver App</div>
-      <div class="feature-desc">Designed for one-handed use while stationary. Voice alerts keep eyes on the road. Works on any Android or iPhone.</div>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(59,130,246,0.12)">📡</div>
-      <div class="feature-title">Live Fleet Tracking</div>
-      <div class="feature-desc">Dispatcher console shows every vehicle in real time. Spot delays, off-route deviations, and failed stops instantly.</div>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(168,85,247,0.12)">📊</div>
-      <div class="feature-title">Performance Analytics</div>
-      <div class="feature-desc">Daily and weekly summaries of stops completed, dwell times, and route efficiency — for every driver and vehicle.</div>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon" style="background:rgba(248,81,73,0.12)">🔔</div>
-      <div class="feature-title">Instant Alerts</div>
-      <div class="feature-desc">Telegram notifications for red-flag turns, off-route drivers, and failed deliveries — before they escalate.</div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Pricing ────────────────────────────────────────── -->
-<div class="divider"></div>
-<section class="section" id="pricing">
-  <div class="section-header">
-    <div class="section-label">Pricing</div>
-    <h2 class="section-title">Simple pricing, no surprises</h2>
-    <p class="section-sub">Start with one driver and scale to a full fleet. Cancel anytime.</p>
-  </div>
-
-  <div class="pricing-grid">
-    <div class="pricing-card">
-      <div class="pricing-tier">Driver</div>
-      <div class="pricing-name">Driver Pro</div>
-      <div class="pricing-price">£9.99<span>/month</span></div>
-      <div class="pricing-desc">Your AI delivery co-pilot. One driver, all the essentials.</div>
-
-      <ul class="pricing-features">
-        <li>AI route optimisation</li>
-        <li>Turn quality warnings (green / amber / red)</li>
-        <li>Voice navigation alerts</li>
-        <li>Stop status tracking</li>
-        <li>CSV &amp; manual stop import</li>
-        <li>Dark mode + offline maps</li>
-        <li>iOS &amp; Android app</li>
-      </ul>
-
-      <button class="btn btn-outline btn-lg" onclick="openSignup('pro')">Start free trial</button>
-    </div>
-
-    <div class="pricing-card pricing-card-featured">
-      <div class="pricing-badge">Most Popular</div>
-      <div class="pricing-tier">Fleet</div>
-      <div class="pricing-name">Enterprise</div>
-      <div class="pricing-price">Custom</div>
-      <div class="pricing-desc">Full fleet intelligence. Unlimited drivers, dispatcher console included.</div>
-
-      <ul class="pricing-features">
-        <li>Everything in Driver Pro</li>
-        <li>Dispatcher dashboard (live map)</li>
-        <li>Real-time fleet tracking</li>
-        <li>Bulk stop upload &amp; assignment</li>
-        <li>Fleet analytics &amp; reporting</li>
-        <li>Telegram alert integrations</li>
-        <li>Priority support &amp; onboarding</li>
-      </ul>
-
-      <a href="mailto:hello@mjmapsystems.com?subject=Enterprise%20enquiry" class="btn btn-primary btn-lg">Contact sales</a>
-    </div>
-  </div>
-</section>
-
-<!-- ── Enterprise ─────────────────────────────────────── -->
-<div class="section" id="enterprise" style="padding-top:0">
-  <div class="enterprise-banner">
-    <div class="enterprise-text">
-      <h2>Running a fleet of 5 or more drivers?</h2>
-      <p>Get a personalised demo, custom pricing, and a dedicated onboarding session. We'll have your whole fleet live within a day.</p>
-    </div>
-    <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-      <a href="mailto:hello@mjmapsystems.com?subject=Enterprise%20enquiry" class="btn btn-primary btn-lg">Get a demo</a>
-      <a href="/dispatcher" class="btn btn-outline btn-lg">Dispatcher login</a>
-    </div>
-  </div>
-</div>
-
-<!-- ── Footer ─────────────────────────────────────────── -->
-<footer>
-  <p>&copy; 2025 MJ Maps Systems Ltd. All rights reserved.</p>
-  <div class="footer-links">
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="mailto:hello@mjmapsystems.com">Contact</a>
-    <a href="/api/v1/health" target="_blank" rel="noopener">API Status</a>
-    <a href="/dispatcher">Dispatcher</a>
-  </div>
-</footer>
-
-<!-- ── Signup Modal ─────────────────────────────────── -->
-<div class="modal-backdrop" id="signupModal" onclick="closeOnBackdrop(event)">
-  <div class="modal">
-    <button class="modal-close" onclick="closeSignup()" aria-label="Close">&times;</button>
-
-    <div id="signupForm">
-      <h2>Create your account</h2>
-      <p id="signupDesc">Start your free 14-day trial — no credit card required.</p>
-
-      <div class="form-group">
-        <label class="form-label" for="regEmail">Email address</label>
-        <input class="form-input" id="regEmail" type="email" placeholder="you@example.com" autocomplete="email">
+    <div class="pricing-cards">
+      <div class="pricing-card">
+        <div class="pricing-title">Driver Pro</div>
+        <div class="pricing-price">£9.99<span>/month</span></div>
+        <div class="pricing-desc">Your AI delivery co-pilot</div>
+        <ul class="pricing-features">
+          <li>Smart route planning</li>
+          <li>Turn quality warnings</li>
+          <li>Voice navigation</li>
+          <li>Saved routes</li>
+          <li>CSV import</li>
+          <li>Dark mode</li>
+        </ul>
+        <a href="/driver?plan=pro" class="btn btn-primary">Get Started</a>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="regPassword">Password</label>
-        <input class="form-input" id="regPassword" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+      <div class="pricing-card pricing-card-enterprise">
+        <div class="pricing-badge">Most Popular</div>
+        <div class="pricing-title">Enterprise</div>
+        <div class="pricing-price">Custom</div>
+        <div class="pricing-desc">Complete fleet intelligence platform</div>
+        <ul class="pricing-features">
+          <li>Everything in Driver Pro</li>
+          <li>Fleet dispatch dashboard</li>
+          <li>Real-time fleet tracking</li>
+          <li>Live fleet analytics</li>
+          <li>Bulk stop upload</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="/dispatcher" class="btn btn-secondary">Contact Sales</a>
       </div>
-
-      <div class="form-error" id="regError"></div>
-
-      <button class="btn btn-primary btn-lg" id="regSubmit" onclick="submitSignup()" style="width:100%;margin-top:0.5rem">
-        Create account &amp; continue
-      </button>
-
-      <div class="login-link">
-        Already have an account? <a href="/dispatcher">Sign in</a>
-      </div>
-    </div>
-
-    <div class="form-success" id="signupSuccess">
-      <div class="success-icon">🎉</div>
-      <h3>Welcome to MJ Maps!</h3>
-      <p>Your account is ready. Taking you to the driver app now…</p>
-      <a href="/driver" class="btn btn-primary btn-lg" style="display:inline-flex">Open Driver App</a>
     </div>
   </div>
-</div>
 
-<script>
-  let selectedPlan = 'pro';
-
-  function openSignup(plan) {
-    selectedPlan = plan;
-    document.getElementById('signupDesc').textContent =
-      plan === 'enterprise'
-        ? 'Create your enterprise account to access the dispatcher console.'
-        : 'Start your free 14-day trial — no credit card required.';
-    document.getElementById('signupForm').style.display = '';
-    document.getElementById('signupSuccess').classList.remove('visible');
-    document.getElementById('regError').classList.remove('visible');
-    document.getElementById('regEmail').value = '';
-    document.getElementById('regPassword').value = '';
-    document.getElementById('signupModal').classList.add('open');
-    setTimeout(() => document.getElementById('regEmail').focus(), 60);
-  }
-
-  function closeSignup() {
-    document.getElementById('signupModal').classList.remove('open');
-  }
-
-  function closeOnBackdrop(e) {
-    if (e.target === document.getElementById('signupModal')) closeSignup();
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeSignup();
-  });
-
-  async function submitSignup() {
-    const email    = document.getElementById('regEmail').value.trim();
-    const password = document.getElementById('regPassword').value;
-    const errEl    = document.getElementById('regError');
-    const btn      = document.getElementById('regSubmit');
-
-    errEl.classList.remove('visible');
-
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errEl.textContent = 'Please enter a valid email address.';
-      errEl.classList.add('visible');
-      return;
-    }
-    if (!password || password.length < 8) {
-      errEl.textContent = 'Password must be at least 8 characters.';
-      errEl.classList.add('visible');
-      return;
-    }
-
-    btn.textContent = 'Creating account…';
-    btn.disabled = true;
-
-    try {
-      const res = await fetch('/api/v1/auth/register', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email, password, role: 'driver' }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Registration failed. Please try again.');
-      }
-
-      document.getElementById('signupForm').style.display = 'none';
-      document.getElementById('signupSuccess').classList.add('visible');
-
-      setTimeout(() => { window.location.href = '/driver'; }, 2500);
-    } catch (err) {
-      errEl.textContent = err.message;
-      errEl.classList.add('visible');
-    } finally {
-      btn.textContent = 'Create account & continue';
-      btn.disabled = false;
-    }
-  }
-</script>
+  <footer>
+    <p>&copy; 2024 MJ Maps Systems. <a href="/api/v1/health">API Health</a></p>
+  </footer>
 </body>
 </html>

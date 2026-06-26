@@ -1,0 +1,176 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import { type FeatureKey } from '@plans';
+
+const fleetKeys: FeatureKey[] = [
+  'DISPATCHER', 'LIVE_TRACKING_WS', 'RED_ALERTS', 'ROUTE_INTEL',
+  'ADMIN_ANALYTICS', 'WORKLOAD_GUARD', 'POD_PHOTO', 'SIGNATURE_CAPTURE',
+  'ETA_NOTIFICATIONS', 'STOP_STATUS', 'FAILED_DELIVERY', 'TROLLEY_ADVISORY',
+];
+---
+
+<BaseLayout
+  title="For Fleets — MJ Maps Enterprise"
+  description="MJ Maps Enterprise for fleet operations. Live dispatcher console, real-time tracking, POD photo capture, signature collection, and exception alerts."
+>
+  <Nav activePage="/fleet" />
+  <main id="main-content">
+    <div class="page-hero">
+      <div class="container">
+        <div class="chip chip-brand hero-chip reveal">Enterprise</div>
+        <h1 class="reveal">Fleet-grade control for operations teams</h1>
+        <p class="page-hero-sub reveal">From the dispatcher console to the driver's screen — full visibility, instant alerts, and proof of every delivery.</p>
+        <div class="hero-ctas reveal">
+          <a href="mailto:hello@mjmaps.app" class="btn btn-primary">Talk to us</a>
+          <a href="/pricing" class="btn btn-secondary">Compare plans</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dispatcher preview -->
+    <section class="dispatcher-preview below-fold">
+      <div class="container">
+        <div class="dp-inner">
+          <div class="dp-text reveal">
+            <h2>Live fleet map — under 5 seconds</h2>
+            <p class="text-muted">Every driver's location updates via WebSocket. You see the entire fleet on one map, with stop progress and exception flags, in near real-time.</p>
+            <ul class="dp-list">
+              <li>Driver positions update every 2–5 seconds</li>
+              <li>Completed, in-progress, and failed stops colour-coded</li>
+              <li>Click any driver to see their active route and ETA</li>
+              <li>Instant Telegram alert on off-route or long dwell</li>
+            </ul>
+          </div>
+          <div class="dp-mockup reveal">
+            <div class="dp-panel glass">
+              <div class="dp-header">
+                <span class="dp-title">Fleet Overview</span>
+                <span class="chip chip-green">● Live</span>
+              </div>
+              <div class="dp-drivers">
+                {[
+                  { name: 'Driver 1', stops: '12/18', status: 'green', eta: '14:22' },
+                  { name: 'Driver 2', stops: '7/14',  status: 'amber', eta: '16:05' },
+                  { name: 'Driver 3', stops: '18/18', status: 'green', eta: 'Done' },
+                ].map(d => (
+                  <div class="dp-driver-row">
+                    <div class={`dp-driver-dot chip-${d.status}`} aria-hidden="true"></div>
+                    <span class="dp-driver-name">{d.name}</span>
+                    <span class="mono dp-driver-stops text-muted">{d.stops} stops</span>
+                    <span class="mono dp-driver-eta">ETA {d.eta}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <FeatureGrid
+      title="Enterprise features"
+      subtitle="Everything in Driver Pro, plus fleet-level visibility and proof of delivery."
+      featureKeys={fleetKeys}
+    />
+
+    <!-- Enterprise CTA -->
+    <section class="fleet-cta below-fold">
+      <div class="container">
+        <div class="fleet-cta-inner glass reveal">
+          <h2>Get a personalised demo</h2>
+          <p class="text-muted">We'll walk you through the dispatcher console with your own routes, show you the exception alert flow, and answer every question your operations team has.</p>
+          <a href="mailto:hello@mjmaps.app" class="btn btn-primary">Email us to book</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-block: 120px 64px;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59,130,246,0.05) 0%, transparent 60%), var(--void);
+    text-align: center;
+  }
+  .hero-chip { margin-bottom: 16px; display: inline-flex; }
+  .page-hero-sub {
+    color: var(--ink-muted);
+    font-size: 1.125rem;
+    margin-top: 12px;
+    max-width: 540px;
+    margin-inline: auto;
+    margin-bottom: 24px;
+  }
+  .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+  .dp-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: center;
+  }
+  @media (min-width: 768px) { .dp-inner { grid-template-columns: 1fr 1fr; } }
+
+  .dp-text h2 { margin-bottom: 12px; }
+  .dp-list {
+    list-style: none;
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dp-list li { color: var(--ink-muted); font-size: 0.9375rem; padding-left: 20px; position: relative; }
+  .dp-list li::before { content: '→'; position: absolute; left: 0; color: var(--brand-bright); }
+
+  .dp-panel {
+    border-radius: var(--r-card);
+    padding: 0;
+    overflow: hidden;
+  }
+  .dp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--glass-brd);
+    background: var(--surface-2);
+  }
+  .dp-title { font-weight: 600; font-size: 0.9375rem; }
+  .dp-drivers { display: flex; flex-direction: column; }
+  .dp-driver-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.9rem;
+  }
+  .dp-driver-row:last-child { border-bottom: none; }
+  .dp-driver-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dp-driver-dot.chip-green { background: var(--green); }
+  .dp-driver-dot.chip-amber { background: var(--amber); }
+  .dp-driver-name { flex: 1; color: var(--ink); font-weight: 500; }
+  .dp-driver-stops { font-size: 0.8125rem; }
+  .dp-driver-eta { font-size: 0.8125rem; color: var(--brand-bright); }
+
+  .fleet-cta { padding-block: var(--section-py); }
+  .fleet-cta-inner {
+    border-radius: var(--r-panel);
+    padding: 48px 32px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .fleet-cta-inner p { max-width: 480px; }
+</style>

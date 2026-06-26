@@ -1,0 +1,131 @@
+---
+const steps = [
+  {
+    num: '01',
+    title: 'Enter your stops',
+    desc: 'Paste addresses, scan barcodes, or import a manifest. MJ Maps accepts postcodes, what3words references, and Plus Codes — and pins each one to the exact gate or loading bay.',
+    icon: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3 L3 9 L3 19 L14 25 L25 19 L25 9 Z" stroke="#2EE6CE" stroke-width="1.5" fill="none"/><text x="14" y="17" text-anchor="middle" fill="#2EE6CE" font-size="10" font-family="Geist Mono,monospace">01</text></svg>`,
+  },
+  {
+    num: '02',
+    title: 'Route optimises for your vehicle',
+    desc: 'The engine scores every segment for your specific van or lorry — weight limits, height barriers, tight turns, road surface, and tidal windows — then finds the fastest safe sequence.',
+    icon: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3 L3 9 L3 19 L14 25 L25 19 L25 9 Z" stroke="#2EE6CE" stroke-width="1.5" fill="none"/><text x="14" y="17" text-anchor="middle" fill="#2EE6CE" font-size="10" font-family="Geist Mono,monospace">02</text></svg>`,
+  },
+  {
+    num: '03',
+    title: 'Drive with real-time alerts',
+    desc: 'Turn-by-turn instructions surface green / amber / red score chips for every turn. Deviation triggers an instant reroute. Off-route alerts reach the dispatcher in under 5 seconds.',
+    icon: `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 3 L3 9 L3 19 L14 25 L25 19 L25 9 Z" stroke="#2EE6CE" stroke-width="1.5" fill="none"/><text x="14" y="17" text-anchor="middle" fill="#2EE6CE" font-size="10" font-family="Geist Mono,monospace">03</text></svg>`,
+  },
+];
+---
+
+<section class="hiw-section below-fold" aria-labelledby="hiw-heading">
+  <div class="container">
+    <div class="section-label reveal">How it works</div>
+    <h2 id="hiw-heading" class="reveal">Three steps from stop list to delivered</h2>
+    <p class="section-sub reveal">No complex setup. Open the app, add your stops, and go. The routing intelligence runs in the background.</p>
+
+    <div class="hiw-steps">
+      {steps.map((step, i) => (
+        <div class="hiw-step reveal" data-delay={String(i * 100)}>
+          <div class="hiw-step-num mono">{step.num}</div>
+          <div class="hiw-connector" aria-hidden="true"></div>
+          <div class="hiw-step-body card">
+            <h3>{step.title}</h3>
+            <p class="text-muted">{step.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .hiw-section h2 {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .hiw-steps {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    position: relative;
+  }
+
+  @media (min-width: 768px) {
+    .hiw-steps {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+  }
+
+  .hiw-step {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    position: relative;
+  }
+
+  @media (max-width: 767px) {
+    .hiw-step {
+      padding-left: 56px;
+      padding-bottom: 40px;
+    }
+    .hiw-step:last-child { padding-bottom: 0; }
+  }
+
+  .hiw-step-num {
+    position: absolute;
+    left: 0;
+    top: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brand-bright);
+    font-size: 0.875rem;
+    font-weight: 700;
+    z-index: 1;
+  }
+
+  @media (min-width: 768px) {
+    .hiw-step-num {
+      position: relative;
+      top: auto;
+      left: auto;
+      margin-bottom: 20px;
+    }
+  }
+
+  .hiw-connector {
+    position: absolute;
+    left: 19px;
+    top: 60px;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--brand), transparent);
+    opacity: 0.3;
+  }
+
+  @media (min-width: 768px) {
+    .hiw-connector { display: none; }
+  }
+
+  .hiw-step:last-child .hiw-connector { display: none; }
+
+  .hiw-step-body {
+    width: 100%;
+  }
+
+  .hiw-step-body h3 {
+    margin-bottom: 8px;
+  }
+</style>
