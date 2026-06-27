@@ -47,7 +47,7 @@ The following fixes were applied to make `tsc` pass:
 **Known pre-existing TypeScript errors (not introduced by Phase 9):**
 - `apps/driver-app/app/shift-start.tsx(376)`: duplicate `multiline` attribute (Phase 8 source)
 - `apps/driver-app/app/stop-delivery.tsx`: `stops` field on `Shift` type mismatch
-- `apps/driver-app/app/vehicle-select.tsx(30)`: wrong arg count to `useVehicleStore`
+- `apps/driver-app/app/vehicle-select.tsx(30)`: was wrong arg count to `useVehicleStore` (rebuilt in Phase 10; uses `VEHICLE_PROFILES` from packages directly — no longer uses `useVehicleStore`)
 - `apps/driver-app/features/delivery/*.tsx`: `TextStyles` JSX type errors
 - `apps/driver-app/components/*.tsx`: accessibility role type errors
 - Test files: missing `@testing-library/react-hooks`
@@ -275,6 +275,7 @@ confirmations it uses the crowd-sourced ground truth forever.
 - Falls back to `FALLBACK_SPECS` (4 vans) if API unavailable
 - Cards show: make model + year, height/weight/length icons
 - Stores `profileKey` (e.g. `TRANSIT_LWB_GB`) in shift store — what the optimiser uses
+- **Optional by design:** header copy explains benefit; footer has "skip" link for both selected/unselected states; `handleConfirm` uses `swb_van` default when nothing selected (no blocking)
 
 **`lib/navigation.ts` (new):**
 - `fetchNavRoute()`, `formatDistance()`, `formatDuration()`, `maneuverArrow()` exported
