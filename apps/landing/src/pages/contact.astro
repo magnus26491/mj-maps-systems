@@ -2,11 +2,33 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    { '@type': 'Question', name: 'How long does the demo take?', acceptedAnswer: { '@type': 'Answer', text: "About 30 minutes. We cover the driver app, dispatcher console, and exception alert flow. If you share your routes in advance, we can show it with your own data." } },
+    { '@type': 'Question', name: 'Do I need to sign up to get a demo?', acceptedAnswer: { '@type': 'Answer', text: "No. Fill in the form and we'll book a time. No account, no credit card, no commitment." } },
+    { '@type': 'Question', name: 'What if I\'m a solo driver, not a fleet?', acceptedAnswer: { '@type': 'Answer', text: "You don't need a demo — just start a free trial directly. You'll be navigating your first shift in under 5 minutes." } },
+    { '@type': 'Question', name: 'Is my fleet data kept private?', acceptedAnswer: { '@type': 'Answer', text: "Yes. Location data is used for navigation and shift reporting only. We never sell it, share it with third parties, or use it for advertising. Full details in our Privacy Policy." } },
+    { '@type': 'Question', name: 'Can I import our existing routes?', acceptedAnswer: { '@type': 'Answer', text: "Yes. We support CSV stop lists and can integrate with standard dispatch exports. Let us know your format in the message and we'll confirm compatibility before the demo." } },
+  ],
+};
+
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
+    { '@type': 'ListItem', position: 2, name: 'Contact', item: 'https://mjmapsystems.com/contact' },
+  ],
+};
 ---
 
 <BaseLayout
-  title="Contact & Book a Demo — MJ Maps"
-  description="Book a demo of MJ Maps for your fleet, or contact us with any questions. We're happy to walk you through the dispatcher console and driver app."
+  title="Book a Fleet Demo — MJ Maps"
+  description="Book a 30-minute demo of MJ Maps for your fleet. We'll walk you through the dispatcher console and driver app — with your own routes if you share them."
+  schema={[faqSchema, breadcrumb]}
 >
   <Nav activePage="/contact" />
   <main id="main-content">

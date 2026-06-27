@@ -20,11 +20,36 @@ const allFeatureKeys: FeatureKey[] = [
 ];
 
 const plans: PlanId[] = ['navigation', 'custom'];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    { '@type': 'Question', name: 'Does MJ Maps work without a phone signal?', acceptedAnswer: { '@type': 'Answer', text: 'Yes. The Offline Cache feature downloads the map tiles, road network, and restriction data for your region before you set off. Navigation, turn warnings, and route scoring all work with zero signal.' } },
+    { '@type': 'Question', name: 'Can I cancel anytime?', acceptedAnswer: { '@type': 'Answer', text: 'Yes. Cancel from your account settings at any time. Your subscription stays active until the end of the paid period — there is no early termination fee and we will not charge you again.' } },
+    { '@type': 'Question', name: 'Is there an auto-renew on yearly plans?', acceptedAnswer: { '@type': 'Answer', text: 'No auto-renew surprises. Yearly plans do not renew automatically. We will email you 30 days before your plan expires so you can choose whether to continue.' } },
+    { '@type': 'Question', name: 'Does it support HGVs and articulated lorries?', acceptedAnswer: { '@type': 'Answer', text: 'Yes. MJ Maps ships profiles for light vans, long-wheelbase vans, HGVs (3.5t–44t), and articulated lorries. The routing engine filters weight limits, height barriers, width restrictions, and bridge clearances for your specific vehicle.' } },
+    { '@type': 'Question', name: 'What is a turn score?', acceptedAnswer: { '@type': 'Answer', text: 'Every turn in your route is scored green (safe and clear), amber (tight — proceed with care), or red (do not enter with your vehicle). Scores are calculated from road curvature, entry width, surface quality, and restriction data.' } },
+    { '@type': 'Question', name: 'What is what3words pin delivery?', acceptedAnswer: { '@type': 'Answer', text: 'Instead of routing to a postcode centroid (which can be 50 metres from the actual gate), drivers or dispatchers can pin the exact delivery point using a what3words three-word address — accurate to a 3-metre square.' } },
+    { '@type': 'Question', name: 'Is the Dispatcher Dashboard available on Driver Pro?', acceptedAnswer: { '@type': 'Answer', text: 'The Dispatcher Dashboard is an Enterprise feature. It gives fleet managers a live map of all drivers, remote route control, and real-time exception alerts. Driver Pro includes everything a solo driver or small team needs.' } },
+    { '@type': 'Question', name: 'How is MJ Maps different from Google Maps or Waze?', acceptedAnswer: { '@type': 'Answer', text: "Consumer maps route to postcodes and do not understand your vehicle. MJ Maps routes to exact delivery pins, applies your vehicle's weight and height profile on every turn, scores tight turns before you reach them, works fully offline, and feeds a dispatcher console with real-time fleet visibility." } },
+  ],
+};
+
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
+    { '@type': 'ListItem', position: 2, name: 'Pricing', item: 'https://mjmapsystems.com/pricing' },
+  ],
+};
 ---
 
 <BaseLayout
-  title="Pricing — MJ Maps"
-  description="Simple, honest pricing for MJ Maps. Driver Pro at £9.97/mo. Enterprise with custom pricing. No auto-renew, cancel anytime."
+  title="Pricing — MJ Maps: £9.97/mo VAT inclusive, No Auto-Renew"
+  description="Simple, honest pricing for MJ Maps. Driver Pro at £9.97/mo VAT inclusive. Enterprise with custom pricing. No auto-renew, cancel anytime."
+  schema={[faqSchema, breadcrumb]}
 >
   <Nav activePage="/pricing" />
   <main id="main-content">

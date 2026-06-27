@@ -10,11 +10,21 @@ const fleetKeys: FeatureKey[] = [
   'ADMIN_ANALYTICS', 'WORKLOAD_GUARD', 'POD_PHOTO', 'SIGNATURE_CAPTURE',
   'ETA_NOTIFICATIONS', 'STOP_STATUS', 'FAILED_DELIVERY', 'TROLLEY_ADVISORY',
 ];
+
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
+    { '@type': 'ListItem', position: 2, name: 'For Fleets', item: 'https://mjmapsystems.com/fleet' },
+  ],
+};
 ---
 
 <BaseLayout
-  title="For Fleets — MJ Maps Enterprise"
-  description="MJ Maps Enterprise for fleet operations. Live dispatcher console, real-time tracking, POD photo capture, signature collection, and exception alerts."
+  title="For Fleets — MJ Maps Enterprise: Live Dispatcher Console & Fleet Tracking"
+  description="MJ Maps Enterprise for fleet operations. Live dispatcher console, real-time driver tracking, photo POD, signature capture, and exception alerts. UK GDPR compliant."
+  schema={breadcrumb}
 >
   <Nav activePage="/fleet" />
   <main id="main-content">

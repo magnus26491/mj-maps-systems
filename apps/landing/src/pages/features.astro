@@ -68,6 +68,15 @@ const capabilities = [
   },
 ];
 
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
+    { '@type': 'ListItem', position: 2, name: 'Features', item: 'https://mjmapsystems.com/features' },
+  ],
+};
+
 const softwareSchema = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -93,7 +102,7 @@ const softwareSchema = {
 <BaseLayout
   title="Features — MJ Maps: Vehicle-Aware Navigation for UK Delivery Drivers"
   description="HGV routing, low-bridge alerts, turn-score chips, last-50m gate pins, full offline mode, photo POD, and a live dispatcher dashboard. Everything built for real UK delivery routes."
-  schema={softwareSchema}
+  schema={[softwareSchema, breadcrumb]}
 >
   <Nav activePage="/features" />
   <main id="main-content">

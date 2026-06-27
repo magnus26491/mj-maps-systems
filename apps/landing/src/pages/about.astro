@@ -2,11 +2,21 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
+    { '@type': 'ListItem', position: 2, name: 'About', item: 'https://mjmapsystems.com/about' },
+  ],
+};
 ---
 
 <BaseLayout
-  title="About — MJ Maps"
-  description="MJ Maps Systems — UK-founded navigation technology for professional delivery drivers and fleet operations teams."
+  title="About MJ Maps — UK-Founded Delivery Navigation"
+  description="MJ Maps Systems was founded to solve the routing problems that UK delivery drivers face every day. Vehicle-aware navigation, turn-score, gate pins, built from scratch."
+  schema={breadcrumb}
 >
   <Nav activePage="/about" />
   <main id="main-content">
