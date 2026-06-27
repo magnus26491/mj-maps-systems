@@ -161,4 +161,30 @@ const schemas = [
       setTimeout(() => { banner.hidden = true; }, 350);
     });
   }
+
+  // ─── Scroll-reveal ────────────────────────────────────────────────
+  const reveals = document.querySelectorAll('.reveal');
+  if (reveals.length > 0) {
+    const revealObs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target as HTMLElement;
+          const delay = el.dataset.delay ?? '0';
+          setTimeout(() => {
+            el.classList.add('revealed');
+            revealObs.unobserve(el);
+          }, parseInt(delay));
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -10% 0px' }
+    );
+    reveals.forEach((el, i) => {
+      const htmlEl = el as HTMLElement;
+      if (!htmlEl.dataset.delay) {
+        htmlEl.dataset.delay = String(i * 60);
+      }
+      revealObs.observe(el);
+    });
+  }
 </script>
