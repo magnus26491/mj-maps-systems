@@ -213,7 +213,7 @@ export async function computeDriverInsights(
      GROUP BY r.driver_id) sub`,
     [from.toISOString(), to.toISOString()],
   );
-  const fleetAvgGreenRate = parseFloat(fleetRows.rows[0]?.avg_green_rate ?? '0') || 0;
+  const fleetAvgGreenRate = parseFloat(String(fleetRows.rows[0]?.avg_green_rate ?? '0')) || 0;
   const comparedToFleet   = Math.round((greenRate - fleetAvgGreenRate) * 10) / 10;
   const improvementTrend  = computeTrend(routes);
   const topPatterns = detectPatterns(routes, {

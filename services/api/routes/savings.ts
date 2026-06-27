@@ -83,7 +83,7 @@ export async function savingsRoutes(server: FastifyInstance): Promise<void> {
         ...result,
       };
     } catch (err) {
-      request.log.error('[savings] computeSavings failed', err);
+      request.log.error({ err: err as Error }, '[savings] computeSavings failed');
       return reply.code(500).send({ ok: false, error: 'Failed to compute savings.' });
     }
   });
@@ -112,7 +112,7 @@ export async function savingsRoutes(server: FastifyInstance): Promise<void> {
         },
       };
     } catch (err) {
-      request.log.error('[savings] computeSavingsSummary failed', err);
+      request.log.error({ err: err as Error }, '[savings] computeSavingsSummary failed');
       return reply.code(500).send({ ok: false, error: 'Failed to compute savings summary.' });
     }
   });

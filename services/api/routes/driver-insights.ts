@@ -90,7 +90,7 @@ export async function driverInsightsRoutes(server: FastifyInstance): Promise<voi
           ...insights,
         };
       } catch (err) {
-        request.log.error('[driver-insights] computeDriverInsights failed', err);
+        request.log.error({ err: err as Error }, '[driver-insights] computeDriverInsights failed');
         return reply.code(500).send({ ok: false, error: 'Failed to compute driver insights.' });
       }
     },
@@ -125,7 +125,7 @@ export async function driverInsightsRoutes(server: FastifyInstance): Promise<voi
           topPattern: insights.topPatterns[0] ?? null,
         };
       } catch (err) {
-        request.log.error('[driver-insights] summary failed', err);
+        request.log.error({ err: err as Error }, '[driver-insights] summary failed');
         return reply.code(500).send({ ok: false, error: 'Failed to compute insights summary.' });
       }
     },

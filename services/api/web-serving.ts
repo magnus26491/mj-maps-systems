@@ -14,6 +14,7 @@ const ALLOWED_ROOTS = [
   'dist/landing',
   'dist/apps/driver-app/dist',
   'dist/dispatcher',
+  'dist/admin',
 ];
 
 // MIME types
@@ -296,7 +297,20 @@ export async function registerWebRoutes(server: any): Promise<void> {
   server.get('/enterprise', async (_request: any, reply: FastifyReply) => {
     reply.redirect('/dispatcher');
   });
-  
+
+  // Admin portal (Vite SPA)
+  const ADMIN_ROOT = 'dist/admin';
+  server.get('/admin', async (_request: any, reply: FastifyReply) => {
+    if (directoryExists(ADMIN_ROOT)) {
+      await safeServeSpa(reply, ADMIN_ROOT);
+    } else {
+      reply.code(503).send('Admin portal not built. Run: docker build --target admin-builder .');
+    }
+  });
+  server.get('/admin/*', async (_request: any, reply: FastifyReply) => {
+    await safeServeSpa(reply, ADMIN_ROOT);
+  });
+
   // Web health check
   server.get('/web-health', async (_request: any, reply: FastifyReply) => {
     const health = await getWebHealth();

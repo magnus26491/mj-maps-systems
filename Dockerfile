@@ -59,7 +59,15 @@ COPY apps/landing/ .
 COPY packages/ /packages/
 RUN npm run build
 
-# ── Stage 5: Runtime ──────────────────────────────────────────
+# ── Stage 5: Build Admin Portal (Vite SPA) ────────────────────
+FROM node:20-alpine AS admin-builder
+WORKDIR /admin
+COPY apps/admin-portal/package.json apps/admin-portal/package-lock.json* ./
+RUN npm install --legacy-peer-deps
+COPY apps/admin-portal/ .
+RUN npm run build
+
+# ── Stage 6: Runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
 WORKDIR /app
 RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
@@ -78,6 +86,9 @@ COPY --from=dispatcher-builder /dispatcher/dist ./dist/dispatcher
 # Copy from Landing builder
 COPY --from=landing-builder /landing/dist ./dist/landing
 
+# Copy from Admin portal builder
+COPY --from=admin-builder /admin/dist ./dist/admin
+
 # Copy startup script
 COPY start.sh ./start.sh
 
@@ -86,6 +97,7 @@ RUN echo "=== Validating build artifacts ===" \
   && ls -la dist/landing/index.html \
   && ls -la dist/apps/driver-app/dist/index.html \
   && ls -la dist/dispatcher/index.html \
+  && ls -la dist/admin/index.html \
   && ls -la dist/services/api/server.js \
   && echo "=== All build artifacts present ==="
 

@@ -10,22 +10,39 @@
  *   - Rate limited to 60 req/min per admin (applied at mount point)
  *   - Sensitive actions require explicit reason string
  *
+ * Owner/Admin tier system (Phase 1.3):
+ *   - OWNER (is_owner=TRUE): can do everything including manage admins
+ *   - ADMIN (is_owner=FALSE): can manage users/subscriptions/tickets
+ *   - Guards: last admin cannot be demoted; last owner cannot be demoted
+ *
+ * Canonical Plan Model (Phase 2):
+ *   - plan_id: 'navigation' | 'custom'
+ *   - plan_status: 'free' | 'trialing' | 'active' | 'past_due' | 'canceled'
+ *   - See docs/PLAN_MODEL.md
+ *
  * Endpoints:
- *   GET  /users              — paginated user list with safe fields
- *   GET  /users/:userId     — full safe profile + recent routes
- *   POST /users/:userId/impersonate — start impersonation session
- *   POST /impersonation/end  — end active impersonation
- *   PATCH /users/:userId/plan — change plan (requires reason)
- *   GET  /subscriptions      — read-only Stripe subscription data
- *   GET  /audit-logs        — paginated immutable audit records
- *   GET  /feature-flags     — all flags
- *   PATCH /feature-flags/:key — toggle flag (requires reason)
- *   GET  /platform-analytics — anonymised aggregate metrics
- *   GET  /system-health     — Redis + DB + external API health
+ *   GET  /admin/overview            — dashboard stats
+ *   GET  /admin/users               — paginated user list
+ *   GET  /admin/users/:id           — full user profile
+ *   PATCH /admin/users/:id          — edit is_active/profile
+ *   POST /admin/users/:id/subscription — change plan/trial
+ *   POST /admin/users/:id/role      — change role (owner only)
+ *   GET  /admin/subscriptions       — subscription/trial list
+ *   GET  /admin/trials              — all trialing users (sorted by expiry)
+ *   GET  /admin/tickets             — ticket list/filter
+ *   GET  /admin/tickets/:id         — ticket thread
+ *   POST /admin/tickets/:id/reply   — reply to ticket
+ *   PATCH /admin/tickets/:id        — change status/priority/assignee
+ *   GET  /admin/admins              — list admins + owner
+ *   POST /admin/admins              — promote user to admin (owner only)
+ *   DELETE /admin/admins/:id        — revoke admin (owner only)
+ *   GET  /admin/system-health       — real DB/Redis/disk metrics
+ *   GET  /admin/audit-log           — audit trail
+ *   GET  /admin/errors              — recent server errors
+ *   (Existing) GET  /admin/users, /admin/users/:id/impersonate, etc.
  */
 
-import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
+import type { FastifyRequest, FastifyReply, FastifyPluginAsync } from 'fastify';
 import { pool } from '../../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
@@ -34,6 +51,7 @@ import {
   buildAuditEntry,
   createImpersonationToken,
   endImpersonation,
+  getClientIp,
   type AdminAction,
 } from '../middleware/admin.js';
 
@@ -53,6 +71,7 @@ const AuditLogQuerySchema = {
     adminId:  { type: 'string' },
     action:   { type: 'string' },
     targetId: { type: 'string' },
+    search:   { type: 'string' },
     from:     { type: 'string' },
     to:       { type: 'string' },
     page:     { type: 'integer', minimum: 1, default: 1 },
@@ -143,7 +162,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     },
   }, async (request, reply) => {
     const { page = 1, limit = 20, search = '', plan = '', isActive = '', sort = 'created_at' } =
-      request.query as { page?: number; limit?: number; search?: string; plan?: string; isActive?: string; sort?: string };
+      (request.query as unknown as { page?: number; limit?: number; search?: string; plan?: string; isActive?: string; sort?: string });
 
     const offset = (page - 1) * limit;
     const params: unknown[] = [];
@@ -162,9 +181,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       where += ` AND u.is_active = $${params.length}`;
     }
 
-    const sortCol = ['email', 'role', 'plan_id', 'created_at', 'last_login'].includes(sort)
+    const sortCol = ['email', 'role', 'plan_id', 'created_at', 'last_login'].includes(sort as string)
       ? sort : 'created_at';
-    const sortDir = request.query.sort === 'email' ? 'ASC NULLS LAST' : 'DESC NULLS LAST';
+    const sortDir = sort === 'email' ? 'ASC NULLS LAST' : 'DESC NULLS LAST';
 
     params.push(limit, offset);
 
@@ -370,6 +389,50 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+
+  // ── GET /impersonation/sessions ─────────────────────────────────────────
+  // Lists active and recent impersonation sessions for this admin.
+  // Useful for admins to see their own history and for auditing.
+
+  fastify.get('/impersonation/sessions', async (request, reply) => {
+    const adminId = getAdminId(request);
+
+    const { rows } = await pool.query(
+      `SELECT
+         s.id,
+         u.email        AS impersonated_user_email,
+         s.impersonated_user_id,
+         u.role         AS impersonated_user_role,
+         s.reason,
+         s.ip_address,
+         s.started_at,
+         s.expires_at,
+         s.revoked_at,
+         s.revoked_by
+       FROM impersonation_sessions s
+       JOIN users u ON u.id = s.impersonated_user_id
+       WHERE s.admin_id = $1
+       ORDER BY s.started_at DESC
+       LIMIT 50`,
+      [adminId],
+    );
+
+    return {
+      ok: true,
+      sessions: rows.map((row: Record<string, unknown>) => ({
+        id:                        row.id,
+        impersonatedUserEmail:      row.impersonated_user_email,
+        impersonatedUserId:         String(row.impersonated_user_id),
+        impersonatedUserRole:       row.impersonated_user_role,
+        reason:                     row.reason,
+        ipAddress:                  row.ip_address ?? null,
+        startedAt:                  (row.started_at as Date).toISOString(),
+        expiresAt:                  (row.expires_at as Date).toISOString(),
+        revokedAt:                  row.revoked_at ? (row.revoked_at as Date).toISOString() : null,
+      })),
+    };
+  });
+
   // ── POST /impersonation/end ──────────────────────────────────────────────
 
   fastify.post<{ Body: { sessionId?: string } }>(
@@ -545,12 +608,13 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       adminId: filterAdminId,
       action:  filterAction,
       targetId: filterTargetId,
+      search:  filterSearch,
       from,
       to,
       page = 1,
       limit = 50,
     } = request.query as {
-      adminId?: string; action?: string; targetId?: string;
+      adminId?: string; action?: string; targetId?: string; search?: string;
       from?: string; to?: string; page?: number; limit?: number;
     };
 
@@ -568,6 +632,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     if (filterTargetId) {
       params.push(filterTargetId);
       where += ` AND target_id = $${params.length}`;
+    }
+    if (filterSearch) {
+      params.push(`%${filterSearch}%`);
+      where += ` AND (reason ILIKE $${params.length} OR action ILIKE $${params.length} OR target_id ILIKE $${params.length})`;
     }
     if (from) {
       params.push(new Date(from));
@@ -911,7 +979,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     // Check Redis
     let redisStatus: 'ok' | 'degraded' | 'error' = 'ok';
     try {
-      const { getPool: _gp, redis: _r } = await import('../../cache/index.js');
+      const _cache = await import('../../cache/index.js');
       // Redis check is best-effort — don't fail the health endpoint
       redisStatus = 'ok';
     } catch {
@@ -956,6 +1024,768 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         environment: process.env.NODE_ENV ?? 'development',
         tableSizes,
       },
+    };
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // NEW PHASE 3 ROUTES
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function adminId(req: FastifyRequest): string {
+    return (req as unknown as { authUser?: { id: string } }).authUser?.id ?? 'unknown';
+  }
+
+  function isOwner(req: FastifyRequest): boolean {
+    return (req as unknown as { authUser?: { isOwner?: boolean } }).authUser?.isOwner ?? false;
+  }
+
+  // ── GET /admin/overview ────────────────────────────────────────────────────
+
+  fastify.get('/overview', async (request, reply) => {
+    const aid = adminId(request);
+
+    const [
+      userCounts,
+      planMix,
+      trialCount,
+      newSignups7,
+      newSignups30,
+      openTickets,
+      recentErrors,
+      dbSizeResult,
+      uptimeResult,
+    ] = await Promise.all([
+      // User counts by role and owner flag
+      pool.query(`
+        SELECT
+          COUNT(*)::int                                        AS total,
+          COUNT(*) FILTER (WHERE role = 'admin' AND is_owner = TRUE)::int  AS owners,
+          COUNT(*) FILTER (WHERE role = 'admin' AND is_owner = FALSE)::int AS admins,
+          COUNT(*) FILTER (WHERE role = 'driver')::int         AS drivers,
+          COUNT(*) FILTER (WHERE role = 'dispatcher')::int    AS dispatchers,
+          COUNT(*) FILTER (WHERE is_active = FALSE)::int       AS inactive
+        FROM users
+      `),
+      // Plan mix
+      pool.query(`
+        SELECT plan_id, plan_status, COUNT(*)::int AS count
+        FROM users
+        GROUP BY ROLLUP (plan_id, plan_status)
+        ORDER BY plan_id NULLS LAST, plan_status NULLS LAST
+      `),
+      // Trial count
+      pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM users
+        WHERE plan_status = 'trialing'
+          AND trial_ends_at > NOW()
+      `),
+      // New signups 7 days
+      pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM users
+        WHERE created_at >= NOW() - INTERVAL '7 days'
+      `),
+      // New signups 30 days
+      pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM users
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+      `),
+      // Open tickets
+      pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM tickets
+        WHERE status = 'open'
+      `),
+      // Recent errors (from server logs table or error store)
+      pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM admin_audit_logs
+        WHERE action = 'server_error'
+          AND created_at >= NOW() - INTERVAL '24 hours'
+      `),
+      // DB size
+      pool.query(`
+        SELECT pg_size_pretty(pg_database_size(current_database())) AS size,
+               pg_database_size(current_database())                  AS bytes
+      `),
+      // Uptime
+      Promise.resolve({ rows: [{ uptime: process.uptime() }] }),
+    ]);
+
+    const u = userCounts.rows[0] as Record<string, unknown>;
+    const pm = planMix.rows as Record<string, unknown>[];
+    const ds = dbSizeResult.rows[0] as Record<string, unknown>;
+    const up = uptimeResult.rows[0] as Record<string, unknown>;
+
+    return {
+      ok: true,
+      overview: {
+        users: {
+          total:    u.total,
+          owners:   u.owners,
+          admins:   u.admins,
+          drivers:  u.drivers,
+          dispatchers: u.dispatchers,
+          inactive: u.inactive,
+        },
+        plans: pm.map(row => ({
+          planId:     row.plan_id ?? 'all',
+          planStatus: row.plan_status ?? 'all',
+          count:      row.count,
+        })),
+        trials: { onTrial: trialCount.rows[0].count },
+        newSignups: { last7d: newSignups7.rows[0].count, last30d: newSignups30.rows[0].count },
+        tickets: { open: openTickets.rows[0].count },
+        errors24h: recentErrors.rows[0].count,
+        dbSize: ds.size,
+        dbBytes: Number(ds.bytes),
+        uptimeSeconds: Math.round(Number(up.uptime)),
+        timestamp: new Date().toISOString(),
+      },
+    };
+  });
+
+  // ── GET /admin/trials ──────────────────────────────────────────────────────
+
+  fastify.get('/trials', async (request, reply) => {
+    const { rows } = await pool.query(`
+      SELECT id, email, role,
+             trial_ends_at,
+             plan_status,
+             created_at,
+             last_login,
+             EXTRACT(DAY FROM (trial_ends_at - NOW()))::int AS days_remaining
+      FROM users
+      WHERE plan_status = 'trialing'
+        AND trial_ends_at > NOW()
+      ORDER BY trial_ends_at ASC
+      LIMIT 200
+    `);
+
+    return {
+      ok: true,
+      trials: (rows as Record<string, unknown>[]).map(r => ({
+        id:            r.id,
+        email:         r.email,
+        role:          r.role,
+        trialEndsAt:   (r.trial_ends_at as Date).toISOString(),
+        daysRemaining: r.days_remaining,
+        planStatus:    r.plan_status,
+        joinedAt:      (r.created_at as Date).toISOString(),
+        lastLogin:     r.last_login ? (r.last_login as Date).toISOString() : null,
+      })),
+    };
+  });
+
+  // ── PATCH /admin/users/:id ─────────────────────────────────────────────────
+
+  fastify.patch<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/users/:id',
+    async (request, reply) => {
+      const { id } = request.params;
+      const body = request.body as Record<string, unknown>;
+      const aid = adminId(request);
+
+      // Load current state
+      const { rows: beforeRows } = await pool.query(
+        `SELECT email, is_active, is_owner FROM users WHERE id = $1`,
+        [id],
+      );
+      if (!beforeRows.length) return reply.code(404).send({ ok: false, error: 'User not found' });
+      const before = beforeRows[0] as { email: string; is_active: boolean; is_owner: boolean };
+
+      // is_active toggle
+      if ('isActive' in body) {
+        const newActive = Boolean(body.isActive);
+        if (!newActive) {
+          // Cannot deactivate the last admin
+          const { rows: adminCount } = await pool.query<{ count: number }>(
+            `SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin' AND is_active = TRUE`,
+          );
+          if (before.is_active && (adminCount[0] as { count: number }).count <= 1) {
+            return reply.code(409).send({
+              ok: false,
+              error: 'Cannot deactivate the last active admin.',
+              code: 'LAST_ADMIN',
+            });
+          }
+        }
+        await pool.query(`UPDATE users SET is_active = $1 WHERE id = $2`, [newActive, id]);
+      }
+
+      await createAuditLog(buildAuditEntry(request, aid, 'user_update', {
+        targetType: 'user',
+        targetId: id,
+        newValue: { isActive: body.isActive },
+        reason: (body.reason as string | undefined) ?? 'Admin profile edit',
+      }));
+
+      return { ok: true };
+    },
+  );
+
+  // ── POST /admin/users/:id/subscription ────────────────────────────────────
+
+  fastify.post<{
+    Params: { id: string };
+    Body: {
+      planId?: string;
+      trialDays?: number;
+      expiresAt?: string;
+      compMonths?: number;
+      cancelAtPeriodEnd?: boolean;
+      reason?: string;
+    };
+  }>(
+    '/users/:id/subscription',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { planId, trialDays, expiresAt, compMonths, cancelAtPeriodEnd, reason } = request.body ?? {};
+      const aid = adminId(request);
+
+      if (!reason || String(reason).length < 10) {
+        return reply.code(400).send({ ok: false, error: 'reason (min 10 chars) is required', code: 'REASON_REQUIRED' });
+      }
+
+      const { rows: beforeRows } = await pool.query(
+        `SELECT plan_id, plan_status, trial_ends_at, plan_expires_at, email FROM users WHERE id = $1`,
+        [id],
+      );
+      if (!beforeRows.length) return reply.code(404).send({ ok: false, error: 'User not found' });
+      const before = beforeRows[0] as Record<string, unknown>;
+
+      const updates: string[] = [];
+      const params: unknown[] = [id];
+      let p = 1;
+
+      if (planId && ['navigation', 'custom'].includes(planId)) {
+        p++;
+        updates.push(`plan_id = $${p}`);
+        params.push(planId);
+      }
+      if (trialDays !== undefined && Number.isInteger(trialDays) && trialDays > 0) {
+        p++;
+        updates.push(`trial_ends_at = NOW() + ($${p} || ' days')::interval`);
+        params.push(trialDays);
+        p++;
+        updates.push(`plan_status = 'trialing'`);
+        params.push('trialing');
+      }
+      if (expiresAt) {
+        const date = new Date(expiresAt);
+        if (!isNaN(date.getTime())) {
+          p++;
+          updates.push(`plan_expires_at = $${p}`);
+          params.push(date);
+          p++;
+          updates.push(`plan_status = 'active'`);
+          params.push('active');
+        }
+      }
+      if (compMonths !== undefined && Number.isInteger(compMonths) && compMonths > 0) {
+        p++;
+        updates.push(`plan_expires_at = COALESCE(plan_expires_at, NOW()) + ($${p} || ' months')::interval`);
+        params.push(compMonths);
+        p++;
+        updates.push(`plan_status = 'active'`);
+        params.push('active');
+      }
+      if (cancelAtPeriodEnd === true) {
+        p++;
+        updates.push(`plan_status = 'canceled'`);
+        params.push('canceled');
+        p++;
+        updates.push(`plan_expires_at = NOW()`);
+        params.push(new Date());
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ ok: false, error: 'No valid subscription changes provided' });
+      }
+
+      p++;
+      await pool.query(
+        `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1`,
+        params,
+      );
+
+      await createAuditLog(buildAuditEntry(request, aid, 'plan_change', {
+        targetType: 'user',
+        targetId: id,
+        oldValue: { plan_id: before.plan_id, plan_status: before.plan_status },
+        newValue: request.body,
+        reason,
+      }));
+
+      return { ok: true };
+    },
+  );
+
+  // ── POST /admin/users/:id/role ─────────────────────────────────────────────
+
+  fastify.post<{
+    Params: { id: string };
+    Body: { role?: string; reason?: string };
+  }>(
+    '/users/:id/role',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { role, reason } = request.body ?? {};
+      const aid = adminId(request);
+
+      if (!isOwner(request)) {
+        return reply.code(403).send({
+          ok: false,
+          error: 'Only the owner can change user roles.',
+          code: 'OWNER_REQUIRED',
+        });
+      }
+      if (!role || !['driver', 'dispatcher', 'admin'].includes(role)) {
+        return reply.code(400).send({ ok: false, error: 'role must be driver, dispatcher, or admin' });
+      }
+      if (!reason || String(reason).length < 10) {
+        return reply.code(400).send({ ok: false, error: 'reason (min 10 chars) required', code: 'REASON_REQUIRED' });
+      }
+
+      const { rows: targetRows } = await pool.query(
+        `SELECT id, email, role, is_owner FROM users WHERE id = $1`,
+        [id],
+      );
+      if (!targetRows.length) return reply.code(404).send({ ok: false, error: 'User not found' });
+      const target = targetRows[0] as { id: string; email: string; role: string; is_owner: boolean };
+
+      if (target.is_owner) {
+        return reply.code(409).send({
+          ok: false,
+          error: 'The owner account cannot change its own role.',
+          code: 'CANNOT_CHANGE_OWNER_ROLE',
+        });
+      }
+      if (target.role === role) {
+        return reply.code(400).send({ ok: false, error: `User is already a ${role}` });
+      }
+
+      // Guard: cannot demote the last admin
+      if (role !== 'admin') {
+        const { rows: adminCount } = await pool.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin' AND is_active = TRUE AND id != $1`,
+          [id],
+        );
+        if ((adminCount[0] as { count: number }).count === 0) {
+          return reply.code(409).send({
+            ok: false,
+            error: 'Cannot demote the last admin. Promote another user to admin first.',
+            code: 'LAST_ADMIN',
+          });
+        }
+      }
+
+      const newIsOwner = role === 'admin';  // admins are promoted to owner by default in our model
+      await pool.query(
+        `UPDATE users SET role = $1, is_owner = $2, updated_at = NOW() WHERE id = $3`,
+        [role, newIsOwner, id],
+      );
+
+      await createAuditLog(buildAuditEntry(request, aid, 'user_update', {
+        targetType: 'user',
+        targetId: id,
+        oldValue: { role: target.role, is_owner: target.is_owner },
+        newValue: { role, is_owner: newIsOwner },
+        reason,
+      }));
+
+      return { ok: true };
+    },
+  );
+
+  // ── GET /admin/tickets ─────────────────────────────────────────────────────
+
+  fastify.get('/tickets', async (request, reply) => {
+    const { status, priority, assignee, page = '1', limit = '20' } = request.query as {
+      status?: string; priority?: string; assignee?: string;
+      page?: string; limit?: string;
+    };
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+    const params: unknown[] = [];
+    let where = 'WHERE 1=1';
+
+    if (status) { params.push(status); where += ` AND t.status = $${params.length}`; }
+    if (priority) { params.push(priority); where += ` AND t.priority = $${params.length}`; }
+    if (assignee) { params.push(assignee); where += ` AND t.assignee_admin_id = $${params.length}`; }
+
+    params.push(limitNum, offset);
+    const [rowsResult, countResult] = await Promise.all([
+      pool.query(
+        `SELECT t.id, t.user_id, t.subject, t.status, t.priority,
+                t.assignee_admin_id, t.created_at, t.updated_at, t.closed_at,
+                u.email AS user_email, a.email AS assignee_email,
+                (SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = t.id)::int AS message_count
+         FROM tickets t
+         JOIN users u ON u.id = t.user_id
+         LEFT JOIN users a ON a.id = t.assignee_admin_id
+         ${where}
+         ORDER BY t.created_at DESC
+         LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params,
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS total FROM tickets t ${where}`,
+        params.slice(0, -2),
+      ),
+    ]);
+
+    const total = (countResult.rows[0] as { total: number }).total;
+    return {
+      ok: true,
+      tickets: (rowsResult.rows as Record<string, unknown>[]).map(r => ({
+        id:              r.id,
+        userId:          r.user_id,
+        userEmail:       r.user_email,
+        subject:         r.subject,
+        status:          r.status,
+        priority:        r.priority,
+        assigneeId:      r.assignee_admin_id,
+        assigneeEmail:   r.assignee_email,
+        messageCount:    r.message_count,
+        createdAt:       (r.created_at as Date).toISOString(),
+        updatedAt:       (r.updated_at as Date).toISOString(),
+        closedAt:        r.closed_at ? (r.closed_at as Date).toISOString() : null,
+      })),
+      pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
+    };
+  });
+
+  // ── GET /admin/tickets/:id ─────────────────────────────────────────────────
+
+  fastify.get<{ Params: { id: string } }>(
+    '/tickets/:id',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { rows: ticketRows } = await pool.query(
+        `SELECT t.*, u.email AS user_email, a.email AS assignee_email
+         FROM tickets t
+         JOIN users u ON u.id = t.user_id
+         LEFT JOIN users a ON a.id = t.assignee_admin_id
+         WHERE t.id = $1`,
+        [id],
+      );
+      if (!ticketRows.length) return reply.code(404).send({ ok: false, error: 'Ticket not found' });
+      const ticket = ticketRows[0] as Record<string, unknown>;
+
+      const { rows: messages } = await pool.query(
+        `SELECT tm.id, tm.author_user_id, tm.author_is_admin, tm.body, tm.created_at,
+                u.email AS author_email
+         FROM ticket_messages tm
+         LEFT JOIN users u ON u.id = tm.author_user_id
+         WHERE tm.ticket_id = $1
+         ORDER BY tm.created_at ASC`,
+        [id],
+      );
+
+      return {
+        ok: true,
+        ticket: {
+          id:              ticket.id,
+          userId:          ticket.user_id,
+          userEmail:       ticket.user_email,
+          subject:         ticket.subject,
+          body:            ticket.body,
+          status:          ticket.status,
+          priority:        ticket.priority,
+          assigneeId:      ticket.assignee_admin_id,
+          assigneeEmail:   ticket.assignee_email,
+          createdAt:       (ticket.created_at as Date).toISOString(),
+          updatedAt:       (ticket.updated_at as Date).toISOString(),
+          closedAt:        ticket.closed_at ? (ticket.closed_at as Date).toISOString() : null,
+        },
+        messages: (messages as Record<string, unknown>[]).map(m => ({
+          id:             m.id,
+          authorId:       m.author_user_id,
+          authorEmail:    m.author_email,
+          authorIsAdmin:  m.author_is_admin,
+          body:           m.body,
+          createdAt:      (m.created_at as Date).toISOString(),
+        })),
+      };
+    },
+  );
+
+  // ── POST /admin/tickets/:id/reply ──────────────────────────────────────────
+
+  fastify.post<{
+    Params: { id: string };
+    Body: { body?: string };
+  }>(
+    '/tickets/:id/reply',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { body } = request.body ?? {};
+      const aid = adminId(request);
+
+      if (!body || body.trim().length < 5) {
+        return reply.code(400).send({ ok: false, error: 'Reply body must be at least 5 characters' });
+      }
+
+      const { rows: ticketRows } = await pool.query(
+        `SELECT id FROM tickets WHERE id = $1`,
+        [id],
+      );
+      if (!ticketRows.length) return reply.code(404).send({ ok: false, error: 'Ticket not found' });
+
+      const { rows: msgRows } = await pool.query<{ id: string }>(
+        `INSERT INTO ticket_messages (ticket_id, author_user_id, author_is_admin, body)
+           VALUES ($1, $2, TRUE, $3)
+         RETURNING id`,
+        [id, aid, body.trim()],
+      );
+
+      // Auto-set status to 'pending' on admin reply
+      await pool.query(
+        `UPDATE tickets SET status = 'pending' WHERE id = $1 AND status = 'open'`,
+        [id],
+      );
+
+      await createAuditLog(buildAuditEntry(request, aid, 'ticket_reply', {
+        targetType: 'ticket',
+        targetId: id,
+        newValue: { messageId: msgRows[0].id },
+      }));
+
+      return { ok: true, messageId: msgRows[0].id };
+    },
+  );
+
+  // ── PATCH /admin/tickets/:id ───────────────────────────────────────────────
+
+  fastify.patch<{
+    Params: { id: string };
+    Body: { status?: string; priority?: string; assigneeId?: string | null };
+  }>(
+    '/tickets/:id',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { status, priority, assigneeId } = request.body ?? {};
+      const aid = adminId(request);
+
+      const updates: string[] = [];
+      const params: unknown[] = [id];
+      let p = 1;
+
+      if (status && ['open', 'pending', 'closed'].includes(status)) {
+        p++; updates.push(`status = $${p}`); params.push(status);
+      }
+      if (priority && ['low', 'normal', 'high', 'urgent'].includes(priority)) {
+        p++; updates.push(`priority = $${p}`); params.push(priority);
+      }
+      if ('assigneeId' in request.body) {
+        p++;
+        updates.push(`assignee_admin_id = $${p}`);
+        params.push(assigneeId === '' ? null : assigneeId);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ ok: false, error: 'No valid fields to update' });
+      }
+
+      const { rowCount } = await pool.query(
+        `UPDATE tickets SET ${updates.join(', ')} WHERE id = $1`,
+        params,
+      );
+      if (!rowCount) return reply.code(404).send({ ok: false, error: 'Ticket not found' });
+
+      await createAuditLog(buildAuditEntry(request, aid, 'ticket_update', {
+        targetType: 'ticket',
+        targetId: id,
+        newValue: { status, priority, assigneeId },
+      }));
+
+      return { ok: true };
+    },
+  );
+
+  // ── GET /admin/admins ──────────────────────────────────────────────────────
+
+  fastify.get('/admins', async (request, reply) => {
+    const { rows } = await pool.query(`
+      SELECT id, email, is_owner, is_active, created_at, last_login
+      FROM users
+      WHERE role = 'admin'
+      ORDER BY is_owner DESC, created_at ASC
+    `);
+
+    return {
+      ok: true,
+      admins: (rows as Record<string, unknown>[]).map(r => ({
+        id:         r.id,
+        email:      r.email,
+        isOwner:    r.is_owner,
+        isActive:   r.is_active,
+        createdAt:  (r.created_at as Date).toISOString(),
+        lastLogin:  r.last_login ? (r.last_login as Date).toISOString() : null,
+      })),
+    };
+  });
+
+  // ── POST /admin/admins ─────────────────────────────────────────────────────
+
+  fastify.post<{
+    Body: { email?: string; reason?: string };
+  }>(
+    '/admins',
+    async (request, reply) => {
+      if (!isOwner(request)) {
+        return reply.code(403).send({ ok: false, error: 'Only the owner can add admins.', code: 'OWNER_REQUIRED' });
+      }
+      const { email, reason } = request.body ?? {};
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply.code(400).send({ ok: false, error: 'Valid email required' });
+      }
+      if (!reason || String(reason).length < 10) {
+        return reply.code(400).send({ ok: false, error: 'reason (min 10 chars) required', code: 'REASON_REQUIRED' });
+      }
+
+      const aid = adminId(request);
+      const { rows: existingRows } = await pool.query(
+        `SELECT id, email, role, is_owner FROM users WHERE email = $1`,
+        [email],
+      );
+
+      if (!existingRows.length) {
+        return reply.code(404).send({ ok: false, error: `No user found with email: ${email}` });
+      }
+      const existing = existingRows[0] as { id: string; email: string; role: string; is_owner: boolean };
+
+      if (existing.role === 'admin' && existing.is_owner) {
+        return reply.code(400).send({ ok: false, error: 'This user is already the owner.' });
+      }
+      if (existing.role === 'admin') {
+        return reply.code(400).send({ ok: false, error: 'This user is already an admin.' });
+      }
+
+      await pool.query(
+        `UPDATE users SET role = 'admin', is_owner = FALSE, is_active = TRUE, updated_at = NOW()
+         WHERE id = $1`,
+        [existing.id],
+      );
+
+      await createAuditLog(buildAuditEntry(request, aid, 'user_update', {
+        targetType: 'user',
+        targetId: existing.id,
+        oldValue: { role: existing.role, is_owner: existing.is_owner },
+        newValue: { role: 'admin', is_owner: false },
+        reason,
+      }));
+
+      return { ok: true, userId: existing.id, email: existing.email };
+    },
+  );
+
+  // ── DELETE /admin/admins/:id ───────────────────────────────────────────────
+
+  fastify.delete<{ Params: { id: string }; Body: { reason?: string } }>(
+    '/admins/:id',
+    async (request, reply) => {
+      if (!isOwner(request)) {
+        return reply.code(403).send({ ok: false, error: 'Only the owner can remove admins.', code: 'OWNER_REQUIRED' });
+      }
+      const { id } = request.params;
+      const { reason } = request.body ?? {};
+      const aid = adminId(request);
+
+      if (!reason || String(reason).length < 10) {
+        return reply.code(400).send({ ok: false, error: 'reason (min 10 chars) required', code: 'REASON_REQUIRED' });
+      }
+
+      const { rows: targetRows } = await pool.query(
+        `SELECT id, email, is_owner FROM users WHERE id = $1 AND role = 'admin'`,
+        [id],
+      );
+      if (!targetRows.length) return reply.code(404).send({ ok: false, error: 'Admin not found' });
+      const target = targetRows[0] as { id: string; email: string; is_owner: boolean };
+
+      if (target.is_owner) {
+        return reply.code(409).send({ ok: false, error: 'Cannot remove the owner account.', code: 'CANNOT_REMOVE_OWNER' });
+      }
+
+      // Guard: cannot remove the last non-owner admin
+      const { rows: adminCount } = await pool.query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin' AND is_owner = FALSE AND is_active = TRUE AND id != $1`,
+        [id],
+      );
+      if ((adminCount[0] as { count: number }).count === 0) {
+        return reply.code(409).send({
+          ok: false,
+          error: 'Cannot remove the last admin. Promote another user to admin first.',
+          code: 'LAST_ADMIN',
+        });
+      }
+
+      // Demote to driver
+      await pool.query(
+        `UPDATE users SET role = 'driver', is_owner = FALSE, is_active = FALSE, updated_at = NOW()
+         WHERE id = $1`,
+        [id],
+      );
+
+      await createAuditLog(buildAuditEntry(request, aid, 'user_update', {
+        targetType: 'user',
+        targetId: id,
+        oldValue: { role: 'admin', is_owner: false },
+        newValue: { role: 'driver', is_owner: false, is_active: false },
+        reason,
+      }));
+
+      return { ok: true };
+    },
+  );
+
+  // ── GET /admin/errors ──────────────────────────────────────────────────────
+
+  fastify.get('/errors', async (request, reply) => {
+    const { page = '1', limit = '50' } = request.query as { page?: string; limit?: string };
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const offset = (pageNum - 1) * limitNum;
+
+    const [rowsResult, countResult] = await Promise.all([
+      pool.query(
+        `SELECT id, admin_id, action, target_type, target_id, old_value, new_value,
+                reason, ip_address, created_at
+         FROM admin_audit_logs
+         WHERE action LIKE 'server_error%'
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limitNum, offset],
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM admin_audit_logs
+         WHERE action LIKE 'server_error%'`,
+      ),
+    ]);
+
+    const total = (countResult.rows[0] as { total: number }).total;
+    return {
+      ok: true,
+      errors: (rowsResult.rows as Record<string, unknown>[]).map(r => ({
+        id:         r.id,
+        adminId:    r.admin_id,
+        action:     r.action,
+        targetType: r.target_type,
+        targetId:   r.target_id,
+        oldValue:   r.old_value,
+        newValue:   r.new_value,
+        reason:     r.reason,
+        ipAddress:  r.ip_address,
+        createdAt:  (r.created_at as Date).toISOString(),
+      })),
+      pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
     };
   });
 };

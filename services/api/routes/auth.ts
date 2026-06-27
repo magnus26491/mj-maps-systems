@@ -20,7 +20,7 @@ import {
   hashRefreshToken,
   signTokenPair,
   verifyAccessToken,
-  type UserRole,
+  // UserRole intentionally not imported — role is always 'driver' in registration
 } from '../../auth/index';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -28,15 +28,24 @@ import { requireAuth } from '../middleware/auth.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * SECURITY FIX (Phase 1.1): Public registration ALWAYS creates role='driver'.
+ * Any role in the body is silently ignored. Role elevation requires authenticated
+ * admin API calls only (POST /api/v1/admin/admins).
+ *
+ * Regression test: POST /register with role:'admin' must return role='driver'.
+ */
 const RegisterSchema = {
   type: 'object',
   properties: {
-    email:            { type: 'string' },
-    password:         { type: 'string' },
-    role:             { type: 'string' },
-    organisation_id:  { type: 'string' },
+    email:           { type: 'string' },
+    password:        { type: 'string' },
+    organisation_id: { type: 'string' },
+    // role is accepted in body but SILENTLY IGNORED — never written to DB
   },
   required: ['email', 'password'],
+  // Explicitly forbid role field to prevent accidental inclusion
+  additionalProperties: false,
 };
 
 const LoginSchema = {
@@ -82,7 +91,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       schema: { body: RegisterSchema },
     },
     async (request, reply) => {
-      const { email, password, role = 'driver', organisation_id } = request.body ?? {};
+      // role is explicitly excluded — public registration always creates a driver
+      const { email, password, organisation_id } = request.body ?? {};
 
       // Validate email format
       if (!email || !EMAIL_RE.test(email)) {
@@ -94,16 +104,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send({ error: 'Password must be at least 8 characters' });
       }
 
-      // Validate role
-      const validRoles: UserRole[] = ['driver', 'dispatcher', 'admin'];
-      if (role && !validRoles.includes(role as UserRole)) {
-        return reply.code(400).send({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
-      }
+      // ── ALWAYS driver — no role from body is ever used ──────────────────────
+      const FORCED_ROLE = 'driver' as const;
 
       let passwordHash: string;
       try {
         passwordHash = await hashPassword(password);
-      } catch (err) {
+      } catch {
         return reply.code(400).send({ error: 'Password must be at least 8 characters' });
       }
 
@@ -112,14 +119,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           `INSERT INTO users (email, password_hash, role, organisation_id)
            VALUES ($1, $2, $3, $4)
            RETURNING id, email, role, subscription_tier as tier`,
-          [email, passwordHash, role ?? 'driver', organisation_id ?? null],
+          [email, passwordHash, FORCED_ROLE, organisation_id ?? null],
         );
 
         const user = rows[0] as { id: string; email: string; role: string; tier: string };
         return reply.code(201).send({
           userId: user.id,
           email:  user.email,
-          role:   user.role,
+          role:   user.role,  // always 'driver'
           tier:   user.tier,
         });
       } catch (err: unknown) {
@@ -148,7 +155,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { rows } = await pool.query(
         `SELECT id, email, password_hash, role, subscription_tier as tier,
-                plan_id, is_active
+                COALESCE(plan_id, 'navigation') as plan_id, is_active, is_owner
          FROM users WHERE email = $1`,
         [email],
       );
@@ -165,6 +172,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         tier: string;
         plan_id: string;
         is_active: boolean;
+        is_owner: boolean;
       };
 
       if (!user.is_active) {
@@ -184,10 +192,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Issue tokens
       const tokens = signTokenPair({
-        userId: user.id,
-        role:   user.role,
-        tier:   user.tier,
-        planId: user.plan_id ?? 'navigation',
+        userId:  user.id,
+        role:    user.role,
+        tier:    user.tier,
+        planId:  user.plan_id ?? 'navigation',
+        isOwner: user.is_owner ?? false,
       });
 
       // Store hashed refresh token in DB
@@ -201,11 +210,12 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         accessToken:  tokens.accessToken,
         refreshToken: tokens.refreshToken,
         user: {
-          id:     user.id,
-          email:  user.email,
-          role:   user.role,
-          tier:   user.tier,
-          planId: user.plan_id ?? 'navigation',
+          id:      user.id,
+          email:   user.email,
+          role:    user.role,
+          tier:    user.tier,
+          planId:  user.plan_id ?? 'navigation',
+          isOwner: user.is_owner ?? false,
         },
       });
     },
@@ -245,9 +255,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { user_id: userId } = rows[0] as { user_id: string };
 
-      // Load user to get current role/tier/planId
+      // Load user to get current role/tier/planId/isOwner
       const { rows: userRows } = await pool.query(
-        `SELECT id, role, subscription_tier as tier, COALESCE(plan_id, 'navigation') as plan_id
+        `SELECT id, role, subscription_tier as tier, COALESCE(plan_id, 'navigation') as plan_id, is_owner
          FROM users WHERE id = $1 AND is_active = TRUE`,
         [userId],
       );
@@ -256,7 +266,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(401).send({ error: 'User not found or inactive' });
       }
 
-      const user = userRows[0] as { id: string; role: string; tier: string; plan_id: string };
+      const user = userRows[0] as { id: string; role: string; tier: string; plan_id: string; is_owner: boolean };
 
       // ── Atomic rotation: revoke old + insert new in transaction ───────────
       const client = await pool.connect();
@@ -273,10 +283,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Issue new token pair
         const newTokens = signTokenPair({
-          userId: user.id,
-          role:   user.role,
-          tier:   user.tier,
-          planId: user.plan_id,
+          userId:  user.id,
+          role:    user.role,
+          tier:    user.tier,
+          planId:  user.plan_id,
+          isOwner: user.is_owner ?? false,
         });
 
         // Store new hashed refresh token
@@ -344,7 +355,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       const { rows } = await pool.query(
         `SELECT id, email, role, subscription_tier as tier,
                 COALESCE(plan_id, 'navigation') as plan_id,
-                organisation_id,
+                organisation_id, is_owner,
                 vehicle_id, vehicle_make, vehicle_model, vehicle_year,
                 vehicle_height_m, vehicle_gvw_kg, vehicle_payload_kg, vehicle_length_m,
                 created_at, last_login, is_active
@@ -363,6 +374,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         tier: string;
         plan_id: string;
         organisation_id: string | null;
+        is_owner: boolean;
         vehicle_id: string;
         vehicle_make: string | null;
         vehicle_model: string | null;
@@ -382,6 +394,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         role:            user.role,
         tier:            user.tier,
         planId:          user.plan_id,
+        isOwner:         user.is_owner ?? false,
         organisationId:  user.organisation_id,
         createdAt:       user.created_at,
         lastLogin:       user.last_login,

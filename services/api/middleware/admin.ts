@@ -61,10 +61,20 @@ export type AdminAction =
   | 'flag_view'
   | 'user_update'
   | 'subscription_view'
+  | 'subscription_change'
   | 'audit_log_view'
   | 'platform_analytics_view'
   | 'system_health_view'
-  | 'user_delete';
+  | 'user_delete'
+  | 'role_change'
+  | 'admin_add'
+  | 'admin_remove'
+  | 'ticket_view'
+  | 'ticket_reply'
+  | 'ticket_update'
+  | 'overview_view'
+  | 'trial_view'
+  | 'error_view';
 
 // ── requireAdmin ────────────────────────────────────────────────────────────────
 
@@ -89,7 +99,7 @@ export function requireAdmin(
   }
 
   // Reject impersonation tokens on admin routes — admin-only scope
-  if ((authUser as unknown as { isImpersonation?: boolean }).isImpersonation) {
+  if (authUser.isImpersonation) {
     reply.code(403).send({
       ok: false,
       error: 'Impersonation tokens cannot access admin endpoints',
@@ -109,6 +119,34 @@ export function requireAdmin(
     return;
   }
 
+
+}
+
+/**
+ * Owner-only guard.
+ * MUST be used AFTER requireAdmin in the preHandler chain.
+ * Rejects: non-owners, impersonation tokens (which never have owner privileges).
+ */
+export function requireOwner(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  done: () => void,
+): void {
+  const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
+  if (!authUser) {
+    reply.code(401).send({ ok: false, error: 'Unauthorized' });
+    done();
+    return;
+  }
+  if (!authUser.isOwner) {
+    reply.code(403).send({
+      ok: false,
+      error: 'Owner access required',
+      code: 'OWNER_REQUIRED',
+    });
+    done();
+    return;
+  }
   done();
 }
 
@@ -139,9 +177,9 @@ export async function createImpersonationToken(
 
   // Load target user to embed their role/plan in the token
   const { rows } = await pool.query<{
-    id: string; role: string; plan_id: string; email: string;
+    id: string; role: string; plan_id: string; email: string; is_owner: boolean | null;
   }>(
-    `SELECT id, role, COALESCE(plan_id, 'navigation') as plan_id, email FROM users WHERE id = $1 AND is_active = TRUE`,
+    `SELECT id, role, COALESCE(plan_id, 'navigation') as plan_id, email, is_owner FROM users WHERE id = $1 AND is_active = TRUE`,
     [targetUserId],
   );
 
@@ -157,9 +195,10 @@ export async function createImpersonationToken(
       originalAdminId: adminId,
       impersonatedUserId: targetUserId,
       impersonationSessionId: sessionId,
-      role:   target.role,
-      planId: target.plan_id,
-      sub:    targetUserId,  // so standard middleware sees the impersonated user
+      role:    target.role,
+      planId:  target.plan_id,
+      isOwner: target.is_owner ?? false,
+      sub:     targetUserId,  // so standard middleware sees the impersonated user
     },
     JWT_SECRET,
     { expiresIn: `${IMPERSONATION_TOKEN_TTL_MINUTES}m` },
@@ -369,10 +408,12 @@ export async function requireImpersonation(
     authUser: AuthUser;
     impersonationContext?: ImpersonationPayload;
   }).authUser = {
-    id:     payload.impersonatedUserId,
-    role:   payload.role,
-    planId: payload.planId,
-    tier:   'custom',
+    id:              payload.impersonatedUserId,
+    role:            payload.role,
+    planId:          payload.planId,
+    isOwner:         false, // impersonation never grants owner privileges
+    tier:            'custom',
+    isImpersonation: true,  // signals requireAdmin to block this token
   };
   (request as unknown as { impersonationContext?: ImpersonationPayload }).impersonationContext = payload;
 }
