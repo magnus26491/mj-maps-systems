@@ -117,6 +117,7 @@ END $$;
 DO $$
 DECLARE
   row_count INTEGER;
+  _cnt      INTEGER;
 BEGIN
   -- trialing: trial_ends_at is in the future
   UPDATE users
