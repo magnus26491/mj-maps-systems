@@ -1,53 +1,73 @@
-/* ─── Design Tokens ─────────────────────────────────────────────────── */
+/* ─── Design Tokens — MJ Maps Systems ──────────────────────────────── */
+/* Deep cartographic night-map palette + functional turn-score accents */
 
 :root {
   /* Colours */
-  --void:         #0A0E14;
-  --void-2:       #070A0F;
-  --surface:      #131B26;
-  --surface-2:    #1A2533;
-  --glass-bg:     rgba(19, 27, 38, 0.55);
-  --glass-brd:    rgba(255, 255, 255, 0.08);
+  --color-base:       #0A0C10;
+  --color-surface-1:  #12151B;
+  --color-surface-2:  #1A1F26;
+  /* Aliases for existing CSS that references these */
+  --void:             #0A0C10;
+  --void-2:           #07090D;
+  --surface:          #12151B;
+  --surface-2:        #1A1F26;
+  --glass-bg:         rgba(18, 21, 27, 0.72);
+  --glass-brd:        rgba(255, 255, 255, 0.06);
+
+  /* MJ teal — primary interactive */
   --brand:        #00C2A8;
-  --brand-bright: #2EE6CE;
-  --route-from:   #2EE6CE;
-  --route-to:     #3B82F6;
-  --green:        #22C55E;
+  --brand-bright: #00E8D4;
+  --route-from:   #00E8D4;
+  --route-to:     #00C2A8;
+
+  /* Turn-score functional accents */
+  --green:        #10B981;
   --amber:        #F59E0B;
   --red:          #EF4444;
-  --ink:          #EAF2FA;
-  --ink-muted:    #8AA0B2;
-  --ink-faint:    #5C6F7E;
+
+  /* Text */
+  --ink:          #F1F5F9;
+  --ink-muted:    #94A3B8;
+  --ink-faint:    #64748B;
+
+  /* Focus ring */
+  --focus:        rgba(0, 194, 168, 0.50);
 
   /* Green / Amber / Red tinted backgrounds for chips */
-  --green-bg:  rgba(34, 197, 94, 0.12);
+  --green-bg:  rgba(16, 185, 129, 0.12);
   --amber-bg:  rgba(245, 158, 11, 0.12);
   --red-bg:    rgba(239, 68, 68, 0.12);
 
-  /* Shadows */
-  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --sh-md: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --sh-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
-  --glow:  0 0 40px rgba(0, 194, 168, 0.25);
+  /* Elevation shadows */
+  --elevation-1:  0 2px 8px rgb(0 0 0 / 0.30);
+  --elevation-2:  0 8px 24px rgb(0 0 0 / 0.40), 0 0 0 1px rgb(0 194 168 / 0.08);
+  --sh-sm:        var(--elevation-1);
+  --sh-md:        var(--elevation-2);
+  --sh-lg:        0 16px 48px rgb(0 0 0 / 0.50);
+  --glow:         0 0 40px rgba(0, 194, 168, 0.20);
 
-  /* Radii */
-  --r-btn:   12px;
-  --r-card:  16px;
-  --r-panel: 20px;
-  --r-pill:  999px;
+  /* Radii — subtle, purposeful */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   12px;
+  --r-xl:   16px;
+  --r-btn:  var(--r-md);
+  --r-card: var(--r-lg);
+  --r-panel:var(--r-xl);
+  --r-pill: 999px;
 
   /* Motion */
-  --ease:     cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-micro:    150ms;
-  --dur-std:      240ms;
-  --dur-reveal:   500ms;
+  --ease:        cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-micro:   150ms;
+  --dur-std:     240ms;
+  --dur-reveal:  500ms;
   --dur-route:   1100ms;
 
   /* Layout */
   --container-max: 1200px;
   --gutter: 20px;
 
-  /* Section padding */
+  /* Section padding — editorial breathing rhythm */
   --section-py: 64px;
 }
 
@@ -65,16 +85,16 @@
 
 @media (min-width: 1025px) {
   :root {
-    --section-py: 104px;
+    --section-py: 96px;
   }
 }
 
-/* Glass mixin helper class */
+/* Glass panel */
 .glass {
   backdrop-filter: blur(18px) saturate(140%);
   background: var(--glass-bg);
   border: 1px solid var(--glass-brd);
-  box-shadow: var(--sh-md), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: var(--elevation-2);
 }
 
 @media (max-width: 767px) {
@@ -85,13 +105,13 @@
 
 @supports not (backdrop-filter: blur(1px)) {
   .glass {
-    background: rgba(19, 27, 38, 0.92);
+    background: rgba(18, 21, 27, 0.95);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .glass {
-    background: rgba(19, 27, 38, 0.96);
+    background: rgba(18, 21, 27, 0.98);
     backdrop-filter: none;
   }
 }

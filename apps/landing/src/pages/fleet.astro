@@ -83,19 +83,37 @@ const fleetKeys: FeatureKey[] = [
           <h2 class="compliance-heading">Data stays yours. Always.</h2>
           <div class="compliance-grid">
             {[
-              { icon: '🔒', title: 'UK GDPR compliant', body: 'Registered UK data controller. Location data is collected only during active shifts and never sold or shared with third parties.' },
-              { icon: '📦', title: 'Data portability', body: 'Export your routes, stops, and POD records any time in CSV or JSON. Cancel any month — no data held hostage.' },
-              { icon: '🛡️', title: 'TLS in transit', body: 'All API traffic is encrypted. Driver locations are transmitted over authenticated WebSocket and stored with row-level access control.' },
-              { icon: '📋', title: 'Privacy by design', body: 'Driver location is used for routing and shift reporting only. No advertising profiling. Full details in our Privacy Policy.' },
+              {
+                title: 'UK GDPR compliant',
+                body: 'Registered UK data controller. Location data is collected only during active shifts and never sold or shared with third parties.',
+                svg: '<path d="M7 10.5l2 2 4-4" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#00C2A8" stroke-width="1.5"/>'
+              },
+              {
+                title: 'Data portability',
+                body: 'Export your routes, stops, and POD records any time in CSV or JSON. Cancel any month — no data held hostage.',
+                svg: '<path d="M8 3v8M5 8l3 3 3-3" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M3 11v2a2 2 0 002 2h6a2 2 0 002-2v-2" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" fill="none"/>'
+              },
+              {
+                title: 'TLS in transit',
+                body: 'All API traffic is encrypted. Driver locations are transmitted over authenticated WebSocket and stored with row-level access control.',
+                svg: '<path d="M8 2l6 6-6 6" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M2 6l6 6-6 6" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14 10H8M10 8v4" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round"/>'
+              },
+              {
+                title: 'Privacy by design',
+                body: 'Driver location is used for routing and shift reporting only. No advertising profiling. Full details in our Privacy Policy.',
+                svg: '<rect x="3" y="3" width="8" height="6" rx="1" stroke="#00C2A8" stroke-width="1.5" fill="none"/><path d="M3 9h8M6 9v5" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round"/>'
+              },
             ].map(item => (
               <div class="compliance-card">
-                <div class="compliance-icon" aria-hidden="true">{item.icon}</div>
+                <div class="compliance-icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" set:html={item.svg}/>
+                </div>
                 <h3 class="compliance-title">{item.title}</h3>
                 <p class="compliance-body text-muted">{item.body}</p>
               </div>
             ))}
           </div>
-          <p class="compliance-links text-muted">
+          <p class="compliance-links">
             <a href="/legal/privacy">Privacy Policy</a> · <a href="/legal/terms">Terms of Service</a> · <a href="/legal/cookies">Cookie Policy</a>
           </p>
         </div>
@@ -219,7 +237,16 @@ const fleetKeys: FeatureKey[] = [
     border: 1px solid var(--glass-brd);
     text-align: left;
   }
-  .compliance-icon { font-size: 1.5rem; }
+  .compliance-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-md);
+    background: rgba(0, 194, 168, 0.08);
+    margin-bottom: 4px;
+  }
   .compliance-title { font-size: 0.9375rem; font-weight: 600; color: var(--ink); margin: 0; }
   .compliance-body { font-size: 0.875rem; line-height: 1.55; margin: 0; }
   .compliance-links { font-size: 0.875rem; }
