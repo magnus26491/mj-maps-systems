@@ -378,19 +378,6 @@ const start = async () => {
     },
   );
 
-  /** Admin-only routes */
-  server.get(
-    '/api/v1/admin/users',
-    { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (_request, reply) => reply.send({ ok: true, data: [] }),
-  );
-
-  server.get(
-    '/api/v1/admin/analytics',
-    { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (_request, reply) => reply.send({ ok: true, data: {} }),
-  );
-
   // ── Admin setup (one-time, protected by ADMIN_SETUP_SECRET) ──────────────────
   // Used to create the initial admin account. Disabled once ADMIN_SETUP_SECRET is unset.
   server.post('/api/v1/admin/setup', async (request, reply) => {
