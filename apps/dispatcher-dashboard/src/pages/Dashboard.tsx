@@ -8,6 +8,7 @@ import AlertPanel from '../components/AlertPanel';
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import DriversPanel from '../components/DriversPanel';
 import AssignModal from '../components/AssignModal';
+import AdminPage from './Admin';
 import { useStats } from '../hooks/useStats';
 import { useRoutes } from '../hooks/useRoutes';
 
@@ -16,7 +17,11 @@ export default function Dashboard() {
   const { stats, isLoading: statsLoading } = useStats();
   const { routes, isLoading: routesLoading } = useRoutes();
   const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers'>('alerts');
+  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers' | 'admin'>('alerts');
+  const [mainTab, setMainTab] = useState<'fleet' | 'admin'>('fleet');
+
+  // Determine if current user is an admin (from persisted login role)
+  const isAdmin = localStorage.getItem('mj_user_role') === 'admin';
 
   useEffect(() => {
     if (!localStorage.getItem('mj_dispatcher_token')) {
@@ -26,6 +31,7 @@ export default function Dashboard() {
 
   function handleSignOut() {
     logout();
+    localStorage.removeItem('mj_user_role');
     navigate('/login');
   }
 
@@ -40,16 +46,47 @@ export default function Dashboard() {
         borderRadius: 'var(--r-lg)',
         boxShadow: 'var(--elevation-md)',
       }}>
-        <span style={{
-          color: 'var(--color-text-primary)',
-          fontWeight: 700,
-          fontSize: '1.125rem',
-          fontFamily: 'var(--font-display)',
-        }}>
-          MJ Maps Dispatcher
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{
+            color: 'var(--color-text-primary)',
+            fontWeight: 700,
+            fontSize: '1.125rem',
+            fontFamily: 'var(--font-display)',
+          }}>
+            MJ Maps
+          </span>
+          {isAdmin && (
+            <div className="tab-bar" style={{ padding: '2px' }}>
+              <button
+                onClick={() => setMainTab('fleet')}
+                className={`tab-btn ${mainTab === 'fleet' ? 'tab-btn--active' : ''}`}
+                style={{ padding: '4px 12px', fontSize: '0.8125rem' }}
+              >
+                Fleet
+              </button>
+              <button
+                onClick={() => setMainTab('admin')}
+                className={`tab-btn ${mainTab === 'admin' ? 'tab-btn--active' : ''}`}
+                style={{ padding: '4px 12px', fontSize: '0.8125rem', color: mainTab === 'admin' ? 'var(--color-amber)' : undefined }}
+              >
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style={{ verticalAlign: 'middle', marginRight: 4 }}>
+                  <rect x="2" y="4" width="16" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 4V3a3 3 0 016 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="10" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+                Admin
+              </button>
+            </div>
+          )}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-body)' }}>Dispatcher</span>
+          <span style={{
+            color: mainTab === 'admin' ? 'var(--color-amber)' : 'var(--color-text-muted)',
+            fontSize: '0.875rem',
+            fontFamily: 'var(--font-body)',
+          }}>
+            {isAdmin ? 'Administrator' : 'Dispatcher'}
+          </span>
           <button onClick={handleSignOut} style={{
             background: 'transparent',
             border: '1px solid var(--color-border)',
@@ -65,6 +102,16 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Admin Portal */}
+      {mainTab === 'admin' ? (
+        <AdminPage />
+      ) : (
+        <></>
+      )}
+
+      {/* Fleet view */}
+      {mainTab === 'fleet' && (
+      <>
       {/* KPI bar */}
       <KpiBar stats={stats} isLoading={statsLoading} />
 
@@ -105,6 +152,8 @@ export default function Dashboard() {
       {/* Assign modal */}
       {assignModalRouteId && (
         <AssignModal routeId={assignModalRouteId} onClose={() => setAssignModalRouteId(null)} />
+      )}
+      </>
       )}
     </div>
   );

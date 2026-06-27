@@ -51,6 +51,7 @@ import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
+import { adminRoutes } from './routes/admin.js';
 import { locationRoute } from './routes/location.js';
 import { pinCorrectionRoute } from './routes/pin-correction.js';
 import { navigateLegRoute } from './routes/navigate-leg.js';
@@ -184,6 +185,27 @@ const start = async () => {
       preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise],
     },
   });
+
+  // ── Admin Portal — rate-limited to 60 req/min per admin ───────────────────
+  await server.register(async (app) => {
+    await app.register(fastifyRateLimit, {
+      max:   60,
+      timeWindow: '1 minute',
+      errorResponseBuilder: () => ({
+        ok: false,
+        error: 'Too many admin requests — rate limited to 60/min',
+        code: 'RATE_LIMITED',
+        retryAfterSeconds: 60,
+      }),
+      keyGenerator: (request) => {
+        // Rate limit by admin user ID, not IP — proxies don't bypass limits
+        const authUser = (request as unknown as { authUser?: { id: string } }).authUser;
+        return authUser?.id ?? request.ip;
+      },
+    });
+    await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+  });
+
   await server.register(driverRoutes);
   await server.register(assignRouteRoutes);
   await server.register(locationRoute);
