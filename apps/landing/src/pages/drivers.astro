@@ -8,6 +8,7 @@ import DeviceFrame from '../components/DeviceFrame.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import TurnScoreDemo from '../components/TurnScoreDemo.astro';
 import { type FeatureKey } from '@plans';
+import { t } from '../i18n/index';
 
 const driverKeys: FeatureKey[] = [
   'NAVIGATION', 'HGV_ROUTING', 'BRIDGE_RESTRICTIONS', 'TURN_SCORE',
@@ -35,7 +36,7 @@ const driverKeys: FeatureKey[] = [
       <div class="container hero-inner">
         <!-- Left: text -->
         <div class="hero-text">
-          <div class="section-label reveal">For Drivers</div>
+          <div class="section-label reveal">{t("drivers.heroLabel")}</div>
           <h1 id="drivers-heading" class="reveal" data-delay="80">
             Your shift,<br/>
             <span class="text-accent">simplified</span>
@@ -46,7 +47,7 @@ const driverKeys: FeatureKey[] = [
             in a farm track in Shropshire.
           </p>
           <div class="hero-ctas reveal" data-delay="240">
-            <a href="/register?plan=navigation" class="btn btn-primary">Start free trial — 14 days</a>
+            <a href="/register?plan=navigation" class="btn btn-primary">{t("hero.ctaPrimary")}</a>
             <a href="/pricing" class="btn btn-secondary">View pricing</a>
           </div>
           <div class="hero-trust reveal" data-delay="300">

@@ -39,24 +39,26 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
 }
 
 h1 {
   font-size: clamp(2.75rem, 6vw + 0.5rem, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 h2 {
   font-size: clamp(2.25rem, 5vw, 3.75rem);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
 h3 {
   font-size: clamp(2rem, 4vw, 3rem);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
 h4 {
@@ -298,6 +300,19 @@ section.below-fold {
   border-radius: var(--r-card);
   padding: 20px;
   box-shadow: var(--sh-sm);
+}
+
+/* X.com-inspired: clean divider with teal accent */
+.divider-teal {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--brand), transparent);
+  opacity: 0.3;
+  border: none;
+}
+
+/* X.com-inspired: section border-top (subtle) */
+.section-border {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @media (min-width: 768px) {

@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import AnnouncementBar from '../components/AnnouncementBar.astro';
+import { t } from '../i18n/index';
 
 export interface Props {
   title: string;
@@ -75,12 +76,12 @@ const schemas = [
     <div id="cookie-banner" class="cookie-banner glass" role="region" aria-label="Cookie preferences" aria-live="polite">
       <div class="cookie-inner">
         <p class="cookie-text">
-          We use essential cookies only — no tracking, no advertising. Your location data is used for navigation only and is never sold.
-          <a href="/legal/cookies" class="cookie-link">Cookie policy</a>
+          {t('cookie.text')}
+          <a href="/legal/cookies" class="cookie-link">{t('cookie.policy')}</a>
         </p>
         <div class="cookie-actions">
-          <button id="cookie-accept" class="btn btn-primary cookie-btn">Accept</button>
-          <a href="/legal/cookies" class="btn btn-secondary cookie-btn">Learn more</a>
+          <button id="cookie-accept" class="btn btn-primary cookie-btn">{t('cookie.accept')}</button>
+          <a href="/legal/cookies" class="btn btn-secondary cookie-btn">{t('cookie.learnMore')}</a>
         </div>
       </div>
     </div>

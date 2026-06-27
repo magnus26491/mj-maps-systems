@@ -10,6 +10,9 @@ import BeforeAfterSlider from '../components/BeforeAfterSlider.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingCards from '../components/PricingCards.astro';
 import FAQ from '../components/FAQ.astro';
+import HeroIllustration from '../components/HeroIllustration.astro';
+import GatePinIllustration from '../components/GatePinIllustration.astro';
+import { t } from '../i18n/index';
 ---
 
 <BaseLayout
@@ -35,133 +38,77 @@ import FAQ from '../components/FAQ.astro';
     <!-- HERO — editorial asymmetric: map bg + device + route HUD          -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section id="hero" class="hero-section" aria-labelledby="hero-heading">
-      <!-- UK road network background -->
-      <MapBackground variant="hero" overlay={true} opacity={0.35} />
-      <!-- Ambient teal radial at intersection -->
+      <!-- Dark map grid background — subtle UK road network -->
+      <MapBackground variant="hero" overlay={true} opacity={0.45} />
+
+      <!-- Teal ambient glow (intersection highlight) -->
       <div class="hero-radial" aria-hidden="true"></div>
 
       <div class="container hero-inner">
-        <!-- Left: editorial text column (offset top) -->
+        <!-- Left: bold editorial text column -->
         <div class="hero-text">
+          <!-- Eyebrow: live signal chip + coords -->
           <div class="hero-eyebrow reveal">
             <span class="chip chip-brand">
               <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-              Live routing
+              {t('hero.eyebrowLabel')}
             </span>
-            <span class="font-mono hero-coords">51.5074° N, 0.1278° W</span>
+            <span class="font-mono hero-coords">{t('hero.coords')}</span>
           </div>
 
+          <!-- Headline — bolder, X.com energy -->
           <h1 id="hero-heading" class="reveal" data-delay="80">
-            Navigation built for<br/>
-            <span class="hero-headline-accent">UK delivery drivers</span>
+            {t('hero.headline').split('\n').map((line: string) => (
+              <>{line}{line !== t('hero.headline').split('\n').at(-1) && <br/>}</>
+            ))}
           </h1>
 
-          <p class="hero-sub reveal" data-delay="160">
-            Vehicle-aware routing knows your van's height and weight.
-            Turn-score chips grade every junction before you reach it.
-            Exact gate-pin delivery — all offline.
-          </p>
+          <!-- Subheadline -->
+          <p class="hero-sub reveal" data-delay="160">{t('hero.sub')}</p>
 
-          <!-- CTAs -->
+          <!-- CTAs — primary + secondary -->
           <div class="hero-ctas reveal" data-delay="240">
             <a href="/register?plan=navigation" class="btn btn-primary hero-cta-primary">
-              Start free trial — 14 days
+              {t('hero.ctaPrimary')}
             </a>
-            <a href="/features" class="btn btn-secondary">See how it works</a>
+            <a href="/features" class="btn btn-secondary">{t('hero.ctaSecondary')}</a>
           </div>
 
-          <!-- Trust signals — plain, honest -->
+          <!-- Trust signals — X.com-style horizontal layout -->
           <div class="hero-trust reveal" data-delay="320">
             <span class="trust-item">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              Cancel anytime
+              {t('hero.trustCancel')}
             </span>
             <span class="trust-sep" aria-hidden="true">·</span>
             <span class="trust-item">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              No auto-renew
+              {t('hero.trustNoRenew')}
             </span>
             <span class="trust-sep" aria-hidden="true">·</span>
             <span class="trust-item">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              Works offline
+              {t('hero.trustOffline')}
             </span>
           </div>
         </div>
 
-        <!-- Right: device mockup with HUD -->
-        <div class="hero-device-wrap reveal" data-delay="200" aria-hidden="true">
-          <!-- Floating RouteLine motif -->
+        <!-- Right: cinematic SVG illustration — van + live HUD -->
+        <div class="hero-device-wrap reveal" data-delay="160" aria-hidden="true">
+          <!-- Ambient floating RouteLine motif -->
           <div class="hero-routeline">
             <RouteLine score="teal" animated={true} viewBox="0 0 320 180" />
           </div>
 
-          <!-- iPhone frame with HUD screenshot -->
-          <div class="hero-device">
-            <DeviceFrame variant="iphone" orientation="portrait" size="lg" notch={true}>
-              <!-- Mock HUD screenshot: SVG-based so no external image needed -->
-              <svg viewBox="0 0 300 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;background:#0A0C10;">
-                <!-- Status bar -->
-                <rect width="300" height="44" fill="#0A0C10"/>
-                <text x="20" y="28" font-family="system-ui" font-size="12" fill="#94A3B8">9:41</text>
-                <circle cx="265" cy="22" r="6" fill="none" stroke="#64748B" stroke-width="1.5"/>
-                <rect x="272" y="19" width="14" height="6" rx="1.5" fill="#64748B"/>
-                <rect x="256" y="20" width="8" height="5" rx="1" fill="#64748B"/>
-
-                <!-- Map area -->
-                <rect x="0" y="44" width="300" height="400" fill="#0D1117"/>
-                <!-- Road grid -->
-                <g stroke="#1A2030" stroke-width="1.5">
-                  <line x1="0" y1="244" x2="300" y2="244"/>
-                  <line x1="150" y1="44" x2="150" y2="444"/>
-                  <line x1="0" y1="100" x2="300" y2="100"/>
-                  <line x1="0" y1="380" x2="300" y2="380"/>
-                  <line x1="75" y1="44" x2="75" y2="444"/>
-                  <line x1="225" y1="44" x2="225" y2="444"/>
-                </g>
-                <!-- Route polyline -->
-                <path d="M 30 400 L 80 340 L 120 300 L 160 260 L 200 220 L 240 180 L 270 150"
-                      stroke="#00C2A8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                <!-- Stop markers -->
-                <circle cx="80" cy="340" r="6" fill="#3B82F6"/>
-                <circle cx="160" cy="260" r="6" fill="#3B82F6"/>
-                <circle cx="270" cy="150" r="8" fill="#10B981"/>
-                <circle cx="270" cy="150" r="14" fill="#10B981" fill-opacity="0.2"/>
-                <!-- Current position -->
-                <circle cx="30" cy="400" r="8" fill="#00C2A8"/>
-                <circle cx="30" cy="400" r="4" fill="#0A0C10"/>
-
-                <!-- Turn instruction banner -->
-                <rect x="0" y="444" width="300" height="80" fill="#12151B" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-                <!-- Turn icon -->
-                <rect x="20" y="460" width="48" height="48" rx="10" fill="rgba(0,194,168,0.12)"/>
-                <path d="M 36 480 L 44 472 L 52 480 M 44 472 L 44 488" stroke="#00C2A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                <!-- Turn text -->
-                <text x="80" y="480" font-family="system-ui" font-size="18" font-weight="700" fill="#F1F5F9">0.3 mi</text>
-                <text x="80" y="498" font-family="system-ui" font-size="13" fill="#94A3B8">Turn right onto</text>
-                <text x="80" y="516" font-family="system-ui" font-size="14" font-weight="600" fill="#F1F5F9">Long Lane, B4132</text>
-                <!-- AMBER score chip -->
-                <rect x="210" y="462" width="72" height="26" rx="13" fill="rgba(245,158,11,0.15)"/>
-                <text x="246" y="479" font-family="system-ui" font-size="11" font-weight="700" fill="#F59E0B" text-anchor="middle">AMBER</text>
-
-                <!-- Bottom bar -->
-                <rect x="0" y="524" width="300" height="96" fill="#0D1117"/>
-                <text x="20" y="556" font-family="system-ui" font-size="14" fill="#94A3B8">ETA</text>
-                <text x="20" y="576" font-family="system-ui" font-size="20" font-weight="700" fill="#F1F5F9">14:32</text>
-                <line x1="100" y1="536" x2="100" y2="612" stroke="#1A2030" stroke-width="1"/>
-                <text x="120" y="556" font-family="system-ui" font-size="14" fill="#94A3B8">Stops left</text>
-                <text x="120" y="576" font-family="system-ui" font-size="20" font-weight="700" fill="#F1F5F9">4</text>
-                <line x1="200" y1="536" x2="200" y2="612" stroke="#1A2030" stroke-width="1"/>
-                <text x="220" y="556" font-family="system-ui" font-size="14" fill="#94A3B8">Distance</text>
-                <text x="220" y="576" font-family="system-ui" font-size="20" font-weight="700" fill="#F1F5F9">12.4 mi</text>
-              </svg>
-            </DeviceFrame>
+          <!-- Hero illustration: dark cinematic delivery scene -->
+          <div class="hero-illustration-wrap">
+            <HeroIllustration />
           </div>
         </div>
       </div>
@@ -188,14 +135,14 @@ import FAQ from '../components/FAQ.astro';
               <rect x="2" y="2" width="16" height="16" rx="4" stroke="#00C2A8" stroke-width="1.5"/>
               <path d="M6 10 L9 13 L14 7" stroke="#00C2A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span>UK-founded</span>
+            <span>{t("trustBar.ukFounded")}</span>
           </div>
           <div class="trust-divider" aria-hidden="true"></div>
           <div class="trust-item-pair">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M10 2 L12 7 H18 L13 11 L15 17 L10 13 L5 17 L7 11 L2 7 H8 Z" stroke="#00C2A8" stroke-width="1.5" stroke-linejoin="round"/>
             </svg>
-            <span>UK GDPR compliant</span>
+            <span>{t("trustBar.ukGdpr")}</span>
           </div>
           <div class="trust-divider" aria-hidden="true"></div>
           <div class="trust-item-pair">
@@ -203,7 +150,7 @@ import FAQ from '../components/FAQ.astro';
               <circle cx="10" cy="10" r="8" stroke="#00C2A8" stroke-width="1.5"/>
               <path d="M6 10 L9 13 L14 7" stroke="#00C2A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span>14-day free trial</span>
+            <span>{t("trustBar.fourteenDayTrial")}</span>
           </div>
           <div class="trust-divider" aria-hidden="true"></div>
           <div class="trust-item-pair">
@@ -211,7 +158,7 @@ import FAQ from '../components/FAQ.astro';
               <path d="M3 14 L7 10 L10 13 L14 8 L17 11" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               <circle cx="10" cy="5" r="2" fill="#00C2A8"/>
             </svg>
-            <span>Works offline</span>
+            <span>{t("trustBar.worksOffline")}</span>
           </div>
         </div>
       </div>
@@ -225,31 +172,28 @@ import FAQ from '../components/FAQ.astro';
         <!-- Asymmetric: text left (narrow), slider right (wide) -->
         <div class="ba-layout">
           <div class="ba-text">
-            <div class="section-label reveal">Precision delivery</div>
+            <div class="section-label reveal">{t('beforeAfter.label')}</div>
             <h2 id="ba-heading" class="reveal" data-delay="80">
-              From "somewhere<br/>on this road"
+              {t('beforeAfter.headline').split('\n').map((line: string) => (
+                <>{line}{line !== t('beforeAfter.headline').split('\n').at(-1) && <br/>}</>
+              ))}
             </h2>
-            <p class="ba-sub reveal" data-delay="160">
-              Standard sat-nav drops you at the postcode centroid —
-              often the middle of a farm track, 400m from the actual gate.
-              MJ Maps pins the exact delivery point and encodes it as a
-              Plus Code anyone can find without signal.
-            </p>
+            <p class="ba-sub reveal" data-delay="160">{t('beforeAfter.sub')}</p>
             <div class="ba-tags reveal" data-delay="240">
-              <span class="chip chip-brand">Plus Code encoding</span>
-              <span class="chip chip-brand">Gate & yard pins</span>
-              <span class="chip chip-brand">Community verification</span>
+              <span class="chip chip-brand">{t('beforeAfter.tagPlusCodes')}</span>
+              <span class="chip chip-brand">{t('beforeAfter.tagGatePins')}</span>
+              <span class="chip chip-brand">{t('beforeAfter.tagCommunity')}</span>
             </div>
           </div>
           <div class="ba-slider-wrap reveal" data-delay="120">
             <BeforeAfterSlider
               beforeSrc="/img/placeholder-postcode.svg"
               afterSrc="/img/placeholder-gate-pin.svg"
-              beforeLabel="Postcode centroid"
-              afterLabel="Gate pin + Plus Code"
+              beforeLabel={t('beforeAfter.beforeLabel')}
+              afterLabel={t('beforeAfter.afterLabel')}
               initialPosition={45}
             />
-            <p class="ba-hint mono">← drag to compare →</p>
+            <p class="ba-hint mono">{t('beforeAfter.hint')}</p>
           </div>
         </div>
       </div>
@@ -268,21 +212,16 @@ import FAQ from '../components/FAQ.astro';
 
           <!-- Right: text column -->
           <div class="ts-text">
-            <div class="section-label reveal">Turn-score intelligence</div>
+            <div class="section-label reveal">{t("turnScore.label")}</div>
             <h2 id="ts-heading" class="reveal" data-delay="80">
-              Know before<br/>you turn
+              {t('turnScore.headline').split('\n').map((l: string) => (
+                <>{l}{l !== t('turnScore.headline').split('\n').at(-1) && <br/>}
+              </>))}
             </h2>
-            <p class="reveal" data-delay="160">
-              Every junction gets scored against your exact vehicle profile.
-              Green means clear. Amber means reduce speed.
-              Red means re-routing around it — before you've committed to the turn.
-            </p>
-            <p class="reveal" data-delay="220">
-              The score factors in your vehicle height, weight, turning radius,
-              road width, and any active restrictions in OSM.
-            </p>
+            <p class="reveal" data-delay="160">{t('turnScore.sub1')}</p>
+            <p class="reveal" data-delay="220">{t('turnScore.sub2')}</p>
             <a href="/features/turn-score" class="btn btn-secondary reveal" data-delay="280">
-              How turn-score works →
+              {t('turnScore.cta')}
             </a>
           </div>
         </div>
@@ -300,19 +239,16 @@ import FAQ from '../components/FAQ.astro';
     <section class="pricing-preview-section below-fold" aria-labelledby="pricing-heading">
       <div class="container">
         <div class="section-label reveal">Pricing</div>
-        <h2 id="pricing-heading" class="reveal" data-delay="60">Simple, honest pricing</h2>
-        <p class="section-sub reveal" data-delay="120">
-          No setup fees. No per-stop charges. Cancel anytime — no auto-renew surprises.
-          All prices include VAT.
-        </p>
+        <h2 id="pricing-heading" class="reveal" data-delay="60">{t("pricing.headline")}</h2>
+        <p class="section-sub reveal" data-delay="120">{t('pricing.sub')}</p>
 
         <div class="pricing-cards-grid reveal" data-delay="200">
           <!-- Driver Pro -->
           <div class="pricing-card pricing-card-featured card">
             <div class="pricing-card-header">
-              <span class="chip chip-brand">Most popular</span>
-              <h3 class="pricing-plan-name">Driver Pro</h3>
-              <p class="pricing-tagline">Everything a solo or small-team driver needs</p>
+              <span class="chip chip-brand">{t("pricing.popular")}</span>
+              <h3 class="pricing-plan-name">{t("pricing.driverPro")}</h3>
+              <p class="pricing-tagline">{t("pricing.driverProTag")}</p>
             </div>
             <div class="pricing-price-block">
               <div class="pricing-price">
@@ -320,7 +256,7 @@ import FAQ from '../components/FAQ.astro';
                 <span class="pricing-amount font-display">9.97</span>
                 <span class="pricing-period font-mono">/mo</span>
               </div>
-              <p class="pricing-vat-note mono">£97/yr if you pay yearly — saving £22.64. VAT included.</p>
+              <p class="pricing-vat-note mono">{t('pricing.vatYear')}</p>
             </div>
             <ul class="pricing-features" aria-label="Driver Pro features">
               <li class="pricing-feature">
@@ -347,20 +283,20 @@ import FAQ from '../components/FAQ.astro';
             <a href="/register?plan=navigation" class="btn btn-primary btn-full">
               Start free trial
             </a>
-            <p class="pricing-cancel-note mono">14-day trial. Cancel anytime. No card needed to start.</p>
+            <p class="pricing-cancel-note mono">{t('pricing.cancelNote')}</p>
           </div>
 
           <!-- Enterprise -->
           <div class="pricing-card card">
             <div class="pricing-card-header">
-              <h3 class="pricing-plan-name">Enterprise</h3>
-              <p class="pricing-tagline">Fleet-grade control for operations teams</p>
+              <h3 class="pricing-plan-name">{t("pricing.enterprise")}</h3>
+              <p class="pricing-tagline">{t("pricing.enterpriseTag")}</p>
             </div>
             <div class="pricing-price-block">
               <div class="pricing-price">
                 <span class="pricing-amount font-display">Custom</span>
               </div>
-              <p class="pricing-vat-note mono">Tailored to your fleet size and needs. No minimum commitment.</p>
+              <p class="pricing-vat-note mono">{t('pricing.vatEnterprise')}</p>
             </div>
             <ul class="pricing-features" aria-label="Enterprise features">
               <li class="pricing-feature">
@@ -401,7 +337,7 @@ import FAQ from '../components/FAQ.astro';
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section class="proof-section below-fold" aria-labelledby="proof-heading">
       <div class="container">
-        <div class="section-label reveal">Built by drivers</div>
+        <div class="section-label reveal">{t("proof.label")}</div>
         <h2 id="proof-heading" class="reveal" data-delay="60">
           We built this because<br/>we were those drivers
         </h2>
@@ -439,7 +375,7 @@ import FAQ from '../components/FAQ.astro';
                 Free trial with no card required
               </li>
               <li>
-                <span class="proof-fact-icon chip chip-brand">£9.97/mo</span>
+                <span class="proof-fact-icon chip chip-brand">£9.97</span>
                 Driver Pro, billed monthly, VAT included
               </li>
               <li>
@@ -479,14 +415,10 @@ import FAQ from '../components/FAQ.astro';
           <h2 id="final-cta-heading" class="reveal">
             Stop guessing the last 50 metres
           </h2>
-          <p class="final-cta-sub reveal" data-delay="80">
-            MJ Maps routes you to the exact gate, warns you about every tight turn,
-            and keeps working when you lose signal in a farm track in Norfolk.
-            14-day free trial. No card needed.
-          </p>
+          <p class="final-cta-sub reveal" data-delay="80">{t('finalCta.sub')}</p>
           <div class="final-cta-btns reveal" data-delay="160">
-            <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
-            <a href="/contact" class="btn btn-secondary">Talk to the fleet team</a>
+            <a href="/register?plan=navigation" class="btn btn-primary">{t('finalCta.cta')}</a>
+            <a href="/contact" class="btn btn-secondary">{t('finalCta.ctaSecondary')}</a>
           </div>
         </div>
       </div>
@@ -651,15 +583,19 @@ import FAQ from '../components/FAQ.astro';
     position: relative;
     flex-shrink: 0;
     width: 100%;
-    max-width: 340px;
+    max-width: 560px;
     margin-inline: auto;
   }
 
   @media (min-width: 1024px) {
     .hero-device-wrap {
-      max-width: 320px;
+      max-width: 520px;
       margin-inline: 0;
     }
+  }
+
+  .hero-illustration-wrap {
+    filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.5));
   }
 
   .hero-routeline {

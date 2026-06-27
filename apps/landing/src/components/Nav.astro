@@ -1,16 +1,18 @@
 ---
+import { t } from '../i18n/index';
+
 interface Props {
   activePage?: string;
 }
 const { activePage = '' } = Astro.props;
 
 const links = [
-  { href: '/features',  label: 'Features' },
-  { href: '/pricing',   label: 'Pricing' },
-  { href: '/drivers',   label: 'For Drivers' },
-  { href: '/fleet',     label: 'For Fleets' },
-  { href: '/about',     label: 'About' },
-  { href: '/contact',   label: 'Book a demo' },
+  { href: '/features',  label: t('nav.features') },
+  { href: '/pricing',   label: t('nav.pricing') },
+  { href: '/drivers',   label: t('nav.forDrivers') },
+  { href: '/fleet',    label: t('nav.forFleets') },
+  { href: '/about',     label: t('nav.about') },
+  { href: '/contact',   label: t('nav.bookDemo') },
 ];
 ---
 
@@ -48,13 +50,13 @@ const links = [
     </nav>
 
     <!-- Desktop CTA -->
-    <a href="/register?plan=navigation" class="btn btn-primary nav-cta">Start free trial</a>
+    <a href="/register?plan=navigation" class="btn btn-primary nav-cta">{t("nav.startTrial")}</a>
 
     <!-- Hamburger (mobile only) -->
     <button
       id="nav-hamburger"
       class="hamburger"
-      aria-label="Open menu"
+      aria-label={t("nav.openMenu")}
       aria-expanded="false"
       aria-controls="nav-drawer"
     >
@@ -68,7 +70,7 @@ const links = [
 <!-- Mobile drawer -->
 <div id="nav-drawer" class="nav-drawer glass" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Navigation menu">
   <div class="drawer-inner">
-    <button id="nav-close" class="drawer-close" aria-label="Close menu">
+    <button id="nav-close" class="drawer-close" aria-label={t("nav.closeMenu")}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"/>
         <line x1="6" y1="6" x2="18" y2="18"/>
