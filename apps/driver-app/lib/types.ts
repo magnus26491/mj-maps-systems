@@ -2,9 +2,18 @@
  * lib/types.ts
  * Shared TypeScript interfaces matching backend response shapes exactly.
  * Verified against: dispatcher.ts routes, driver-api.ts, vehicles.ts, pod.ts
+ *
+ * Plan IDs are canonical (backend authoritative):
+ *   'free'       — no subscription
+ *   'navigation' — Driver Pro plan (formerly 'pro')
+ *   'custom'    — Enterprise plan (formerly 'enterprise')
+ *
+ * No plan ID strings should be hard-coded in this file or elsewhere in the app.
+ * Import PlanId from here; never redeclare it inline.
  */
 
-export type PlanId = 'free' | 'pro' | 'enterprise';
+// Canonical plan IDs (must match backend DB + API)
+export type PlanId = 'free' | 'navigation' | 'custom';
 
 export interface Stop {
   id:               string;

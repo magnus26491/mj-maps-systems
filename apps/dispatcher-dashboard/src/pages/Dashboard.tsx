@@ -30,19 +30,35 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#030712', padding: '1rem' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-base)', padding: '1rem' }}>
       {/* Nav bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: '1rem', padding: '0.75rem 1rem', background: '#0f172a',
-        border: '1px solid #1e293b', borderRadius: 8,
+        marginBottom: '1rem', padding: '0.75rem 1rem',
+        background: 'var(--color-surface-1)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--r-lg)',
+        boxShadow: 'var(--elevation-md)',
       }}>
-        <span style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.125rem' }}>MJ Maps Dispatcher</span>
+        <span style={{
+          color: 'var(--color-text-primary)',
+          fontWeight: 700,
+          fontSize: '1.125rem',
+          fontFamily: 'var(--font-display)',
+        }}>
+          MJ Maps Dispatcher
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dispatcher</span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-body)' }}>Dispatcher</span>
           <button onClick={handleSignOut} style={{
-            background: 'transparent', border: '1px solid #334155', borderRadius: 6,
-            color: '#94a3b8', fontSize: '0.875rem', padding: '0.25rem 0.75rem', cursor: 'pointer',
+            background: 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--r-md)',
+            color: 'var(--color-text-secondary)',
+            fontSize: '0.875rem',
+            padding: '0.25rem 0.75rem',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
           }}>
             Sign out
           </button>
@@ -58,7 +74,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <FleetMap routes={routes} />
           <div>
-            <h3 style={{ color: '#f1f5f9', fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Active Routes</h3>
+            <h3 style={{ color: 'var(--color-text-primary)', fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', fontFamily: 'var(--font-display)' }}>Active Routes</h3>
             <RouteList
               routes={routes}
               isLoading={routesLoading}
@@ -69,41 +85,18 @@ export default function Dashboard() {
         </div>
         {/* Right: tabbed panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {/* Tab bar */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={() => setRightTab('alerts')}
-              style={{
-                ...tabStyle,
-                background: rightTab === 'alerts' ? '#1e3a5f' : 'transparent',
-                color: rightTab === 'alerts' ? '#3b82f6' : '#64748b',
-                border: `1px solid ${rightTab === 'alerts' ? '#3b82f6' : '#1e293b'}`,
-              }}
-            >
-              Alerts
-            </button>
-            <button
-              onClick={() => setRightTab('analytics')}
-              style={{
-                ...tabStyle,
-                background: rightTab === 'analytics' ? '#1e3a5f' : 'transparent',
-                color: rightTab === 'analytics' ? '#3b82f6' : '#64748b',
-                border: `1px solid ${rightTab === 'analytics' ? '#3b82f6' : '#1e293b'}`,
-              }}
-            >
-              Analytics
-            </button>
-            <button
-              onClick={() => setRightTab('drivers')}
-              style={{
-                ...tabStyle,
-                background: rightTab === 'drivers' ? '#1e3a5f' : 'transparent',
-                color: rightTab === 'drivers' ? '#3b82f6' : '#64748b',
-                border: `1px solid ${rightTab === 'drivers' ? '#3b82f6' : '#1e293b'}`,
-              }}
-            >
-              Drivers
-            </button>
+          {/* Tab bar — using .tab-bar and .tab-btn CSS classes */}
+          <div className="tab-bar">
+            {(['alerts', 'analytics', 'drivers'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setRightTab(tab)}
+                className={`tab-btn ${rightTab === tab ? 'tab-btn--active' : ''}`}
+                aria-pressed={rightTab === tab}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
           {rightTab === 'alerts' ? <AlertPanel /> : rightTab === 'analytics' ? <AnalyticsPanel /> : <DriversPanel />}
         </div>
@@ -116,11 +109,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-const tabStyle: React.CSSProperties = {
-  borderRadius: 6,
-  padding: '0.25rem 0.75rem',
-  fontSize: '0.875rem',
-  cursor: 'pointer',
-  fontWeight: 600,
-};

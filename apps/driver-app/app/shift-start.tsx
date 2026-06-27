@@ -298,7 +298,7 @@ export default function ShiftStartScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* ── Saved Routes (Pro gate) ─────────────────────────── */}
+          {/* ── Saved Routes (Driver Pro gate) ──────────────────── */}
           <TouchableOpacity
             style={[styles.card, { backgroundColor: colors.surface }]}
             onPress={() => {
@@ -306,8 +306,8 @@ export default function ShiftStartScreen() {
                 router.push('/saved-routes');
               } else {
                 Alert.alert(
-                  'Saved Routes is a Pro feature',
-                  'Upgrade to save and reuse your routes.',
+                  'Saved Routes is a Driver Pro feature',
+                  'Upgrade to save and reuse your routes. Cancel anytime.',
                   [{ text: 'View Plans', onPress: () => router.push('/(auth)/plans') }],
                 );
               }
@@ -317,7 +317,7 @@ export default function ShiftStartScreen() {
           >
             <Text style={[styles.cardLabel, { color: colors.subtext }]}>Saved Routes</Text>
             <Text style={[styles.cardValue, { color: canUse('saved_routes') ? colors.green : colors.subtext }]}>
-              {canUse('saved_routes') ? 'View saved routes ›' : 'Upgrade to Pro ›'}
+              {canUse('saved_routes') ? 'View saved routes ›' : 'Upgrade to Driver Pro ›'}
             </Text>
           </TouchableOpacity>
 
