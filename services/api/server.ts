@@ -52,7 +52,6 @@ import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
 import { adminRoutes } from './routes/admin.js';
-import { supportRoutes } from './routes/support.js';
 import { savingsRoutes } from './routes/savings.js';
 import { driverInsightsRoutes } from './routes/driver-insights.js';
 import { turnBreakdownRoutes } from './routes/turn-breakdown.js';
@@ -208,7 +207,6 @@ const start = async () => {
       },
     });
     await app.register(adminRoutes, { prefix: '/api/v1/admin' });
-    await app.register(supportRoutes, { prefix: '/api/v1/support' });
   });
 
   await server.register(driverRoutes);
