@@ -110,8 +110,17 @@ function VehicleSelectInner() {
   };
 
   const handleConfirm = useCallback(() => {
-    if (!selected) return;
     Keyboard.dismiss();
+
+    if (!selected) {
+      // No vehicle selected — use sensible SWB van default
+      Haptics.selectionAsync();
+      const store = useShiftStore.getState();
+      store.vehicleId = 'swb_van';
+      store.setCustomHeight(null);
+      router.back();
+      return;
+    }
 
     if (showHeightInput && heightInput.trim()) {
       const hm = resolveHeightM();
@@ -144,9 +153,11 @@ function VehicleSelectInner() {
       >
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>What are you driving?</Text>
+          <Text style={[styles.title, { color: colors.text }]}>What's your vehicle?</Text>
           <Text style={[styles.sub, { color: colors.subtext }]}>
-            Route, turn warnings and bridge checks are optimised for your vehicle.
+            Adding your vehicle lets MJ Maps warn you about tight turns, low bridges and
+            weight restrictions before you're committed. This is optional — we use a
+            sensible default if you skip.
           </Text>
         </View>
 
@@ -308,6 +319,32 @@ function VehicleSelectInner() {
               {selected ? 'Confirm Vehicle →' : 'Select a vehicle above'}
             </Text>
           </TouchableOpacity>
+
+          {selected && (
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={handleConfirm}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.skipBtnText, { color: colors.subtext }]}>
+                Or{' '}
+                <Text style={{ color: colors.teal ?? '#00C2A8' }}>skip and use default →</Text>
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!selected && (
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={handleConfirm}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.skipBtnText, { color: colors.subtext }]}>
+                Not sure?{' '}
+                <Text style={{ color: colors.teal ?? '#00C2A8' }}>continue with default profile →</Text>
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -416,5 +453,7 @@ const styles = StyleSheet.create({
     height: 58, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
   },
-  ctaText: { fontSize: 17, fontWeight: '800' },
+  ctaText:    { fontSize: 17, fontWeight: '800' },
+  skipBtn:    { paddingVertical: 10, alignItems: 'center' },
+  skipBtnText: { fontSize: 14 },
 });
