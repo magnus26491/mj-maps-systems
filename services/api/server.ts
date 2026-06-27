@@ -52,6 +52,9 @@ import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
 import { adminRoutes } from './routes/admin.js';
+import { savingsRoutes } from './routes/savings.js';
+import { driverInsightsRoutes } from './routes/driver-insights.js';
+import { turnBreakdownRoutes } from './routes/turn-breakdown.js';
 import { locationRoute } from './routes/location.js';
 import { pinCorrectionRoute } from './routes/pin-correction.js';
 import { navigateLegRoute } from './routes/navigate-leg.js';
@@ -207,6 +210,9 @@ const start = async () => {
   });
 
   await server.register(driverRoutes);
+  await server.register(savingsRoutes);          // /api/v1/analytics/savings*
+  await server.register(driverInsightsRoutes);   // /api/v1/drivers/:driverId/insights*
+  await server.register(turnBreakdownRoutes);   // /api/v1/routes/:routeId/turn-breakdown
   await server.register(assignRouteRoutes);
   await server.register(locationRoute);
   await server.register(navigateLegRoute);

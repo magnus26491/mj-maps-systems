@@ -7,6 +7,8 @@ import RouteList from '../components/RouteList';
 import AlertPanel from '../components/AlertPanel';
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import DriversPanel from '../components/DriversPanel';
+import SavingsPanel from '../components/SavingsPanel';
+import CoachingPanel from '../components/CoachingPanel';
 import AssignModal from '../components/AssignModal';
 import AdminPage from './Admin';
 import { useStats } from '../hooks/useStats';
@@ -17,7 +19,7 @@ export default function Dashboard() {
   const { stats, isLoading: statsLoading } = useStats();
   const { routes, isLoading: routesLoading } = useRoutes();
   const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers' | 'admin'>('alerts');
+  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers' | 'savings' | 'coaching' | 'admin'>('alerts');
   const [mainTab, setMainTab] = useState<'fleet' | 'admin'>('fleet');
 
   // Determine if current user is an admin (from persisted login role)
@@ -133,19 +135,29 @@ export default function Dashboard() {
         {/* Right: tabbed panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {/* Tab bar — using .tab-bar and .tab-btn CSS classes */}
-          <div className="tab-bar">
-            {(['alerts', 'analytics', 'drivers'] as const).map(tab => (
+          <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
+            {([
+              ['alerts',    'Alerts'],
+              ['analytics',  'Analytics'],
+              ['savings',    'Savings'],
+              ['coaching',   'Coaching'],
+              ['drivers',    'Drivers'],
+            ] as const).map(([key, label]) => (
               <button
-                key={tab}
-                onClick={() => setRightTab(tab)}
-                className={`tab-btn ${rightTab === tab ? 'tab-btn--active' : ''}`}
-                aria-pressed={rightTab === tab}
+                key={key}
+                onClick={() => setRightTab(key)}
+                className={`tab-btn ${rightTab === key ? 'tab-btn--active' : ''}`}
+                aria-pressed={rightTab === key}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {label}
               </button>
             ))}
           </div>
-          {rightTab === 'alerts' ? <AlertPanel /> : rightTab === 'analytics' ? <AnalyticsPanel /> : <DriversPanel />}
+          {rightTab === 'alerts'    ? <AlertPanel />    :
+           rightTab === 'analytics'  ? <AnalyticsPanel /> :
+           rightTab === 'savings'   ? <SavingsPanel />  :
+           rightTab === 'coaching'  ? <CoachingPanel driverId="" /> :
+           <DriversPanel />}
         </div>
       </div>
 

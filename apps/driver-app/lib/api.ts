@@ -171,6 +171,53 @@ export const apiGetPOIs = (lat: number, lng: number, radiusM = 3000) =>
     `/api/v1/pois?lat=${lat}&lng=${lng}&radius=${radiusM}`,
   );
 
+// ── Savings & Insights (Pro/Enterprise) ─────────────────────────────────────────
+
+export interface SavingsMetrics {
+  ok: boolean;
+  periodDays: number;
+  completedRoutes: number;
+  headline: string;
+  metrics: {
+    distanceSavedKm: number;
+    durationSavedMin: number;
+    fuelSavedLitres: number;
+    riskyTurnsAvoided: number;
+    avgDistanceSavedKm: number;
+    avgDurationSavedMin: number;
+  };
+}
+
+export interface InsightsSummary {
+  ok: boolean;
+  trend: 'improving' | 'stable' | 'declining';
+  greenRate: number;
+  comparedToFleet: number;
+  topPattern: {
+    type: string;
+    description: string;
+    count: number;
+    recommendation: string;
+    severity: 'low' | 'medium' | 'high';
+  } | null;
+}
+
+/**
+ * 30-day rolling savings summary — for HUD card and post-shift screen.
+ * Returns ENTERPRISE_REQUIRED error if plan is not Pro or Enterprise.
+ */
+export async function apiGetSavingsSummary(): Promise<SavingsMetrics> {
+  return apiFetch<SavingsMetrics>('/api/v1/analytics/savings/summary');
+}
+
+/**
+ * Driver coaching insights summary — lightweight version for HUD.
+ * Available to all authenticated drivers (their own data only).
+ */
+export async function apiGetInsightsSummary(driverId: string): Promise<InsightsSummary> {
+  return apiFetch<InsightsSummary>(`/api/v1/drivers/${encodeURIComponent(driverId)}/insights/summary`);
+}
+
 // ── Generic API client (for DeleteAccountModal) ─────────────────────────────
 interface ApiClient {
   delete: (path: string, token: string | null) => Promise<{ ok: boolean; json: () => Promise<{ message?: string }> }>;

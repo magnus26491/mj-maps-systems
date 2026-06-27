@@ -216,6 +216,16 @@ function HudInner() {
         >
           <Text style={styles.gmapsLink}>Open in Google Maps ↗</Text>
         </TouchableOpacity>
+
+        {/* Performance quick-access */}
+        <TouchableOpacity
+          style={styles.perfBtn}
+          onPress={() => router.push('/performance')}
+          accessibilityLabel="View performance and savings"
+          accessibilityRole="button"
+        >
+          <Text style={styles.perfBtnText}>📊 Performance</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={{ flex: 1 }} />
@@ -325,6 +335,16 @@ const styles = StyleSheet.create({
   },
   navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0f1923' },
   gmapsLink:   { fontSize: 13, color: '#607080', textDecorationLine: 'underline', marginTop: 8 },
+  perfBtn: {
+    marginTop: 8,
+    backgroundColor: '#1A1F26',
+    borderWidth: 1,
+    borderColor: '#00C2A840',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  perfBtnText: { fontSize: 13, fontWeight: '600', color: '#00C2A8' },
   actions: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 12, paddingBottom: 16, paddingTop: 12,

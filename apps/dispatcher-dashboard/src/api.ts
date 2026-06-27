@@ -205,6 +205,130 @@ export async function forceCompleteRoute(routeId: string): Promise<{ success: bo
   return res.json() as Promise<{ success: boolean }>;
 }
 
+// ── Savings & Coaching API helpers ────────────────────────────────────────────
+// All require requireEnterprise plan (403 → ENTERPRISE_REQUIRED for non-enterprise)
+
+export interface SavingsSummary {
+  ok: boolean;
+  periodDays: number;
+  completedRoutes: number;
+  headline: string;
+  metrics: {
+    distanceSavedKm: number;
+    durationSavedMin: number;
+    fuelSavedLitres: number;
+    riskyTurnsAvoided: number;
+    avgDistanceSavedKm: number;
+    avgDurationSavedMin: number;
+  };
+}
+
+export interface SavingsDetail {
+  ok: boolean;
+  period: { from: string; to: string };
+  actual: {
+    totalDistanceKm: number;
+    totalDurationMin: number;
+    redTurns: number;
+    amberTurns: number;
+    completedRoutes: number;
+  };
+  estimatedBaseline: {
+    totalDistanceKm: number;
+    totalDurationMin: number;
+    redTurns: number;
+  };
+  savings: {
+    distanceKm: number;
+    durationMin: number;
+    fuelLitres: number;
+    riskyTurnsAvoided: number;
+    timeSavedTurnsMin: number;
+  };
+  confidence: 'low' | 'medium' | 'high';
+  methodology: {
+    description: string;
+    confidenceLevels: { high: string; medium: string; low: string };
+  };
+}
+
+export interface DriverInsights {
+  ok: boolean;
+  driver: { id: string; name: string; email: string };
+  headline: string;
+  period: { from: string; to: string };
+  totalRoutes: number;
+  totalStops: number;
+  completedStops: number;
+  failedStops: number;
+  turnScoreDistribution: { green: number; amber: number; red: number; unknown: number };
+  topPatterns: Array<{
+    type: string; description: string; count: number;
+    recommendation: string; severity: 'low' | 'medium' | 'high';
+  }>;
+  improvementTrend: 'improving' | 'stable' | 'declining';
+  comparedToFleetAverage: number;
+  fleetAverageGreenRate: number;
+  routeSummaries: Array<{
+    routeId: string; date: string; stops: number; completed: number; failed: number;
+    redTurns: number; amberTurns: number; greenTurns: number; greenRate: number;
+  }>;
+}
+
+export async function getSavingsSummary(driverId?: string): Promise<SavingsSummary> {
+  const qs = driverId ? `?driverId=${encodeURIComponent(driverId)}` : '';
+  const res = await fetch(`/api/v1/analytics/savings/summary${qs}`, {
+    headers: authHeaders(),
+  });
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({})) as { code?: string };
+    if (body.code === 'ENTERPRISE_REQUIRED') {
+      throw Object.assign(new Error('Enterprise plan required'), { code: 'ENTERPRISE_REQUIRED' });
+    }
+  }
+  if (!res.ok) throw new Error('Failed to load savings summary');
+  return res.json() as Promise<SavingsSummary>;
+}
+
+export async function getSavingsDetail(params: {
+  from?: string; to?: string; driverId?: string;
+  granularity?: string;
+}): Promise<SavingsDetail> {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to)   qs.set('to',   params.to);
+  if (params.driverId) qs.set('driverId', params.driverId);
+  if (params.granularity) qs.set('granularity', params.granularity);
+  const path = `/api/v1/analytics/savings${qs.size ? `?${qs}` : ''}`;
+  const res = await fetch(path, { headers: authHeaders() });
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({})) as { code?: string };
+    if (body.code === 'ENTERPRISE_REQUIRED') {
+      throw Object.assign(new Error('Enterprise plan required'), { code: 'ENTERPRISE_REQUIRED' });
+    }
+  }
+  if (!res.ok) throw new Error('Failed to load savings detail');
+  return res.json() as Promise<SavingsDetail>;
+}
+
+export async function getDriverInsights(driverId: string, params?: {
+  from?: string; to?: string;
+}): Promise<DriverInsights> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to)   qs.set('to',   params.to);
+  const path = `/api/v1/drivers/${encodeURIComponent(driverId)}/insights${qs.size ? `?${qs}` : ''}`;
+  const res = await fetch(path, { headers: authHeaders() });
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({})) as { code?: string };
+    if (body.code === 'ENTERPRISE_REQUIRED') {
+      throw Object.assign(new Error('Enterprise plan required'), { code: 'ENTERPRISE_REQUIRED' });
+    }
+  }
+  if (!res.ok) throw new Error('Failed to load driver insights');
+  return res.json() as Promise<DriverInsights>;
+}
+
 // ── Admin Portal API helpers ───────────────────────────────────────────────────
 // All functions require role='admin' — server returns 403 for non-admins
 
