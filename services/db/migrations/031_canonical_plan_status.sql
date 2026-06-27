@@ -107,7 +107,8 @@ BEGIN
    WHERE plan_id = 'navigation'
      AND (subscription_tier = 'enterprise' OR plan = 'enterprise');
 
-  GET DIAGNOSTICS row_count = row_count + ROW_COUNT;
+  GET DIAGNOSTICS _cnt = ROW_COUNT;
+  row_count := row_count + _cnt;
 
   RAISE NOTICE '031: plan_id backfill: % rows updated', row_count;
 END $$;
