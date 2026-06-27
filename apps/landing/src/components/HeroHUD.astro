@@ -14,26 +14,36 @@
       </div>
 
       <h1 id="hero-heading">
-        Routing that knows your van — and the turn at the end of the lane.
+        UK delivery navigation that gets you to the exact door — and warns you before the tight turn.
       </h1>
 
       <p class="hero-sub">
-        Turn-by-turn navigation built for UK delivery drivers. HGV restrictions, bridge warnings, turn-score alerts, and exact gate-pin delivery — all offline.
+        Vehicle-aware routing that knows your van's height and weight. Turn-score chips that grade every junction before you reach it. Exact gate-pin delivery down to the last 50 metres — all offline.
       </p>
 
+      <!-- App store badges as primary CTAs -->
       <div class="hero-ctas">
-        <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
-        <a href="/fleet" class="btn btn-secondary">For fleets &rarr;</a>
+        <a href="/register?plan=navigation" class="store-badge" aria-label="Download on the App Store">
+          <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
+            <rect width="140" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
+            <text x="44" y="16" fill="#8AA0B2" font-size="8" font-family="Inter,sans-serif">Download on the</text>
+            <text x="44" y="31" fill="#EAF2FA" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">App Store</text>
+            <path d="M20 10 Q16 10 14 14 L14 30 Q14 34 18 34 L22 34 Q22 30 20 28 L20 16 Q20 14 22 14 L26 14 Q26 10 22 10 Z" fill="white" fill-opacity="0.8"/>
+          </svg>
+        </a>
+        <a href="/register?plan=navigation" class="store-badge" aria-label="Get it on Google Play">
+          <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
+            <rect width="140" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
+            <text x="44" y="16" fill="#8AA0B2" font-size="8" font-family="Inter,sans-serif">Get it on</text>
+            <text x="44" y="31" fill="#EAF2FA" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">Google Play</text>
+            <path d="M17 12 L28 22 L17 32 L15 30 L15 14 Z M29 21 L31 22 L29 23 L23 27 L21 24 L17 22 L21 20 L23 17 Z" fill="white" fill-opacity="0.8"/>
+          </svg>
+        </a>
+        <a href="/features" class="btn btn-secondary hero-see-more">See how it works →</a>
       </div>
 
-      <!-- Trust signals — real values only -->
+      <!-- Trust signals -->
       <div class="hero-trust">
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          No contract
-        </span>
         <span class="trust-item">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -44,7 +54,19 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
+          No auto-renew
+        </span>
+        <span class="trust-item">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
           Works offline
+        </span>
+        <span class="trust-item">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          UK GDPR compliant
         </span>
       </div>
     </div>
@@ -222,20 +244,34 @@
 
   .hero-ctas {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 24px;
-  }
-
-  @media (min-width: 480px) {
-    .hero-ctas {
-      flex-direction: row;
-      justify-content: center;
-    }
+    justify-content: center;
   }
 
   @media (min-width: 900px) {
     .hero-ctas { justify-content: flex-start; }
+  }
+
+  .store-badge {
+    display: inline-flex;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: opacity var(--dur-micro) ease-out, transform var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .store-badge:hover { opacity: 0.85; transform: translateY(-1px); }
+  }
+
+  .store-badge:active { transform: scale(0.97); }
+
+  .hero-see-more {
+    height: 44px;
+    padding: 0 20px;
+    font-size: 0.9375rem;
+    align-self: center;
   }
 
   .hero-trust {

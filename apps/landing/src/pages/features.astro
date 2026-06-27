@@ -16,26 +16,170 @@ const allKeys: FeatureKey[] = [
   'DISPATCHER', 'LIVE_TRACKING_WS', 'WORKLOAD_GUARD',
   'TROLLEY_ADVISORY', 'ROUTE_INTEL', 'RED_ALERTS', 'ADMIN_ANALYTICS',
 ];
+
+const capabilities = [
+  {
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l7 9-7 9-7-9 7-9z"/><path d="M12 3v18"/></svg>`,
+    title: 'Vehicle-Aware HGV Routing',
+    body: 'Set your van\'s height, weight, and width once. Every route is filtered end-to-end — no weight bridges, no low underpasses, no restricted lanes. Delm8 doesn\'t do this.',
+    href: '/drivers',
+    chip: 'Driver Pro',
+    chipColor: 'green',
+  },
+  {
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
+    title: 'Turn-Score Safety Chips',
+    body: 'Green, amber, or red — every junction graded before you arrive. Know whether it\'s a tight left, a blind bend, or a safe through road. 300m early warning on every turn.',
+    href: '/drivers',
+    chip: 'Driver Pro',
+    chipColor: 'green',
+  },
+  {
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+    title: 'Last-50m Gate Pins',
+    body: 'Postcodes drop you at the centre of the street. Gate pins route you to the exact entrance — farm gates, warehouse docks, estate access roads. Powered by what3words and Plus Codes.',
+    href: '/drivers',
+    chip: 'Driver Pro',
+    chipColor: 'green',
+  },
+  {
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .93h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>`,
+    title: 'Full Offline Mode',
+    body: 'The entire shift region — roads, restrictions, turns, gate pins — is cached before you leave the depot. Signal drops don\'t stop navigation. No mobile data used during the shift.',
+    href: '/drivers',
+    chip: 'Driver Pro',
+    chipColor: 'green',
+  },
+  {
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>`,
+    title: 'Photo POD + Signature',
+    body: 'Photo proof of delivery, barcode scanning, and customer signatures — all captured in-app at each stop. Auto-timestamped and geo-tagged. Export the full manifest at shift end.',
+    href: '/fleet',
+    chip: 'Enterprise',
+    chipColor: 'brand',
+  },
+  {
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+    title: 'Dispatcher Dashboard',
+    body: 'Live fleet map with sub-5-second updates. Completion status, real-time ETAs, and instant Telegram alerts on off-route or long dwell. Your entire fleet in one screen.',
+    href: '/fleet',
+    chip: 'Enterprise',
+    chipColor: 'brand',
+  },
+];
+
+const softwareSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'MJ Maps',
+  applicationCategory: 'NavigationApplication',
+  operatingSystem: 'iOS, Android',
+  description: 'Vehicle-aware turn-by-turn navigation for UK delivery drivers. HGV routing, bridge alerts, turn-score, offline maps, and dispatcher dashboard.',
+  url: 'https://mjmapsystems.com/features',
+  offers: {
+    '@type': 'Offer',
+    price: '9.97',
+    priceCurrency: 'GBP',
+    priceSpecification: {
+      '@type': 'UnitPriceSpecification',
+      price: '9.97',
+      priceCurrency: 'GBP',
+      unitText: 'per month, VAT inclusive',
+    },
+  },
+};
 ---
 
 <BaseLayout
-  title="Features — MJ Maps"
-  description="Every feature built into MJ Maps — HGV routing, bridge alerts, turn-score chips, offline maps, dispatcher console, POD photo capture, and more."
+  title="Features — MJ Maps: Vehicle-Aware Navigation for UK Delivery Drivers"
+  description="HGV routing, low-bridge alerts, turn-score chips, last-50m gate pins, full offline mode, photo POD, and a live dispatcher dashboard. Everything built for real UK delivery routes."
+  schema={softwareSchema}
 >
   <Nav activePage="/features" />
   <main id="main-content">
+
     <div class="page-hero">
       <div class="container">
-        <h1 class="reveal">Built for the full delivery shift</h1>
-        <p class="page-hero-sub reveal">Every feature in MJ Maps exists because someone needed it on a real UK delivery route.</p>
+        <div class="chip chip-brand hero-chip reveal">Built for real routes</div>
+        <h1 class="reveal">Every feature exists because a driver needed it on a real UK round.</h1>
+        <p class="page-hero-sub reveal">Not adapted from a consumer map — built from scratch for professional delivery. Six capability areas that set MJ Maps apart.</p>
       </div>
     </div>
 
+    <!-- 6 capability tiles -->
+    <section class="capabilities" aria-labelledby="capabilities-heading">
+      <div class="container">
+        <h2 id="capabilities-heading" class="sr-only">Core capabilities</h2>
+        <div class="cap-grid">
+          {capabilities.map((c, i) => (
+            <a href={c.href} class={`cap-card glass reveal`} style={`--delay:${i * 80}ms`}>
+              <div class="cap-header">
+                <div class="cap-icon" aria-hidden="true" set:html={c.icon} />
+                <span class={`chip chip-${c.chipColor} cap-chip`}>{c.chip}</span>
+              </div>
+              <h3 class="cap-title">{c.title}</h3>
+              <p class="cap-body text-muted">{c.body}</p>
+              <span class="cap-arrow" aria-hidden="true">Learn more →</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- vs Delm8 leapfrog strip -->
+    <section class="vs-strip below-fold" aria-labelledby="vs-heading">
+      <div class="container">
+        <div class="vs-inner glass">
+          <div class="vs-text reveal">
+            <div class="chip chip-amber vs-chip">vs Delm8</div>
+            <h2 id="vs-heading">In-app navigation. Vehicle profiles. Turn-score. Gate pins.</h2>
+            <p class="text-muted">Delm8's own documentation states it doesn't offer vehicle-specific routing by dimensions or weight, and hands navigation off to Google Maps or Waze. MJ Maps does it all in one app, offline.</p>
+          </div>
+          <div class="vs-checks reveal">
+            {[
+              ['In-app turn-by-turn navigation', true, false],
+              ['Vehicle height / weight / width profiles', true, false],
+              ['Low-bridge & restriction alerts', true, false],
+              ['Turn-score grading per junction', true, false],
+              ['Last-50m gate-pin routing', true, false],
+              ['Full offline mode (no signal needed)', true, false],
+              ['VAT-inclusive transparent pricing', true, false],
+            ].map(([label, mj, d]) => (
+              <div class="vs-row">
+                <span class="vs-label">{label as string}</span>
+                <span class={`vs-mark vs-mj ${mj ? 'yes' : 'no'}`} aria-label={mj ? 'MJ Maps: yes' : 'MJ Maps: no'}>{mj ? '✓' : '✗'}</span>
+                <span class={`vs-mark vs-d ${d ? 'yes' : 'no'}`} aria-label={d ? 'Delm8: yes' : 'Delm8: no'}>{d ? '✓' : '✗'}</span>
+              </div>
+            ))}
+            <div class="vs-legend">
+              <span class="vs-legend-item"><span class="vs-dot mj"></span> MJ Maps</span>
+              <span class="vs-legend-item"><span class="vs-dot delm8"></span> Delm8</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <FeatureGrid
-      title="All features"
-      subtitle="From the first stop to the last signature — everything a driver or fleet needs."
+      title="Full feature list"
+      subtitle="Every capability built into MJ Maps — Driver Pro and Enterprise."
       featureKeys={allKeys}
     />
+
+    <!-- CTA -->
+    <section class="features-cta below-fold">
+      <div class="container">
+        <div class="features-cta-inner glass reveal">
+          <h2>Try it on your next shift</h2>
+          <p class="text-muted">Free trial, no card required. Set up your vehicle profile and route your first shift in under 5 minutes.</p>
+          <div class="features-cta-btns">
+            <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+            <a href="/contact" class="btn btn-secondary">Book fleet demo</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
   <Footer />
 </BaseLayout>
@@ -43,14 +187,123 @@ const allKeys: FeatureKey[] = [
 <style>
   .page-hero {
     padding-block: 120px 64px;
-    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
+    background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(0,194,168,0.07) 0%, transparent 60%), var(--void);
     text-align: center;
   }
+  .hero-chip { margin-bottom: 16px; display: inline-flex; }
+  .page-hero h1 { max-width: 700px; margin-inline: auto; }
   .page-hero-sub {
     color: var(--ink-muted);
     font-size: 1.125rem;
-    margin-top: 12px;
+    margin-top: 16px;
     max-width: 520px;
     margin-inline: auto;
   }
+
+  /* Capability grid */
+  .capabilities { padding-block: var(--section-py); }
+  .cap-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  @media (min-width: 640px)  { .cap-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .cap-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .cap-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-radius: var(--r-card);
+    padding: 24px;
+    text-decoration: none;
+    transition: border-color var(--dur-micro) ease-out, transform var(--dur-micro) ease-out;
+  }
+  .cap-card[style] { animation-delay: var(--delay); }
+  @media (hover: hover) {
+    .cap-card:hover {
+      border-color: rgba(0,194,168,0.3);
+      transform: translateY(-2px);
+    }
+  }
+  .cap-card:active { transform: scale(0.99); }
+
+  .cap-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .cap-icon { color: var(--brand-bright); flex-shrink: 0; }
+  .cap-chip { flex-shrink: 0; }
+  .cap-title {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0;
+  }
+  .cap-body { font-size: 0.9375rem; line-height: 1.6; flex: 1; }
+  .cap-arrow { font-size: 0.875rem; color: var(--brand-bright); font-weight: 600; margin-top: auto; }
+
+  /* vs strip */
+  .vs-strip { padding-block: var(--section-py); }
+  .vs-inner {
+    border-radius: var(--r-panel);
+    padding: 48px var(--gutter);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  @media (min-width: 768px) { .vs-inner { grid-template-columns: 1fr 1fr; gap: 56px; } }
+
+  .vs-chip { margin-bottom: 12px; display: inline-flex; }
+  .vs-text h2 { margin-bottom: 12px; }
+
+  .vs-checks { display: flex; flex-direction: column; gap: 2px; }
+  .vs-row {
+    display: grid;
+    grid-template-columns: 1fr 44px 44px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.875rem;
+  }
+  .vs-row:last-of-type { border-bottom: none; }
+  .vs-label { color: var(--ink-muted); }
+  .vs-mark {
+    text-align: center;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .vs-mark.yes.vs-mj { color: var(--green); }
+  .vs-mark.no.vs-d  { color: var(--red); }
+  .vs-mark.yes.vs-d  { color: var(--green); }
+
+  .vs-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-end;
+    padding-top: 12px;
+    font-size: 0.8125rem;
+    color: var(--ink-faint);
+  }
+  .vs-legend-item { display: flex; align-items: center; gap: 6px; }
+  .vs-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .vs-dot.mj { background: var(--brand-bright); }
+  .vs-dot.delm8 { background: var(--ink-faint); }
+
+  /* CTA */
+  .features-cta { padding-block: var(--section-py); }
+  .features-cta-inner {
+    border-radius: var(--r-panel);
+    padding: 64px var(--gutter);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .features-cta-inner p { max-width: 480px; }
+  .features-cta-btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 </style>

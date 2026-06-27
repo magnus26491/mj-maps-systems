@@ -24,7 +24,7 @@ const fleetKeys: FeatureKey[] = [
         <h1 class="reveal">Fleet-grade control for operations teams</h1>
         <p class="page-hero-sub reveal">From the dispatcher console to the driver's screen — full visibility, instant alerts, and proof of every delivery.</p>
         <div class="hero-ctas reveal">
-          <a href="mailto:hello@mjmaps.app" class="btn btn-primary">Talk to us</a>
+          <a href="/contact" class="btn btn-primary">Book a fleet demo</a>
           <a href="/pricing" class="btn btn-secondary">Compare plans</a>
         </div>
       </div>
@@ -76,13 +76,39 @@ const fleetKeys: FeatureKey[] = [
       featureKeys={fleetKeys}
     />
 
+    <!-- Compliance strip -->
+    <section class="compliance-strip below-fold" aria-label="Data and compliance">
+      <div class="container">
+        <div class="compliance-inner glass reveal">
+          <h2 class="compliance-heading">Data stays yours. Always.</h2>
+          <div class="compliance-grid">
+            {[
+              { icon: '🔒', title: 'UK GDPR compliant', body: 'Registered UK data controller. Location data is collected only during active shifts and never sold or shared with third parties.' },
+              { icon: '📦', title: 'Data portability', body: 'Export your routes, stops, and POD records any time in CSV or JSON. Cancel any month — no data held hostage.' },
+              { icon: '🛡️', title: 'TLS in transit', body: 'All API traffic is encrypted. Driver locations are transmitted over authenticated WebSocket and stored with row-level access control.' },
+              { icon: '📋', title: 'Privacy by design', body: 'Driver location is used for routing and shift reporting only. No advertising profiling. Full details in our Privacy Policy.' },
+            ].map(item => (
+              <div class="compliance-card">
+                <div class="compliance-icon" aria-hidden="true">{item.icon}</div>
+                <h3 class="compliance-title">{item.title}</h3>
+                <p class="compliance-body text-muted">{item.body}</p>
+              </div>
+            ))}
+          </div>
+          <p class="compliance-links text-muted">
+            <a href="/legal/privacy">Privacy Policy</a> · <a href="/legal/terms">Terms of Service</a> · <a href="/legal/cookies">Cookie Policy</a>
+          </p>
+        </div>
+      </div>
+    </section>
+
     <!-- Enterprise CTA -->
     <section class="fleet-cta below-fold">
       <div class="container">
         <div class="fleet-cta-inner glass reveal">
           <h2>Get a personalised demo</h2>
           <p class="text-muted">We'll walk you through the dispatcher console with your own routes, show you the exception alert flow, and answer every question your operations team has.</p>
-          <a href="mailto:hello@mjmaps.app" class="btn btn-primary">Email us to book</a>
+          <a href="/contact" class="btn btn-primary">Book your demo</a>
         </div>
       </div>
     </section>
@@ -161,6 +187,44 @@ const fleetKeys: FeatureKey[] = [
   .dp-driver-name { flex: 1; color: var(--ink); font-weight: 500; }
   .dp-driver-stops { font-size: 0.8125rem; }
   .dp-driver-eta { font-size: 0.8125rem; color: var(--brand-bright); }
+
+  /* Compliance strip */
+  .compliance-strip { padding-block: var(--section-py); }
+  .compliance-inner {
+    border-radius: var(--r-panel);
+    padding: 48px var(--gutter);
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    align-items: center;
+    text-align: center;
+  }
+  .compliance-heading { margin: 0; }
+  .compliance-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    width: 100%;
+  }
+  @media (min-width: 640px)  { .compliance-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .compliance-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .compliance-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px;
+    border-radius: var(--r-card);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--glass-brd);
+    text-align: left;
+  }
+  .compliance-icon { font-size: 1.5rem; }
+  .compliance-title { font-size: 0.9375rem; font-weight: 600; color: var(--ink); margin: 0; }
+  .compliance-body { font-size: 0.875rem; line-height: 1.55; margin: 0; }
+  .compliance-links { font-size: 0.875rem; }
+  .compliance-links a { color: var(--ink-muted); text-decoration: none; }
+  @media (hover: hover) { .compliance-links a:hover { color: var(--brand-bright); } }
 
   .fleet-cta { padding-block: var(--section-py); }
   .fleet-cta-inner {

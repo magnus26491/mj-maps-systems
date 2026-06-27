@@ -260,6 +260,9 @@ export async function registerWebRoutes(server: any): Promise<void> {
   server.get('/legal/terms', async (_request: any, reply: FastifyReply) => {
     await serveAstroPage(reply, '/legal/terms');
   });
+  server.get('/legal/cookies', async (_request: any, reply: FastifyReply) => {
+    await serveAstroPage(reply, '/legal/cookies');
+  });
 
   // Driver app
   server.get('/driver', async (_request: any, reply: FastifyReply) => {

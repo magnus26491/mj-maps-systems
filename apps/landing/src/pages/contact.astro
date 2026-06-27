@@ -127,6 +127,43 @@ import Footer from '../components/Footer.astro';
         </div>
       </div>
     </section>
+    <!-- FAQ section -->
+    <section class="faq-section below-fold">
+      <div class="container">
+        <div class="faq-inner">
+          <h2 class="faq-heading reveal">Common questions</h2>
+          <dl class="faq-list">
+            {[
+              {
+                q: 'How long does the demo take?',
+                a: 'About 30 minutes. We cover the driver app, dispatcher console, and exception alert flow. If you share your routes in advance, we can show it with your own data.',
+              },
+              {
+                q: 'Do I need to sign up to get a demo?',
+                a: 'No. Fill in the form above and we\'ll book a time. No account, no credit card, no commitment.',
+              },
+              {
+                q: 'What if I\'m a solo driver, not a fleet?',
+                a: 'You don\'t need a demo — just start a free trial directly. You\'ll be navigating your first shift in under 5 minutes.',
+              },
+              {
+                q: 'Is my fleet data kept private?',
+                a: 'Yes. Location data is used for navigation and shift reporting only. We never sell it, share it with third parties, or use it for advertising. Full details in our Privacy Policy.',
+              },
+              {
+                q: 'Can I import our existing routes?',
+                a: 'Yes. We support CSV stop lists and can integrate with standard dispatch exports. Let us know your format in the message and we\'ll confirm compatibility before the demo.',
+              },
+            ].map((item, i) => (
+              <div class={`faq-item reveal`} style={`--delay:${i * 60}ms`}>
+                <dt class="faq-q">{item.q}</dt>
+                <dd class="faq-a text-muted">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+    </section>
   </main>
   <Footer />
 </BaseLayout>
@@ -262,6 +299,28 @@ import Footer from '../components/Footer.astro';
     color: var(--green);
     font-weight: 700;
   }
+
+  /* FAQ */
+  .faq-section { padding-block: var(--section-py); }
+  .faq-inner { max-width: 720px; }
+  .faq-heading { margin-bottom: 32px; }
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .faq-item {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--glass-brd);
+  }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .faq-a { font-size: 0.9375rem; line-height: 1.6; margin: 0; }
 </style>
 
 <script>

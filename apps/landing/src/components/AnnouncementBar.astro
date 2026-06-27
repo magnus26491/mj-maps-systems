@@ -1,0 +1,120 @@
+---
+interface Props {
+  message?: string;
+  cta?: string;
+  ctaHref?: string;
+}
+const {
+  message = 'New: vehicle-aware routing with low-bridge alerts for HGV & van drivers',
+  cta = 'Try Driver Pro free',
+  ctaHref = '/register?plan=navigation',
+} = Astro.props;
+---
+
+<div id="announcement-bar" role="banner" aria-label="Announcement">
+  <div class="ab-inner container">
+    <p class="ab-text">
+      <span class="ab-dot" aria-hidden="true">●</span>
+      {message}
+      <a href={ctaHref} class="ab-cta">{cta} →</a>
+    </p>
+    <button id="ab-close" class="ab-close" aria-label="Dismiss announcement">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+        <line x1="1" y1="1" x2="13" y2="13"/>
+        <line x1="13" y1="1" x2="1" y2="13"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<style>
+  #announcement-bar {
+    background: linear-gradient(90deg, rgba(0,194,168,0.12) 0%, rgba(59,130,246,0.10) 100%);
+    border-bottom: 1px solid rgba(0,194,168,0.18);
+    padding: 10px 0;
+    position: relative;
+    z-index: 110;
+  }
+
+  #announcement-bar[hidden] {
+    display: none;
+  }
+
+  .ab-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .ab-text {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ab-dot {
+    color: var(--brand-bright);
+    font-size: 0.625rem;
+    animation: ab-blink 2s ease-in-out infinite;
+  }
+
+  @keyframes ab-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ab-dot { animation: none; }
+  }
+
+  .ab-cta {
+    color: var(--brand-bright);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  @media (hover: hover) {
+    .ab-cta:hover { text-decoration: underline; }
+  }
+
+  .ab-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--dur-micro) ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) {
+    .ab-close:hover { color: var(--ink); }
+  }
+</style>
+
+<script>
+  const bar = document.getElementById('announcement-bar');
+  const btn = document.getElementById('ab-close');
+  const KEY = 'mj_ab_dismissed_v1';
+
+  if (bar && sessionStorage.getItem(KEY)) {
+    bar.hidden = true;
+  }
+
+  btn?.addEventListener('click', () => {
+    if (bar) bar.hidden = true;
+    sessionStorage.setItem(KEY, '1');
+  });
+</script>

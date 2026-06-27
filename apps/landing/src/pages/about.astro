@@ -49,7 +49,34 @@ import Footer from '../components/Footer.astro';
         <div class="about-contact reveal">
           <h2>Get in touch</h2>
           <p class="text-muted">For product questions, fleet demos, or press enquiries:</p>
-          <a href="mailto:hello@mjmaps.app" class="btn btn-primary">hello@mjmaps.app</a>
+          <div class="about-ctas">
+            <a href="/contact" class="btn btn-primary">Book a fleet demo</a>
+            <a href="mailto:hello@mjmaps.app" class="btn btn-secondary">hello@mjmaps.app</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trust signals -->
+    <section class="trust-section below-fold" aria-label="Trust and compliance">
+      <div class="container">
+        <div class="trust-grid">
+          {[
+            { label: 'UK-founded', detail: 'Registered in England and Wales. Built for UK roads, UK regulations, and UK drivers.' },
+            { label: 'UK GDPR compliant', detail: 'Registered UK data controller. Location data never sold, never used for advertising.' },
+            { label: 'No auto-renew', detail: 'Annual plans require manual renewal. We email you in advance. No surprise charges.' },
+            { label: 'VAT inclusive', detail: 'All advertised prices include VAT. No hidden charges at checkout.' },
+            { label: 'Honest roadmap', detail: 'We only list features that are live and working. Anything in development is clearly marked "coming soon."' },
+            { label: 'Data portability', detail: 'Export your routes, stops, and POD records at any time. Your data leaves when you do.' },
+          ].map(t => (
+            <div class="trust-card glass reveal">
+              <span class="trust-checkmark" aria-hidden="true">✓</span>
+              <div class="trust-text">
+                <strong class="trust-label">{t.label}</strong>
+                <p class="trust-detail text-muted">{t.detail}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -107,4 +134,33 @@ import Footer from '../components/Footer.astro';
     flex-direction: column;
     gap: 16px;
   }
+  .about-ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+
+  /* Trust grid */
+  .trust-section { padding-block: var(--section-py); }
+  .trust-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 640px)  { .trust-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .trust-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .trust-card {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    border-radius: var(--r-card);
+    padding: 20px;
+  }
+  .trust-checkmark {
+    color: var(--green);
+    font-size: 1.125rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .trust-text { display: flex; flex-direction: column; gap: 4px; }
+  .trust-label { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
+  .trust-detail { font-size: 0.875rem; line-height: 1.55; margin: 0; }
 </style>

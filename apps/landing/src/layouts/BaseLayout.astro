@@ -1,22 +1,41 @@
 ---
 import '../styles/global.css';
+import AnnouncementBar from '../components/AnnouncementBar.astro';
 
 export interface Props {
   title: string;
   description?: string;
   ogImage?: string;
   noindex?: boolean;
+  schema?: object | object[];
 }
 
 const {
   title,
-  description = 'MJ Maps — AI-powered delivery route intelligence. Turn-by-turn navigation that knows your van and the turn at the end of the lane.',
+  description = 'MJ Maps — Turn-by-turn navigation for UK delivery drivers. HGV routing, bridge alerts, turn-score, and exact gate-pin delivery. Works fully offline.',
   ogImage = '/og-image.png',
   noindex = false,
+  schema,
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://mjmapsystems.com');
 const ogImageURL   = new URL(ogImage, Astro.site ?? 'https://mjmapsystems.com');
+
+const orgSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'MJ Maps Systems',
+  url: 'https://mjmapsystems.com',
+  logo: 'https://mjmapsystems.com/favicon.svg',
+  description: 'UK-founded navigation technology for professional delivery drivers and fleet operations teams.',
+  contactPoint: { '@type': 'ContactPoint', email: 'hello@mjmaps.app', contactType: 'customer support' },
+  sameAs: [],
+};
+
+const schemas = [
+  orgSchema,
+  ...(Array.isArray(schema) ? schema : schema ? [schema] : []),
+];
 ---
 <!doctype html>
 <html lang="en">
@@ -45,8 +64,101 @@ const ogImageURL   = new URL(ogImage, Astro.site ?? 'https://mjmapsystems.com');
 
     <meta name="theme-color" content="#0A0E14" />
     <meta name="color-scheme" content="dark" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json" set:html={JSON.stringify(schemas.length === 1 ? schemas[0] : schemas)} />
   </head>
   <body>
+    <AnnouncementBar />
     <slot />
+    <!-- Cookie consent banner -->
+    <div id="cookie-banner" class="cookie-banner glass" role="region" aria-label="Cookie preferences" aria-live="polite">
+      <div class="cookie-inner">
+        <p class="cookie-text">
+          We use essential cookies only — no tracking, no advertising. Your location data is used for navigation only and is never sold.
+          <a href="/legal/cookies" class="cookie-link">Cookie policy</a>
+        </p>
+        <div class="cookie-actions">
+          <button id="cookie-accept" class="btn btn-primary cookie-btn">Accept</button>
+          <a href="/legal/cookies" class="btn btn-secondary cookie-btn">Learn more</a>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
+
+<style>
+  .cookie-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 500;
+    border-top: 1px solid var(--glass-brd);
+    padding: 16px var(--gutter);
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    transform: translateY(0);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .cookie-banner[hidden] {
+    display: none;
+  }
+
+  .cookie-banner.dismissed {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .cookie-inner {
+    max-width: var(--container-max);
+    margin-inline: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .cookie-text {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .cookie-link {
+    color: var(--brand-bright);
+    margin-left: 4px;
+  }
+
+  .cookie-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .cookie-btn {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 0.875rem;
+  }
+</style>
+
+<script>
+  const KEY = 'mj_cookie_consent_v1';
+  const banner = document.getElementById('cookie-banner');
+  const accept = document.getElementById('cookie-accept');
+
+  if (banner) {
+    if (localStorage.getItem(KEY)) {
+      banner.hidden = true;
+    }
+    accept?.addEventListener('click', () => {
+      localStorage.setItem(KEY, '1');
+      banner.classList.add('dismissed');
+      setTimeout(() => { banner.hidden = true; }, 350);
+    });
+  }
+</script>

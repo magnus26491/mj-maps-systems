@@ -1,0 +1,170 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+---
+
+<BaseLayout
+  title="Cookie Policy — MJ Maps"
+  description="MJ Maps cookie policy. We use essential cookies only — no tracking, no advertising."
+  noindex={false}
+>
+  <Nav />
+  <main id="main-content">
+    <div class="legal-hero">
+      <div class="container">
+        <h1>Cookie Policy</h1>
+        <p class="text-muted">Last updated: 27 June 2026</p>
+        <p class="text-muted">Data Controller: MJ Maps Systems Ltd · <a href="mailto:hello@mjmaps.app">hello@mjmaps.app</a></p>
+      </div>
+    </div>
+
+    <section class="legal-body">
+      <div class="container">
+        <div class="legal-content">
+
+          <h2>1. What Are Cookies</h2>
+          <p>Cookies are small text files placed on your device when you visit a website. They allow the site to remember information about your visit — for example, whether you've already dismissed a notice.</p>
+
+          <h2>2. What We Use</h2>
+          <p>MJ Maps uses <strong>essential cookies and local storage only</strong>. We do not use tracking cookies, advertising cookies, or third-party analytics scripts.</p>
+
+          <div class="legal-table-wrap">
+            <table>
+              <thead>
+                <tr><th>Name / Key</th><th>Type</th><th>Purpose</th><th>Duration</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>mj_cookie_consent_v1</code></td>
+                  <td>localStorage</td>
+                  <td>Records that you dismissed the cookie notice so it doesn't re-appear</td>
+                  <td>Persistent (until browser data cleared)</td>
+                </tr>
+                <tr>
+                  <td><code>mj_ab_dismissed_v1</code></td>
+                  <td>sessionStorage</td>
+                  <td>Records that you dismissed the announcement bar for the current browser session</td>
+                  <td>Session (cleared when tab closes)</td>
+                </tr>
+                <tr>
+                  <td>Authentication JWT</td>
+                  <td>localStorage (driver app)</td>
+                  <td>Keeps you logged in to the driver app between sessions</td>
+                  <td>Until logout or token expiry</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>3. What We Do Not Use</h2>
+          <ul>
+            <li>Google Analytics or other third-party analytics</li>
+            <li>Facebook Pixel or advertising trackers</li>
+            <li>Hotjar, FullStory, or session-recording tools</li>
+            <li>Any cross-site tracking cookies</li>
+          </ul>
+          <p>Your location data — collected by the driver app during active shifts — is not a cookie. It is covered separately in our <a href="/legal/privacy">Privacy Policy</a>.</p>
+
+          <h2>4. Your Choices</h2>
+          <p>Because we only use essential storage, there is no tracking to opt out of. You can clear all local storage and cookies at any time through your browser settings. Doing so will reset your cookie-notice preference and log you out of the driver app.</p>
+          <p>Most browsers also support "private" or "incognito" mode, which does not persist local storage between sessions.</p>
+
+          <h2>5. Changes to This Policy</h2>
+          <p>We will update this policy if we add any new storage mechanisms. The "Last updated" date at the top will always reflect the most recent version. We will not add advertising or tracking cookies without giving you a clear choice.</p>
+
+          <h2>6. Contact</h2>
+          <p>For questions about this policy or our data practices: <a href="mailto:hello@mjmaps.app">hello@mjmaps.app</a></p>
+          <p>You can also view our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/terms">Terms of Service</a>.</p>
+
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .legal-hero {
+    padding-block: 80px 40px;
+    background: var(--void);
+    border-bottom: 1px solid var(--glass-brd);
+  }
+  .legal-hero h1 { margin-bottom: 8px; }
+
+  .legal-body { padding-block: 48px 80px; }
+
+  .legal-content {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .legal-content h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-top: 40px;
+    margin-bottom: 12px;
+  }
+  .legal-content h2:first-child { margin-top: 0; }
+
+  .legal-content p {
+    color: var(--ink-muted);
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+
+  .legal-content ul {
+    color: var(--ink-muted);
+    padding-left: 20px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    line-height: 1.6;
+  }
+
+  .legal-content a {
+    color: var(--brand-bright);
+    text-decoration: none;
+  }
+  @media (hover: hover) {
+    .legal-content a:hover { text-decoration: underline; }
+  }
+
+  .legal-content code {
+    font-family: monospace;
+    font-size: 0.875em;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .legal-table-wrap {
+    overflow-x: auto;
+    margin-block: 16px;
+    border-radius: var(--r-card);
+    border: 1px solid var(--glass-brd);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    min-width: 480px;
+  }
+
+  thead { background: rgba(255,255,255,0.04); }
+
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--glass-brd);
+    color: var(--ink-muted);
+  }
+
+  th { font-weight: 600; color: var(--ink); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  tr:last-child td { border-bottom: none; }
+</style>
