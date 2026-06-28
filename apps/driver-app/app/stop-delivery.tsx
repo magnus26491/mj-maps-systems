@@ -160,7 +160,7 @@ function StopDeliveryInner() {
         ) : null}
         <View style={styles.metaRow}>
           <Text style={[styles.meta, { color: colors.subtext }]}>
-            📦 {stop.parcelCount ?? 1} parcel{(stop.parcelCount ?? 1) !== 1 ? 's' : ''}
+            {stop.parcelCount ?? 1} parcel{(stop.parcelCount ?? 1) !== 1 ? 's' : ''}
           </Text>
         </View>
 
@@ -179,7 +179,7 @@ function StopDeliveryInner() {
         {/* B2B POD indicator — only visible if feature enabled */}
         {isPodAvailable() && (
           <View style={[styles.podBadge, { backgroundColor: colors.greenBg }]}>
-            <Text style={[styles.podBadgeText, { color: colors.green }]}>📷 POD capture enabled</Text>
+            <Text style={[styles.podBadgeText, { color: colors.green }]}>POD capture enabled</Text>
           </View>
         )}
       </ScrollView>
@@ -219,8 +219,7 @@ function StopDeliveryInner() {
           accessibilityRole="button"
           accessibilityLabel="Mark as failed"
         >
-          <Text style={styles.actionIcon}>✗</Text>
-          <Text style={styles.actionLabel}>
+          <Text style={[styles.actionBtnText, { color: colors.red }]}>
             {selectedReason ? 'Confirm Failed' : 'Failed'}
           </Text>
         </TouchableOpacity>
@@ -250,8 +249,12 @@ const styles = StyleSheet.create({
   scroll:     { padding: 16, gap: 12, paddingBottom: 8 },
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   emptyText:  { fontSize: 17, marginBottom: 16 },
-  backBtn:    { backgroundColor: '#1c2a37', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
-  backBtnText:{ fontSize: 15, fontWeight: '600' },
+  backBtn:    {
+    backgroundColor: '#12151B', borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 24,
+    borderWidth: 1, borderColor: 'rgba(0, 194, 168, 0.25)',
+  },
+  backBtnText:{ fontSize: 15, fontWeight: '600', color: '#00C2A8' },
   stopIndex:  { fontSize: 15, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
   address:    { fontSize: 22, fontWeight: '700', lineHeight: 30, marginTop: 4 },
   stopNotes:  { fontSize: 14, lineHeight: 20 },
@@ -281,8 +284,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 14, gap: 4,
+    borderRadius: 14,
   },
-  actionIcon:  { fontSize: 24, color: '#e0eaf4' },
-  actionLabel: { fontSize: 16, color: '#8fa0b0', fontWeight: '700' },
+  actionBtnText: { fontSize: 16, fontWeight: '700' },
 });

@@ -6,20 +6,27 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Appearance } from 'react-native';
 
 export const DARK_THEME = {
-  background:  '#0f1923',
-  surface:     '#1c2a37',
-  surfaceAlt:  '#253545',
-  text:        '#e0eaf4',
-  subtext:     '#607080',
-  border:      '#1f2937',
-  green:       '#2e7d32',
-  greenBg:     '#0d3b1a',
-  amber:       '#f57c00',
-  amberBg:     '#2b1a00',
-  red:         '#ef4444',
-  redBg:       '#2b1111',
-  blue:        '#4fc3f7',
-  blueAlt:     '#1565c0',
+  // ── Base palette — matches landing design tokens ───────────────────────
+  background:  '#0A0C10',
+  surface:       '#12151B',
+  surfaceAlt:   '#1A1F26',
+  text:         '#F1F5F9',
+  subtext:      '#94A3B8',
+  border:       '#334155',
+  // ── MJ teal (brand) — primary accent for nav buttons, links, active states ──
+  teal:         '#00C2A8',
+  tealBright:   '#00E8D4',
+  tealBg:       'rgba(0, 194, 168, 0.12)',
+  // ── Turn-score colours — exact tokens from landing ───────────────────────
+  green:       '#10B981',
+  greenBg:     'rgba(16, 185, 129, 0.12)',
+  amber:       '#F59E0B',
+  amberBg:     'rgba(245, 158, 11, 0.12)',
+  red:         '#EF4444',
+  redBg:       'rgba(239, 68, 68, 0.12)',
+  // ── Misc ─────────────────────────────────────────────────────────────
+  blue:        '#00C2A8',  // teal replaces generic blue throughout
+  blueAlt:     '#00E8D4',
   white:       '#ffffff',
   gray:        '#9ca3af',
   grayDark:    '#374151',

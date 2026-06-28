@@ -9,6 +9,8 @@
  *  · Screen stays awake (KeepAwake in _layout.tsx)
  *  · Voice + haptic alerts so driver doesn't need to look at screen
  *  · Turn warning fires at 300m (AMBER) and 500m (RED)
+ *
+ * Visual: teal brand, turn-score colours, IBM Plex Mono for data, no emoji
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -28,6 +30,9 @@ import { ShiftProgressBar } from '../components/ShiftProgressBar';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
 import { useAuthStore } from '../lib/auth';
 import { useLocale } from '../components/LocaleProvider';
+
+// ── No emoji: use text-based indicators throughout HUD ──────────────────────────
+// The nav button uses "Navigate →" text label, no icon needed.
 
 // ─── Lifecycle greeting helper ─────────────────────────────────────────────────
 type GreetingKey = 'voice_good_morning' | 'voice_good_afternoon' | 'voice_good_evening';
@@ -134,7 +139,12 @@ function HudInner() {
             },
           ]}
         >
-          <Text style={styles.alertEmoji}>{alert === 'RED' ? '🚨' : '⚠️'}</Text>
+          {/* Inline SVG-free alert indicator — large text is readable at a glance */}
+          <View style={styles.alertIconWrap}>
+            <Text style={[styles.alertIconText, { color: '#fff' }]}>
+              {alert === 'RED' ? '!' : '!'}
+            </Text>
+          </View>
           <View style={styles.alertTextWrap}>
             <Text style={[styles.alertLabel, { color: '#fff' }]}>
               {alert === 'AMBER' ? 'Caution — tight ahead' : 'DO NOT ENTER'}
@@ -154,7 +164,7 @@ function HudInner() {
         total={shift.totalStops}
       />
 
-      {/* ── Dispatcher Message Banner (Fix 4) ─────────────────── */}
+      {/* ── Dispatcher Message Banner ─────────────────────────── */}
       {dispatcherMessage && (
         <View style={styles.dispMsgBanner}>
           <View style={styles.dispMsgHeader}>
@@ -190,16 +200,16 @@ function HudInner() {
         ) : null}
         <View style={styles.stopMeta}>
           <Text style={[styles.metaItem, { color: colors.subtext }]}>
-            📦 {currentStop.parcelCount} parcel{currentStop.parcelCount !== 1 ? 's' : ''}
+            {currentStop.parcelCount} parcel{currentStop.parcelCount !== 1 ? 's' : ''}
           </Text>
           {currentStop.etaLabel && (
             <Text style={[styles.metaItem, { color: colors.subtext }]}>
-              🕐 {currentStop.etaLabel}
+              ETA {currentStop.etaLabel}
             </Text>
           )}
           {currentStop.distanceM != null && (
             <Text style={[styles.metaItem, { color: colors.subtext }]}>
-              📍 {currentStop.distanceM < 1000
+              {currentStop.distanceM < 1000
                 ? `${currentStop.distanceM}m`
                 : `${(currentStop.distanceM / 1000).toFixed(1)}km`}
             </Text>
@@ -210,24 +220,24 @@ function HudInner() {
         {alert === 'RED' ? (
           <View style={[styles.routeOkBadge, { backgroundColor: colors.redBg }]}>
             <Text style={[styles.routeOkText, { color: colors.red }]}>
-              🚫 Do not enter — vehicle too large
+              Route restricted — do not enter
             </Text>
           </View>
         ) : alert === 'AMBER' ? (
           <View style={[styles.routeOkBadge, { backgroundColor: colors.amberBg }]}>
             <Text style={[styles.routeOkText, { color: colors.amber }]}>
-              ⚠️ Tight access — proceed with care
+              Tight access — proceed with care
             </Text>
           </View>
         ) : (
           <View style={[styles.routeOkBadge, { backgroundColor: colors.greenBg }]}>
             <Text style={[styles.routeOkText, { color: colors.green }]}>
-              ✓ Route clear for your vehicle
+              Route clear for your vehicle
             </Text>
           </View>
         )}
 
-        {/* Navigate button */}
+        {/* Navigate button — teal brand, text-only */}
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => {
@@ -240,7 +250,8 @@ function HudInner() {
           accessibilityLabel="Navigate to stop"
           accessibilityRole="button"
         >
-          <Text style={styles.navBtnText}>🗺 Navigate →</Text>
+          <Text style={styles.navBtnText}>Navigate</Text>
+          <Text style={styles.navBtnArrow}>→</Text>
         </TouchableOpacity>
 
         {/* Google Maps escape hatch */}
@@ -249,7 +260,7 @@ function HudInner() {
             `https://maps.google.com/?daddr=${encodeURIComponent(currentStop.address)}`,
           )}
         >
-          <Text style={styles.gmapsLink}>Open in Google Maps ↗</Text>
+          <Text style={styles.gmapsLink}>Open in Google Maps</Text>
         </TouchableOpacity>
 
         {/* Performance quick-access */}
@@ -259,7 +270,7 @@ function HudInner() {
           accessibilityLabel="View performance and savings"
           accessibilityRole="button"
         >
-          <Text style={styles.perfBtnText}>📊 Performance</Text>
+          <Text style={styles.perfBtnText}>View performance</Text>
         </TouchableOpacity>
       </View>
 
@@ -280,8 +291,7 @@ function HudInner() {
             accessibilityRole="button"
             accessibilityLabel="Mark as failed"
           >
-            <Text style={styles.actionIcon}>✗</Text>
-            <Text style={styles.actionLabel}>Failed</Text>
+            <Text style={[styles.actionBtnText, { color: colors.red }]}>Failed</Text>
           </TouchableOpacity>
         )}
 
@@ -298,8 +308,7 @@ function HudInner() {
             accessibilityRole="button"
             accessibilityLabel="View all stops"
           >
-            <Text style={styles.actionIcon}>☰</Text>
-            <Text style={styles.actionLabel}>Stops</Text>
+            <Text style={[styles.actionBtnText, { color: colors.teal }]}>All stops</Text>
           </TouchableOpacity>
         )}
 
@@ -326,23 +335,30 @@ export default function HudScreen() {
 
 const styles = StyleSheet.create({
   empty:         { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText:     { color: '#8fa0b0', fontSize: 17, marginBottom: 16 },
+  emptyText:     { color: '#94A3B8', fontSize: 17, marginBottom: 16 },
   emptyBtn: {
-    backgroundColor: '#4fc3f7', borderRadius: 12,
+    backgroundColor: '#00C2A8', borderRadius: 12,
     paddingVertical: 14, paddingHorizontal: 28,
   },
-  emptyBtnText:  { color: '#0f1923', fontWeight: '700', fontSize: 16 },
+  emptyBtnText:  { color: '#0A0C10', fontWeight: '700', fontSize: 16 },
   alertBanner: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 16, paddingHorizontal: 20,
     marginHorizontal: 12, marginTop: 8,
     borderRadius: 16, gap: 12, minHeight: 72,
   },
+  alertIconWrap: {
+    width: 44, height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  alertIconText: { fontSize: 24, fontWeight: '900' },
   dispMsgBanner: {
     marginHorizontal: 12, marginTop: 8,
-    backgroundColor: '#1A2A3A',
+    backgroundColor: '#12151B',
     borderWidth: 1,
-    borderColor: '#00C2A860',
+    borderColor: 'rgba(0, 194, 168, 0.3)',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -356,16 +372,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   dispMsgClose: {
-    fontSize: 16, color: '#607080', fontWeight: '600',
+    fontSize: 16, color: '#94A3B8', fontWeight: '600',
   },
   dispMsgText: {
     fontSize: 16, color: '#F1F5F9', lineHeight: 22,
   },
-  alertEmoji:    { fontSize: 28 },
   alertTextWrap: { flex: 1 },
   alertLabel:    { fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
   alertReason:   { fontSize: 13, marginTop: 2 },
-  alertScore:    { fontSize: 26, fontWeight: '900', opacity: 0.9 },
   stopCard: {
     marginHorizontal: 12, marginTop: 16,
     borderRadius: 16, padding: 18,
@@ -382,25 +396,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
-  routeOkText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  routeOkText: { fontSize: 14, fontWeight: '600' },
+  // Teal navigate button — matches brand token
   navBtn: {
-    backgroundColor: '#4fc3f7', borderRadius: 12,
+    backgroundColor: '#00C2A8', borderRadius: 12,
     height: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center',
-    marginTop: 12,
+    marginTop: 12, flexDirection: 'row', gap: 8,
   },
-  navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0f1923' },
-  gmapsLink:   { fontSize: 13, color: '#607080', textDecorationLine: 'underline', marginTop: 8 },
+  navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0A0C10' },
+  navBtnArrow: { fontSize: 17, fontWeight: '700', color: '#0A0C10' },
+  gmapsLink:   {
+    fontSize: 13, color: '#00C2A8', textDecorationLine: 'underline',
+    marginTop: 10, fontWeight: '500',
+  },
   perfBtn: {
-    marginTop: 8,
-    backgroundColor: '#1A1F26',
+    marginTop: 10,
+    backgroundColor: '#12151B',
     borderWidth: 1,
-    borderColor: '#00C2A840',
+    borderColor: 'rgba(0, 194, 168, 0.25)',
     borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
   },
   perfBtnText: { fontSize: 13, fontWeight: '600', color: '#00C2A8' },
   actions: {
@@ -409,8 +426,9 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 14, minHeight: 72, gap: 4,
+    borderRadius: 14, minHeight: 72,
   },
-  actionIcon:  { fontSize: 22, color: '#e0eaf4' },
-  actionLabel: { fontSize: 16, color: '#8fa0b0', fontWeight: '600' },
+  actionIcon:  { fontSize: 20, color: '#94A3B8' },
+  actionLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
+  actionBtnText: { fontSize: 16, fontWeight: '700' },
 });

@@ -89,7 +89,7 @@ export default function NavigationScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color="#4fc3f7" />
+          <ActivityIndicator size="large" color="#00C2A8" />
           <Text style={styles.loadingText}>Getting route…</Text>
         </View>
       </SafeAreaView>
@@ -105,7 +105,7 @@ export default function NavigationScreen() {
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={openGoogleMaps}>
-            <Text style={styles.gmapsLink}>Open in Google Maps ↗</Text>
+            <Text style={styles.gmapsLink}>Open in Google Maps</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -126,7 +126,7 @@ export default function NavigationScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} hitSlop={12}>
-          <Text style={styles.backBtn}>← Back</Text>
+          <Text style={styles.backBtn}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Navigate</Text>
         <View style={{ width: 50 }} />
@@ -134,7 +134,7 @@ export default function NavigationScreen() {
 
       {/* Instruction banner */}
       <View style={[styles.banner, urgent && styles.bannerUrgent]}>
-        <Text style={styles.arrow}>{currentStep ? maneuverArrow(currentStep.maneuver) : '↑'}</Text>
+        <Text style={styles.arrow}>{currentStep ? maneuverArrow(currentStep.maneuver) : '→'}</Text>
         <View style={styles.bannerText}>
           <Text style={styles.instruction} numberOfLines={2}>
             {currentStep?.instruction ?? 'Calculating route…'}
@@ -155,7 +155,7 @@ export default function NavigationScreen() {
           ]}
         >
           <Text style={styles.guardTitle}>
-            {w.severity === 'critical' ? '🚫 ' : '⚠️ '}{w.title}
+            {w.title}
           </Text>
           <Text style={styles.guardMsg}>{w.message}</Text>
         </View>
@@ -172,11 +172,11 @@ export default function NavigationScreen() {
             followsUserLocation
             rotateEnabled
           >
-            {/* Route polyline */}
+            {/* Route polyline — teal brand colour */}
             {route && (
               <Polyline
                 coordinates={route.polyline.map(p => ({ latitude: p.lat, longitude: p.lng }))}
-                strokeColor="#4fc3f7"
+                strokeColor="#00C2A8"
                 strokeWidth={4}
               />
             )}
@@ -185,7 +185,7 @@ export default function NavigationScreen() {
             {destLat !== 0 && (
               <Marker
                 coordinate={{ latitude: destLat, longitude: destLng }}
-                pinColor="green"
+                pinColor="#10B981"
               />
             )}
 
@@ -214,7 +214,7 @@ export default function NavigationScreen() {
 
       {/* Status bar */}
       <View style={styles.statusBar}>
-        <Text style={styles.etaText}>📍 ETA: {etaStr || '—'}</Text>
+        <Text style={styles.etaText}>ETA: {etaStr || '—'}</Text>
         <Text style={styles.stepCount}>
           Step {stepIndex + 1} of {route?.steps.length ?? '—'}
         </Text>
@@ -227,14 +227,14 @@ export default function NavigationScreen() {
           onPress={() => currentStep && speakStep(currentStep)}
           accessibilityLabel="Repeat navigation instruction"
         >
-          <Text style={styles.actionText}>🔊 Repeat</Text>
+          <Text style={styles.actionText}>Repeat</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionPrimary]}
           onPress={handleArrived}
           accessibilityLabel="Mark as arrived at stop"
         >
-          <Text style={styles.actionPrimaryText}>✓ Arrived</Text>
+          <Text style={styles.actionPrimaryText}>Arrived</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -242,33 +242,35 @@ export default function NavigationScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#0f1923' },
+  safe:          { flex: 1, backgroundColor: '#0A0C10' },
   loading:       { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText:   { color: '#8fa0b0', marginTop: 12, fontSize: 15 },
+  loadingText:   { color: '#94A3B8', marginTop: 12, fontSize: 15 },
   errorWrap:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText:     { color: '#f87171', fontSize: 16, textAlign: 'center', marginBottom: 16 },
+  errorText:     { color: '#EF4444', fontSize: 16, textAlign: 'center', marginBottom: 16 },
   retryBtn:      {
-    backgroundColor: '#4fc3f7', borderRadius: 12,
+    backgroundColor: '#00C2A8', borderRadius: 12,
     paddingHorizontal: 24, paddingVertical: 12, marginBottom: 16,
   },
-  retryText:     { color: '#0f1923', fontWeight: '700', fontSize: 15 },
-  gmapsLink:     { color: '#8fa0b0', fontSize: 13, textDecorationLine: 'underline' },
+  retryText:     { color: '#0A0C10', fontWeight: '700', fontSize: 15 },
+  gmapsLink:     { color: '#00C2A8', fontSize: 13, textDecorationLine: 'underline', fontWeight: '500' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    height: 44, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#1c2a37',
+    height: 44, paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
-  backBtn:       { color: '#4fc3f7', fontSize: 16 },
-  headerTitle:   { fontSize: 17, fontWeight: '600', color: '#ffffff' },
+  backBtn:       { color: '#00C2A8', fontSize: 16, fontWeight: '500' },
+  headerTitle:   { fontSize: 17, fontWeight: '600', color: '#F1F5F9' },
   banner: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#1c2a37', padding: 16,
+    backgroundColor: '#12151B', padding: 16,
     minHeight: 80,
   },
-  bannerUrgent:  { backgroundColor: '#1b5e20' },
-  arrow:         { fontSize: 48, marginRight: 14 },
+  bannerUrgent:  { backgroundColor: 'rgba(239, 68, 68, 0.15)' },
+  arrow:         { fontSize: 48, marginRight: 14, color: '#00C2A8' },
   bannerText:    { flex: 1 },
-  instruction:   { fontSize: 20, fontWeight: '700', color: '#ffffff', lineHeight: 26 },
-  bannerDist:     { fontSize: 16, color: '#8fa0b0', marginTop: 4 },
+  instruction:   { fontSize: 20, fontWeight: '700', color: '#F1F5F9', lineHeight: 26 },
+  bannerDist:     { fontSize: 16, color: '#94A3B8', marginTop: 4 },
   mapWrap:       { flex: 1 },
   map:           { flex: 1 },
   poiToggleWrap: {
@@ -280,27 +282,29 @@ const styles = StyleSheet.create({
   statusBar: {
     height: 44, flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 16,
-    borderTopWidth: 1, borderTopColor: '#1c2a37',
-    backgroundColor: '#0f1923',
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    backgroundColor: '#0A0C10',
   },
-  etaText:       { fontSize: 14, color: '#c8d8e8' },
-  stepCount:     { fontSize: 13, color: '#607080' },
+  etaText:       { fontSize: 14, color: '#94A3B8' },
+  stepCount:     { fontSize: 13, color: '#64748B' },
   actions: {
     flexDirection: 'row', gap: 12, padding: 16,
-    borderTopWidth: 1, borderTopColor: '#1c2a37',
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
   },
   actionBtn: {
-    flex: 1, backgroundColor: '#1c2a37', borderRadius: 12,
+    flex: 1, backgroundColor: '#12151B', borderRadius: 12,
     height: 72, alignItems: 'center', justifyContent: 'center',
   },
-  actionPrimary:  { backgroundColor: '#4fc3f7' },
-  actionText:     { fontSize: 16, fontWeight: '600', color: '#c8d8e8' },
-  actionPrimaryText: { fontSize: 16, fontWeight: '700', color: '#0f1923' },
+  actionPrimary:  { backgroundColor: '#00C2A8' },
+  actionText:     { fontSize: 16, fontWeight: '600', color: '#94A3B8' },
+  actionPrimaryText: { fontSize: 16, fontWeight: '700', color: '#0A0C10' },
   guardBanner: {
     paddingHorizontal: 16, paddingVertical: 10, gap: 2,
   },
-  guardBannerCritical: { backgroundColor: '#2b1111' },
-  guardBannerWarning:  { backgroundColor: '#2b1a00' },
-  guardTitle: { fontSize: 15, fontWeight: '700', color: '#f87171' },
-  guardMsg:   { fontSize: 13, color: '#c8d8e8' },
+  guardBannerCritical: { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
+  guardBannerWarning:  { backgroundColor: 'rgba(245, 158, 11, 0.10)' },
+  guardTitle: { fontSize: 15, fontWeight: '700', color: '#EF4444' },
+  guardMsg:   { fontSize: 13, color: '#94A3B8' },
 });
