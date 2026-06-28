@@ -1,393 +1,203 @@
 ---
 /**
- * HeroHUD.astro — Self-contained hero-right device/HUD card
- *
- * Shows a device frame (phone) with a real photo background and the
- * live MJ Maps turn-by-turn HUD overlay on top.
+ * HeroHUD — live turn-score HUD card shown on the hero right column.
  *
  * Props:
- *   photo: which photo to show in the HUD map area
- *         'turn-score-night' | 'gate-pin-delivery' | 'pod-signature' | 'offline-no-signal'
- *   score: 'green' | 'amber' | 'red' (turn-score chip colour)
- *   road: turn instruction road name
- *   distance: distance to turn
- *   eta: ETA time string
- *   stopsLeft: remaining stops
- *   totalStops: total stops
- *   class: additional CSS class
+ *   photo:  key from photos.ts (used as background on the card)
+ *   score:  'green' | 'amber' | 'red'
  */
+import { photos } from '../assets/photos';
+
 interface Props {
-  photo?: 'turn-score-night' | 'gate-pin-delivery' | 'pod-signature' | 'offline-no-signal';
+  photo?: string;
   score?: 'green' | 'amber' | 'red';
-  road?: string;
-  distance?: string;
-  eta?: string;
-  stopsLeft?: number;
-  totalStops?: number;
-  distanceLeft?: string;
-  class?: string;
 }
 
-const {
-  photo = 'turn-score-night',
-  score = 'amber',
-  road = 'Long Lane, B4132',
-  distance = '0.3 mi',
-  eta = '14:32',
-  stopsLeft = 4,
-  totalStops = 32,
-  distanceLeft = '12.4 mi',
-  class: className = '',
-} = Astro.props;
+const { score = 'green' } = Astro.props;
 
-const PHOTO_MAP: Record<string, string> = {
-  'turn-score-night':    '/img/photos/turn-score-night.webp',
-  'gate-pin-delivery':   '/img/photos/gate-pin-delivery.webp',
-  'pod-signature':       '/img/photos/pod-signature.webp',
-  'offline-no-signal':   '/img/photos/offline-no-signal.webp',
+const scoreLabel: Record<string, string> = {
+  green: 'GREEN',
+  amber: 'AMBER',
+  red:   'RED',
 };
-const mapSrc = PHOTO_MAP[photo] ?? PHOTO_MAP['turn-score-night'];
 
-const SCORE_COLORS = {
-  green: { chip: 'chip-green',   label: 'GREEN',      color: '#10B981' },
-  amber: { chip: 'chip-amber',   label: 'AMBER',      color: '#F59E0B' },
-  red:   { chip: 'chip-red',     label: 'RED',        color: '#EF4444' },
+const scoreColor: Record<string, string> = {
+  green: '#10B981',
+  amber: '#F59E0B',
+  red:   '#EF4444',
 };
-const sc = SCORE_COLORS[score];
+
+const bgPhoto = photos.heroHudNight;
 ---
 
-<!-- Self-contained HUD card for hero-right — shows a real photo + live MJ Maps nav HUD -->
-<div class:list={['hero-hud-wrap', className]} aria-hidden="true">
-  <div class="hero-hud">
-    <div class="hud-glow"></div>
-    <div class="hud-panel glass">
-      <!-- Photo background: real scene image -->
-      <div class="hud-map">
-        <img
-          src={mapSrc}
-          alt="MJ Maps navigation HUD"
-          class="hud-map-bg"
-          width="280"
-          height="200"
-          loading="eager"
-          fetchpriority="high"
-        />
-        <!-- Animated route SVG overlay -->
-        <svg class="route-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <linearGradient id="route-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#3B82F6"/>
-              <stop offset="100%" stop-color={sc.color}/>
-            </linearGradient>
-          </defs>
-          <path
-            d="M 40 170 L 40 120 L 80 120 L 80 80 L 140 80 L 140 50 L 200 50 L 240 90"
-            stroke="url(#route-grad)"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            fill="none"
-            class="route-line"
-          />
-          <circle cx="40"  cy="170" r="5" fill="#3B82F6" class="stop-pip"/>
-          <circle cx="80"  cy="120" r="4" fill="rgba(59,130,246,0.6)"/>
-          <circle cx="140" cy="80"  r="4" fill="rgba(59,130,246,0.6)"/>
-          <circle cx="200" cy="50"  r="4" fill="rgba(59,130,246,0.6)"/>
-          <circle cx="240" cy="90"  r="6"  fill={sc.color} class="end-pip"/>
-          <circle cx="240" cy="90"  r="10" fill={sc.color} fill-opacity="0.2" class="end-pulse"/>
-        </svg>
-      </div>
+<div class="hud-shell">
+  <!-- Real road photo as card background -->
+  <div
+    class="hud-photo-bg"
+    style={`background-image: url('${bgPhoto}')`}
+    aria-hidden="true"
+  ></div>
+  <!-- Dark overlay so HUD text stays readable -->
+  <div class="hud-overlay" aria-hidden="true"></div>
 
-      <!-- Turn instruction card -->
-      <div class="hud-card glass">
-        <div class="hud-turn-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" stroke={sc.color} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div class="hud-turn-info">
-          <div class="hud-turn-dist mono">{distance}</div>
-          <div class="hud-turn-road">{road}</div>
-        </div>
-        <div class:list={['chip', sc.chip, 'hud-turn-score']}>{sc.label}</div>
-      </div>
+  <!-- Top chip: next manoeuvre -->
+  <div class="hud-row hud-top">
+    <div class="hud-arrow-chip">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="hud-manoeuvre">
+      <span class="hud-dist">0.3 mi</span>
+      <span class="hud-road">Long Lane, B4132</span>
+    </div>
+    <div class="hud-score-chip" style={`color: ${scoreColor[score]}`}>
+      {scoreLabel[score]}
+    </div>
+  </div>
 
-      <!-- ETA strip -->
-      <div class="hud-eta">
-        <span class="mono">ETA <strong>{eta}</strong></span>
-        <span class="hud-sep" aria-hidden="true"></span>
-        <span class="mono"><strong class="chip chip-green">{stopsLeft}</strong> stops left</span>
-        <span class="hud-sep" aria-hidden="true"></span>
-        <span class="mono text-muted">{distanceLeft}</span>
-      </div>
+  <!-- Divider -->
+  <div class="hud-divider" aria-hidden="true"></div>
+
+  <!-- Bottom row: ETA + stops + total distance -->
+  <div class="hud-row hud-bottom">
+    <div class="hud-stat">
+      <span class="hud-stat-label">ETA</span>
+      <span class="hud-stat-val hud-stat-bold">14:32</span>
+    </div>
+    <div class="hud-dot" aria-hidden="true"></div>
+    <div class="hud-stat">
+      <span class="hud-stat-val hud-stat-bold">4</span>
+      <span class="hud-stat-label">stops left</span>
+    </div>
+    <div class="hud-dot" aria-hidden="true"></div>
+    <div class="hud-stat">
+      <span class="hud-stat-val hud-stat-bold">12.4 mi</span>
     </div>
   </div>
 </div>
 
-
-
 <style>
-  /* Wrapper: positions the HUD in the hero right column */
-  .hero-hud-wrap {
-    flex-shrink: 0;
-    width: 100%;
-    max-width: 340px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .route-line { animation: none; }
-  }
-
-  .hero-hud {
-    font-size: 0.9375rem;
-    align-self: center;
-  }
-
-  .hero-trust {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: center;
-    align-items: center;
-  }
-
-  @media (min-width: 900px) {
-    .hero-trust { justify-content: flex-start; }
-  }
-
-  .trust-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--ink-muted);
-    font-size: 0.875rem;
-  }
-
-  /* HUD */
-  .hero-hud {
+  .hud-shell {
     position: relative;
-    flex-shrink: 0;
-    width: 100%;
-    max-width: 360px;
-    margin-inline: auto;
-  }
-
-  @media (min-width: 900px) {
-    .hero-hud {
-      max-width: 340px;
-      margin-inline: 0;
-    }
-  }
-
-  .hud-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(0,194,168,0.20) 0%, transparent 70%);
-    pointer-events: none;
-    border-radius: 50%;
-  }
-
-  .hud-panel {
-    border-radius: var(--r-panel);
-    padding: 0;
+    border-radius: 16px;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4);
+    background: #0f1117;
+    padding: 20px 24px;
+    min-width: 280px;
+    max-width: 420px;
   }
 
-  .hud-map {
-    padding: 16px;
-    background: rgba(10, 14, 20, 0.6);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .hud-map-bg {
+  .hud-photo-bg {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.7;
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
   }
 
-  .route-svg {
+  .hud-overlay {
     position: absolute;
-    inset: 16px;
-    width: calc(100% - 32px);
-    height: calc(100% - 32px);
+    inset: 0;
+    background: rgba(10, 12, 20, 0.72);
+    z-index: 1;
   }
 
-  /* Route-draw animation */
-  .route-line {
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: route-draw var(--dur-route) ease-in-out forwards;
-    animation-delay: 200ms;
-  }
-
-  @keyframes route-draw {
-    to { stroke-dashoffset: 0; }
-  }
-
-  .end-pip {
-    opacity: 0;
-    animation: pip-appear 300ms ease-out forwards;
-    animation-delay: 1200ms;
-  }
-
-  .end-pulse {
-    opacity: 0;
-    animation: pip-appear 300ms ease-out forwards, pulse-ring 2s ease-out infinite;
-    animation-delay: 1200ms, 1500ms;
-  }
-
-  @keyframes pip-appear {
-    from { opacity: 0; transform: scale(0.5); transform-box: fill-box; transform-origin: center; }
-    to   { opacity: 1; transform: scale(1); }
-  }
-
-  @keyframes pulse-ring {
-    0%   { transform: scale(1);   opacity: 0.4; transform-box: fill-box; transform-origin: center; }
-    100% { transform: scale(2.5); opacity: 0; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .route-line,
-    .end-pip,
-    .end-pulse {
-      animation: none;
-      stroke-dashoffset: 0;
-      opacity: 1;
-    }
-  }
-
-  .hud-card {
+  .hud-row {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border-radius: 0;
-    border: none;
-    border-top: 1px solid var(--glass-brd);
-    border-bottom: 1px solid var(--glass-brd);
-    backdrop-filter: none;
-    box-shadow: none;
+    gap: 14px;
   }
 
-  .hud-turn-icon {
+  .hud-top {
+    margin-bottom: 0;
+  }
+
+  .hud-divider {
+    position: relative;
+    z-index: 2;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin-block: 16px;
+  }
+
+  .hud-arrow-chip {
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(46, 230, 206, 0.1);
+    background: rgba(0, 194, 168, 0.15);
+    border: 1px solid rgba(0, 194, 168, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #00C2A8;
     flex-shrink: 0;
   }
 
-  .hud-turn-info { flex: 1; }
+  .hud-manoeuvre {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+  }
 
-  .hud-turn-dist {
-    font-size: 1rem;
+  .hud-dist {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1;
+  }
+
+  .hud-road {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .hud-score-chip {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.8125rem;
     font-weight: 700;
-    color: var(--ink);
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  .hud-bottom {
+    gap: 10px;
+  }
+
+  .hud-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .hud-stat-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
 
-  .hud-turn-road {
-    font-size: 0.875rem;
-    color: var(--ink-muted);
+  .hud-stat-val {
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
 
-  .hud-turn-score { flex-shrink: 0; }
-
-  .hud-eta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    font-size: 0.875rem;
+  .hud-stat-bold {
+    font-weight: 700;
+    color: #ffffff;
   }
 
-  .hud-sep {
-    width: 1px;
-    height: 16px;
-    background: var(--glass-brd);
+  .hud-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
     flex-shrink: 0;
   }
-
-  /* Sticky bottom CTA */
-  .sticky-cta {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 90;
-    padding-bottom: env(safe-area-inset-bottom);
-    transform: translateY(100%);
-    opacity: 0;
-    transition: transform var(--dur-std) var(--ease),
-                opacity var(--dur-std) var(--ease);
-    pointer-events: none;
-  }
-
-  .sticky-cta.visible {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .sticky-cta-inner {
-    padding: 12px var(--gutter);
-  }
-
-  @media (min-width: 768px) {
-    .sticky-cta { display: none; }
-  }
 </style>
-
-<script>
-  // Sticky CTA: show after hero leaves viewport
-  const hero = document.getElementById('hero');
-  const cta  = document.getElementById('sticky-cta');
-  if (hero && cta) {
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        const visible = !entry.isIntersecting;
-        cta.classList.toggle('visible', visible);
-        cta.setAttribute('aria-hidden', String(!visible));
-      },
-      { threshold: 0 }
-    );
-    obs.observe(hero);
-  }
-
-  // Scroll-reveal observer
-  const reveals = document.querySelectorAll('.reveal');
-  if (reveals.length > 0) {
-    const revealObs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry, i) => {
-          if (!entry.isIntersecting) return;
-          const delay = (entry.target as HTMLElement).dataset.delay ?? '0';
-          setTimeout(() => {
-            entry.target.classList.add('revealed');
-            revealObs.unobserve(entry.target);
-          }, parseInt(delay));
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -10% 0px' }
-    );
-    reveals.forEach((el, i) => {
-      if (!(el as HTMLElement).dataset.delay) {
-        (el as HTMLElement).dataset.delay = String(i * 60);
-      }
-      revealObs.observe(el);
-    });
-  }
-</script>

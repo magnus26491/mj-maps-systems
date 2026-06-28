@@ -2,16 +2,14 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
-import MapBackground from '../components/MapBackground.astro';
 import RouteLine from '../components/RouteLine.astro';
-import DeviceFrame from '../components/DeviceFrame.astro';
 import TurnScoreDemo from '../components/TurnScoreDemo.astro';
 import BeforeAfterSlider from '../components/BeforeAfterSlider.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingCards from '../components/PricingCards.astro';
 import FAQ from '../components/FAQ.astro';
 import HeroHUD from '../components/HeroHUD.astro';
-import GatePinIllustration from '../components/GatePinIllustration.astro';
+import { photos } from '../assets/photos';
 import { t } from '../i18n/index';
 ---
 
@@ -35,22 +33,19 @@ import { t } from '../i18n/index';
   <main id="main-content">
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- HERO — editorial asymmetric: map bg + device + route HUD          -->
+    <!-- HERO — editorial asymmetric: real road photo bg + HUD device      -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section id="hero" class="hero-section" aria-labelledby="hero-heading">
-      <!-- Full-bleed atmospheric van photo (eager — LCP element) -->
-      <picture>
-        <source srcset="/img/photos/hero-van-dawn.webp" type="image/webp" />
-        <img
-          src="/img/photos/hero-van-dawn.png"
-          alt="White box van on a foggy UK rural lane at dawn — MJ Maps navigation"
-          class="hero-photo"
-          loading="eager"
-          fetchpriority="high"
-          width="1920"
-          height="1080"
-        />
-      </picture>
+      <!-- Full-bleed van dawn photo (eager — LCP element) -->
+      <img
+        src={photos.heroVanDawn}
+        alt="White box van on a foggy UK rural lane at dawn — MJ Maps navigation"
+        class="hero-photo"
+        loading="eager"
+        fetchpriority="high"
+        width="1920"
+        height="1080"
+      />
       <!-- Dark left scrim: text readable on left, photo bleeds through on right -->
       <div class="hero-scrim" aria-hidden="true"></div>
 
@@ -66,7 +61,7 @@ import { t } from '../i18n/index';
             <span class="font-mono hero-coords">{t('hero.coords')}</span>
           </div>
 
-          <!-- Headline — bolder, X.com energy -->
+          <!-- Headline -->
           <h1 id="hero-heading" class="reveal" data-delay="80">
             {t('hero.headline').split('\n').map((line: string) => (
               <>{line}{line !== t('hero.headline').split('\n').at(-1) && <br/>}</>
@@ -76,7 +71,7 @@ import { t } from '../i18n/index';
           <!-- Subheadline -->
           <p class="hero-sub reveal" data-delay="160">{t('hero.sub')}</p>
 
-          <!-- CTAs — primary + secondary -->
+          <!-- CTAs -->
           <div class="hero-ctas reveal" data-delay="240">
             <a href="/register?plan=navigation" class="btn btn-primary hero-cta-primary">
               {t('hero.ctaPrimary')}
@@ -84,7 +79,7 @@ import { t } from '../i18n/index';
             <a href="/features" class="btn btn-secondary">{t('hero.ctaSecondary')}</a>
           </div>
 
-          <!-- Trust signals — X.com-style horizontal layout -->
+          <!-- Trust signals -->
           <div class="hero-trust reveal" data-delay="320">
             <span class="trust-item">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -109,9 +104,9 @@ import { t } from '../i18n/index';
           </div>
         </div>
 
-        <!-- Right: live device HUD with real photo background -->
+        <!-- Right: live HUD card with real photo background -->
         <div class="hero-device-wrap reveal" data-delay="160">
-          <HeroHUD photo="turn-score-night" score="green" />
+          <HeroHUD score="green" />
         </div>
       </div>
 
@@ -126,7 +121,7 @@ import { t } from '../i18n/index';
     </section>
 
     <script>
-      // ── Hero parallax: subtle translate on scroll, mobile-safe ────────────
+      // ── Hero parallax ──────────────────────────────────────────────────
       (function () {
         const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (prefersReduced) return;
@@ -134,20 +129,18 @@ import { t } from '../i18n/index';
         if (!heroPhoto) return;
         function onScroll() {
           const scrolled = window.scrollY;
-          // Move photo at 30% of scroll speed (subtle depth)
-          heroPhoto.style.transform = `translateY(${scrolled * 0.30}px)`;
+          heroPhoto!.style.transform = `translateY(${scrolled * 0.30}px)`;
         }
         window.addEventListener('scroll', onScroll, { passive: true });
       })();
     </script>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TRUST BAR — honest badges only                                    -->
+    <!-- TRUST BAR                                                         -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section class="trust-bar-section" aria-label="Trust signals">
       <div class="container">
         <div class="trust-bar-inner reveal">
-          <!-- No fabricated logos — only honest, verifiable signals -->
           <div class="trust-item-pair">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <rect x="2" y="2" width="16" height="16" rx="4" stroke="#00C2A8" stroke-width="1.5"/>
@@ -183,11 +176,10 @@ import { t } from '../i18n/index';
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- BEFORE/AFTER SLIDER — postcode centroid vs gate pin               -->
+    <!-- BEFORE/AFTER SLIDER                                               -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section class="ba-section" aria-labelledby="ba-heading">
       <div class="container">
-        <!-- Asymmetric: text left (narrow), slider right (wide) -->
         <div class="ba-layout">
           <div class="ba-text">
             <h2 id="ba-heading" class="reveal" data-delay="80">
@@ -213,16 +205,14 @@ import { t } from '../i18n/index';
             <p class="ba-hint mono">{t('beforeAfter.hint')}</p>
             <!-- Supporting driver-at-gate photo -->
             <figure class="ba-supporting-photo reveal" data-delay="200">
-              <picture>
-                <source srcset="/img/photos/gate-pin-delivery.webp" type="image/webp" />
-                <img
-                  src="/img/photos/gate-pin-delivery.png"
-                  alt="Driver in hi-vis at a UK farm gate with phone showing exact Plus Code delivery pin"
-                  width="600"
-                  height="338"
-                  loading="lazy"
-                />
-              </picture>
+              <img
+                src={photos.gatePinDelivery}
+                alt="Driver in hi-vis at a UK farm gate with phone showing exact Plus Code delivery pin"
+                width="600"
+                height="338"
+                loading="lazy"
+                decoding="async"
+              />
               <figcaption class="mono">
                 Driver at the gate — pin within 2 metres, no need to ask
               </figcaption>
@@ -233,17 +223,18 @@ import { t } from '../i18n/index';
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TURN SCORE DEMO — inline animated demonstration                   -->
+    <!-- TURN SCORE DEMO                                                   -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="ts-section" aria-labelledby="ts-heading">
+    <section
+      class="ts-section"
+      aria-labelledby="ts-heading"
+      style={`background-image: linear-gradient(to right, rgba(10,12,16,0.96) 0%, rgba(10,12,16,0.80) 50%, rgba(10,12,16,0.55) 100%), url('${photos.turnScoreNight}')`}
+    >
       <div class="container">
         <div class="ts-layout">
-          <!-- Left: demo widget (wider on desktop) -->
           <div class="ts-demo-wrap reveal">
             <TurnScoreDemo autoCycle={true} initialState="green" />
           </div>
-
-          <!-- Right: text column -->
           <div class="ts-text">
             <h2 id="ts-heading" class="reveal" data-delay="80">
               {t('turnScore.headline').split('\n').map((l: string) => (
@@ -261,12 +252,12 @@ import { t } from '../i18n/index';
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- FEATURE GRID — asymmetric 6-tile with editorial rhythm            -->
+    <!-- FEATURE GRID                                                       -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <FeatureGrid />
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- PRICING PREVIEW — two-card with honest pricing                    -->
+    <!-- PRICING PREVIEW                                                   -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section class="pricing-preview-section below-fold" aria-labelledby="pricing-heading">
       <div class="container">
@@ -364,15 +355,17 @@ import { t } from '../i18n/index';
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- FOUNDER STORY — warm light paper section, no fake avatar -->
+    <!-- FOUNDER STORY                                                     -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="founder-section below-fold" aria-labelledby="founder-heading">
+    <section
+      class="founder-section below-fold"
+      aria-labelledby="founder-heading"
+      style={`background-image: linear-gradient(to right, rgba(10,12,16,0.97) 0%, rgba(10,12,16,0.88) 40%, rgba(10,12,16,0.55) 65%, rgba(10,12,16,0.40) 80%, transparent 100%), url('${photos.fleetRouting}')`}
+    >
       <div class="container">
         <div class="founder-inner">
-          <!-- Left: founder pull-quote on warm paper bg -->
           <div class="founder-quote-col reveal" data-delay="80">
             <div class="founder-quote-card">
-              <!-- Decorative quote mark -->
               <svg class="quote-mark" viewBox="0 0 40 30" fill="none" aria-hidden="true">
                 <path d="M0 30V18C0 10.3 4.2 4.3 12.6 0L16 4.2C10.8 6.8 8.2 10.8 8.2 16H16V30H0ZM24 30V18C24 10.3 28.2 4.3 36.6 0L40 4.2C34.8 6.8 32.2 10.8 32.2 16H40V30H24Z" fill="currentColor"/>
               </svg>
@@ -388,7 +381,6 @@ import { t } from '../i18n/index';
             </div>
           </div>
 
-          <!-- Right: honest facts on dark surface -->
           <div class="founder-facts-col reveal" data-delay="160">
             <h3 class="founder-facts-heading">What we can tell you honestly</h3>
             <ul class="founder-facts-list">
@@ -414,9 +406,7 @@ import { t } from '../i18n/index';
               </li>
             </ul>
             <div class="founder-link">
-              <a href="/about" class="btn btn-secondary">
-                Our story →
-              </a>
+              <a href="/about" class="btn btn-secondary">Our story →</a>
             </div>
           </div>
         </div>
@@ -424,21 +414,19 @@ import { t } from '../i18n/index';
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- FAQ — short, honest                                               -->
+    <!-- FAQ                                                               -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <FAQ />
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- FINAL CTA — editorial, no generic copy                            -->
+    <!-- FINAL CTA                                                         -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section class="final-cta-section below-fold" aria-labelledby="final-cta-heading">
       <div class="container">
         <div class="final-cta-inner">
-          <!-- RouteLine motif as section divider -->
           <div class="final-cta-routeline" aria-hidden="true">
             <RouteLine score="teal" animated={false} viewBox="0 0 400 60" />
           </div>
-
           <h2 id="final-cta-heading" class="reveal">
             Stop guessing the last 50 metres
           </h2>
@@ -468,7 +456,6 @@ import { t } from '../i18n/index';
     overflow: hidden;
   }
 
-  /* Full-bleed van-dawn photo */
   .hero-photo {
     position: absolute;
     inset: 0;
@@ -479,7 +466,6 @@ import { t } from '../i18n/index';
     z-index: 0;
   }
 
-  /* Left-to-dark scrim: text readable left, photo bleeds right */
   .hero-scrim {
     position: absolute;
     inset: 0;
@@ -557,11 +543,6 @@ import { t } from '../i18n/index';
     #hero-heading { text-align: left; }
   }
 
-  .hero-headline-accent {
-    color: var(--brand-bright);
-    display: block;
-  }
-
   .hero-sub {
     color: var(--ink-muted);
     font-size: 1.0625rem;
@@ -618,7 +599,6 @@ import { t } from '../i18n/index';
     color: var(--ink-faint);
   }
 
-  /* Hero device area */
   .hero-device-wrap {
     position: relative;
     flex-shrink: 0;
@@ -634,25 +614,6 @@ import { t } from '../i18n/index';
     }
   }
 
-  .hero-illustration-wrap {
-    filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.5));
-  }
-
-  .hero-routeline {
-    position: absolute;
-    top: -40px;
-    right: -60px;
-    width: 200px;
-    opacity: 0.5;
-    z-index: -1;
-    pointer-events: none;
-  }
-
-  .hero-device {
-    filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.5));
-  }
-
-  /* Scroll cue */
   .hero-scroll-cue {
     position: absolute;
     bottom: 32px;
@@ -719,7 +680,7 @@ import { t } from '../i18n/index';
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */
-  /* BEFORE/AFTER SECTION                                              */
+  /* BEFORE/AFTER                                                      */
   /* ═══════════════════════════════════════════════════════════════════ */
 
   .ba-section {
@@ -748,15 +709,10 @@ import { t } from '../i18n/index';
   }
 
   @media (min-width: 900px) {
-    .ba-text {
-      flex: 0 0 340px;
-    }
+    .ba-text { flex: 0 0 340px; }
   }
 
-
-  .ba-text h2 {
-    margin-bottom: 16px;
-  }
+  .ba-text h2 { margin-bottom: 16px; }
 
   .ba-sub {
     color: var(--ink-muted);
@@ -798,7 +754,6 @@ import { t } from '../i18n/index';
     display: block;
   }
 
-  /* Editorial overlay caption — text floats over the photo */
   .ba-supporting-photo figcaption {
     position: absolute;
     inset: auto 0 0 0;
@@ -817,7 +772,6 @@ import { t } from '../i18n/index';
     gap: 10px;
   }
 
-  /* Mono teal label before caption text */
   .ba-supporting-photo figcaption::before {
     content: 'GATE PIN';
     color: var(--brand);
@@ -830,20 +784,11 @@ import { t } from '../i18n/index';
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */
-  /* TURN SCORE SECTION                                                */
+  /* TURN SCORE                                                        */
   /* ═══════════════════════════════════════════════════════════════════ */
 
   .ts-section {
     padding-block: var(--section-py);
-    /* Night junction atmospheric photo — reinforces the turn-score demo */
-    background-image:
-      linear-gradient(
-        to right,
-        rgba(10, 12, 16, 0.96) 0%,
-        rgba(10, 12, 16, 0.80) 50%,
-        rgba(10, 12, 16, 0.55) 100%
-      ),
-      url('/img/photos/turn-score-night.webp');
     background-size: cover;
     background-position: center center;
     position: relative;
@@ -877,15 +822,10 @@ import { t } from '../i18n/index';
   }
 
   @media (min-width: 900px) {
-    .ts-text {
-      flex: 0 0 340px;
-    }
+    .ts-text { flex: 0 0 340px; }
   }
 
-
-  .ts-text h2 {
-    margin-bottom: 16px;
-  }
+  .ts-text h2 { margin-bottom: 16px; }
 
   .ts-text p {
     color: var(--ink-muted);
@@ -894,17 +834,13 @@ import { t } from '../i18n/index';
     margin-bottom: 12px;
   }
 
-  .ts-text .btn {
-    margin-top: 8px;
-  }
+  .ts-text .btn { margin-top: 8px; }
 
   /* ═══════════════════════════════════════════════════════════════════ */
-  /* PRICING PREVIEW                                                   */
+  /* PRICING                                                           */
   /* ═══════════════════════════════════════════════════════════════════ */
 
-  .pricing-preview-section {
-    padding-block: var(--section-py);
-  }
+  .pricing-preview-section { padding-block: var(--section-py); }
 
   .pricing-preview-section h2 {
     text-align: center;
@@ -1030,10 +966,7 @@ import { t } from '../i18n/index';
     line-height: 1.4;
   }
 
-  .pricing-feature svg {
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
+  .pricing-feature svg { flex-shrink: 0; margin-top: 2px; }
 
   .pricing-cancel-note {
     text-align: center;
@@ -1049,22 +982,11 @@ import { t } from '../i18n/index';
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */
-  /* FOUNDER SECTION — warm light paper + dark facts split              */
+  /* FOUNDER                                                           */
   /* ═══════════════════════════════════════════════════════════════════ */
 
   .founder-section {
     padding-block: var(--section-py);
-    /* Aerial fleet photo as full-bleed bg — strong visual anchor */
-    background-image:
-      linear-gradient(
-        to right,
-        rgba(10, 12, 16, 0.97) 0%,
-        rgba(10, 12, 16, 0.88) 40%,
-        rgba(10, 12, 16, 0.55) 65%,
-        rgba(10, 12, 16, 0.40) 80%,
-        transparent 100%
-      ),
-      url('/img/photos/fleet-routing.webp');
     background-size: cover;
     background-position: center center;
     color: var(--ink);
@@ -1085,7 +1007,6 @@ import { t } from '../i18n/index';
     }
   }
 
-  /* Left: warm paper card with founder pull-quote — fully opaque for readability */
   .founder-quote-card {
     background: var(--color-surface-1);
     border: 1px solid var(--glass-brd);
@@ -1095,7 +1016,6 @@ import { t } from '../i18n/index';
     box-shadow: var(--shadow-1);
   }
 
-  /* Large decorative quote mark — teal accent */
   .quote-mark {
     width: 36px;
     height: 28px;
@@ -1134,7 +1054,6 @@ import { t } from '../i18n/index';
     font-size: 0.875rem;
   }
 
-  /* Right: dark facts column — stays dark for contrast */
   .founder-facts-col {
     background: var(--color-surface-1);
     border: 1px solid var(--glass-brd);
@@ -1165,10 +1084,7 @@ import { t } from '../i18n/index';
     line-height: 1.5;
   }
 
-  .fact-badge {
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
+  .fact-badge { flex-shrink: 0; margin-top: 1px; }
 
   .founder-link .btn-secondary {
     border-color: rgba(255, 255, 255, 0.15);
@@ -1202,9 +1118,7 @@ import { t } from '../i18n/index';
     opacity: 0.5;
   }
 
-  .final-cta-inner h2 {
-    margin-bottom: 16px;
-  }
+  .final-cta-inner h2 { margin-bottom: 16px; }
 
   .final-cta-sub {
     color: var(--ink-muted);
@@ -1221,9 +1135,4 @@ import { t } from '../i18n/index';
     gap: 12px;
     justify-content: center;
   }
-
-  /* ═══════════════════════════════════════════════════════════════════ */
-  /* SHARED UTILITIES                                                  */
-  /* ═══════════════════════════════════════════════════════════════════ */
-
 </style>
