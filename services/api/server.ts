@@ -264,34 +264,61 @@ const start = async () => {
 
   server.get('/api/v1/health/ready', async (_request, reply) => {
     const { isConfigured, getPool } = await import('../db/index.js');
+    const { pingCache } = await import('../cache/index.js');
+
+    const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
+
+    // 1. Database check
     if (!isConfigured()) {
       return reply.code(503).send({
-        ok: false,
+        ok:     false,
         status: 'unavailable',
         reason: 'DATABASE_URL is not configured',
       });
     }
     try {
-      // Short timeout so the readiness probe doesn't hang the health check
+      const t0 = Date.now();
       await Promise.race([
         getPool().query('SELECT 1'),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('DB check timed out')), 5_000),
         ),
       ]);
-      return reply.send({ ok: true, status: 'ready' });
-    } catch {
+      checks.database = { ok: true, latencyMs: Date.now() - t0 };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      checks.database = { ok: false, error: errMsg };
       sendPlatformAlert({
         level:   'CRITICAL',
         service: 'database',
-        message: 'Health check failed: DB unreachable',
+        message: `Readiness check failed: DB unreachable — ${errMsg}`,
       }).catch(() => {});
       return reply.code(503).send({
-        ok: false,
+        ok:     false,
         status: 'unavailable',
         reason: 'Database connection failed',
+        checks,
       });
     }
+
+    // 2. Redis check (optional — graceful degradation, never blocks readiness)
+    try {
+      const t0 = Date.now();
+      const redisOk = await Promise.race([
+        pingCache(),
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), 3_000),
+        ),
+      ]);
+      checks.redis = redisOk
+        ? { ok: true, latencyMs: Date.now() - t0 }
+        : { ok: false, error: 'Redis ping timed out after 3s' };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      checks.redis = { ok: false, error: errMsg };
+    }
+
+    return reply.send({ ok: true, status: 'ready', checks });
   });
 
   server.post('/api/v1/auth/token', async (request, reply) => {

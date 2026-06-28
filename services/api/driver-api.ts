@@ -524,11 +524,13 @@ export async function handleRouteAlertsRed(
 // ─── HEALTH ──────────────────────────────────────────────────────────────────
 
 export function handleHealth(_request: FastifyRequest, reply: FastifyReply): void {
+  const BUILD_ID = process.env.BUILD_ID ?? process.env.HEROKU_SLUG_COMMIT ?? 'dev';
   reply.send({
     ok:        true,
     status:    'ok',
     service:   'mj-maps-systems',
     version:   '0.1.0',
+    build:     BUILD_ID,
     timestamp: new Date().toISOString(),
   });
 }
