@@ -12,11 +12,12 @@ import { t } from '../i18n/index';
   <Nav activePage="/about" />
   <main id="main-content">
     <div class="page-hero">
+      <!-- Atmospheric misty dawn van — emotionally resonant opener -->
       <picture>
-        <source srcset="/img/photos/drivers-van-lane.webp" type="image/webp" />
+        <source srcset="/img/photos/hero-van-dawn.webp" type="image/webp" />
         <img
-          src="/img/photos/drivers-van-lane.png"
-          alt="Delivery van on a UK lane — Built by people who've done the round"
+          src="/img/photos/hero-van-dawn.png"
+          alt="White transit van at dawn on a misty UK country road — built by drivers who know these lanes"
           class="hero-photo"
           loading="eager"
           fetchpriority="high"
@@ -63,6 +64,29 @@ import { t } from '../i18n/index';
             <li><strong>The Dispatcher console</strong> gives operations teams live visibility without requiring drivers to change how they work.</li>
           </ul>
         </div>
+
+        <!-- POD Visual Break: driver taking timestamped proof photo -->
+        <figure class="about-pod-figure reveal" aria-label="Proof of delivery — driver captures a timestamped photo at the gate">
+          <div class="about-pod-wrap">
+            <picture>
+              <source srcset="/img/photos/pod-signature.webp" type="image/webp" />
+              <img
+                src="/img/photos/pod-signature.png"
+                alt="Driver capturing a timestamped proof-of-delivery photo at a UK property gate"
+                width="900"
+                height="506"
+                loading="lazy"
+                class="about-pod-img"
+              />
+            </picture>
+            <!-- Dark scrim overlay so caption is readable -->
+            <div class="about-pod-scrim" aria-hidden="true"></div>
+            <figcaption class="about-pod-caption">
+              <span class="mono">POD</span>
+              Every delivery confirmed with a timestamped photo — timestamp, GPS, and driver ID embedded in the file metadata. Dispatcher sees it in real time.
+            </figcaption>
+          </div>
+        </figure>
 
         <div class="about-block reveal">
           <h2>Our principles</h2>
@@ -158,18 +182,18 @@ import { t } from '../i18n/index';
   }
 
   .about-founder-card {
-    background: #F5F0E8;
-    border: 1px solid rgba(26, 21, 18, 0.1);
+    background: var(--color-surface-1);
+    border: 1px solid var(--glass-brd);
     border-radius: var(--r-xl);
     padding: 40px;
-    box-shadow: 0 2px 16px rgba(26, 21, 18, 0.06);
+    box-shadow: var(--shadow-1);
   }
 
   .about-quote-mark {
     width: 32px;
     height: 24px;
-    color: var(--warm, #C9936A);
-    opacity: 0.5;
+    color: var(--brand, #00C2A8);
+    opacity: 0.7;
     margin-bottom: 20px;
     display: block;
   }
@@ -179,7 +203,7 @@ import { t } from '../i18n/index';
     font-size: clamp(1.125rem, 2.5vw, 1.5rem);
     font-weight: 600;
     line-height: 1.45;
-    color: #2D2420;
+    color: var(--ink);
     font-style: normal;
     border: none;
     padding: 0;
@@ -187,7 +211,7 @@ import { t } from '../i18n/index';
   }
 
   .about-pullquote-attr {
-    color: #7A6A60;
+    color: var(--ink-muted);
     font-size: 0.875rem;
     margin: 0;
   }
@@ -257,4 +281,56 @@ import { t } from '../i18n/index';
   .trust-text { display: flex; flex-direction: column; gap: 4px; }
   .trust-label { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
   .trust-detail { font-size: 0.875rem; line-height: 1.55; margin: 0; }
+
+  /* ── POD figure: full-bleed atmospheric break ─────────────────────────── */
+  .about-pod-figure {
+    margin: 0;
+  }
+
+  .about-pod-wrap {
+    position: relative;
+    border-radius: var(--r-xl);
+    overflow: hidden;
+  }
+
+  .about-pod-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: var(--r-xl);
+  }
+
+  .about-pod-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(10, 12, 16, 0.92) 0%,
+      rgba(10, 12, 16, 0.50) 40%,
+      rgba(10, 12, 16, 0.20) 70%,
+      transparent 100%
+    );
+    border-radius: inherit;
+  }
+
+  .about-pod-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 28px 32px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    color: var(--ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+
+  .about-pod-caption .mono {
+    flex-shrink: 0;
+    color: var(--brand);
+    font-size: 0.75rem;
+    padding-top: 3px;
+  }
 </style>

@@ -183,6 +183,21 @@ const fleetKeys: FeatureKey[] = [
   }
   .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 
+  /* Dispatcher preview — atmospheric fleet-bg photo behind the text */
+  .dispatcher-preview {
+    padding-block: var(--section-py);
+    background-image:
+      linear-gradient(
+        to right,
+        rgba(10, 12, 16, 0.96) 0%,
+        rgba(10, 12, 16, 0.82) 50%,
+        rgba(10, 12, 16, 0.60) 100%
+      ),
+      url('/img/photos/fleet-bg-abstract.webp');
+    background-size: cover;
+    background-position: center center;
+  }
+
   .dp-inner {
     display: grid;
     grid-template-columns: 1fr;

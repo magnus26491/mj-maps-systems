@@ -493,7 +493,18 @@ const driverKeys: FeatureKey[] = [
 
   .ts-demo-section {
     padding-block: var(--section-py);
-    background: var(--color-surface-1);
+    /* Night junction atmospheric photo — reinforces the turn-score night HUD theme */
+    background-image:
+      linear-gradient(
+        to bottom,
+        rgba(10, 12, 16, 0.98) 0%,
+        rgba(10, 12, 16, 0.88) 20%,
+        rgba(10, 12, 16, 0.60) 60%,
+        rgba(10, 12, 16, 0.80) 100%
+      ),
+      url('/img/photos/turn-score-night.webp');
+    background-size: cover;
+    background-position: center center;
   }
 
   .ts-demo-header {
@@ -501,6 +512,12 @@ const driverKeys: FeatureKey[] = [
     max-width: 520px;
     margin-inline: auto;
     margin-bottom: 40px;
+    /* Opaque bg ensures text readability over the night-junction photo */
+    background: rgba(10, 12, 16, 0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-xl);
+    padding: 28px 32px;
   }
 
   .ts-demo-header .section-label { margin-bottom: 12px; }
