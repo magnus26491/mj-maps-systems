@@ -164,6 +164,39 @@ export async function safeServeSpa(
 }
 
 /**
+ * Serve a real static asset if the path maps to a file; else SPA-fallback to index.html.
+ * Standard SPA pattern: try the file first, fall back to index.html only for non-file routes.
+ * Reuses existing resolveSafePath for directory-traversal protection.
+ */
+export async function serveSpaWithAssets(
+  request: any,
+  reply: FastifyReply,
+  rootDir: string,
+  mountPrefix: string
+): Promise<void> {
+  const urlPath = request.url.split('?')[0];                       // e.g. /admin/assets/index-Dk2lAgfX.css
+  const sub = urlPath.slice(mountPrefix.length).replace(/^\//, ''); // e.g. assets/index-Dk2lAgfX.css
+
+  if (sub) {
+    const safePath = resolveSafePath(sub, rootDir);
+    if (safePath && fileExists(safePath)) {
+      const content = readFileSafe(safePath);
+      if (content) {
+        reply
+          .header('Content-Type', getMimeType(safePath))
+          .header('X-Content-Type-Options', 'nosniff')
+          .header('Cache-Control', 'public, max-age=31536000, immutable')
+          .code(200).send(content);
+        return;
+      }
+    }
+  }
+
+  // Not a real file — real SPA route (e.g. /admin/users, /driver/shift-start) → index.html
+  await safeServeSpa(reply, rootDir);
+}
+
+/**
  * Get web health status for all frontends
  */
 export async function getWebHealth(): Promise<{
@@ -275,8 +308,8 @@ export async function registerWebRoutes(server: any): Promise<void> {
   });
   
   // Driver app SPA fallback — * catches all /driver/* sub-paths for React Router
-  server.get('/driver/*', async (_request: any, reply: FastifyReply) => {
-    await safeServeSpa(reply, DRIVER_ROOT);
+  server.get('/driver/*', async (request: any, reply: FastifyReply) => {
+    await serveSpaWithAssets(request, reply, DRIVER_ROOT, '/driver');
   });
   
   // Dispatcher dashboard
@@ -289,8 +322,8 @@ export async function registerWebRoutes(server: any): Promise<void> {
   });
   
   // Dispatcher SPA fallback — * catches all /dispatcher/* sub-paths for React Router
-  server.get('/dispatcher/*', async (_request: any, reply: FastifyReply) => {
-    await safeServeSpa(reply, DISPATCHER_ROOT);
+  server.get('/dispatcher/*', async (request: any, reply: FastifyReply) => {
+    await serveSpaWithAssets(request, reply, DISPATCHER_ROOT, '/dispatcher');
   });
   
   // Enterprise alias
@@ -307,8 +340,8 @@ export async function registerWebRoutes(server: any): Promise<void> {
       reply.code(503).send('Admin portal not built. Run: docker build --target admin-builder .');
     }
   });
-  server.get('/admin/*', async (_request: any, reply: FastifyReply) => {
-    await safeServeSpa(reply, ADMIN_ROOT);
+  server.get('/admin/*', async (request: any, reply: FastifyReply) => {
+    await serveSpaWithAssets(request, reply, ADMIN_ROOT, '/admin');
   });
 
   // Web health check
