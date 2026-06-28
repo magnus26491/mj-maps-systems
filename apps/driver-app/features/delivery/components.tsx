@@ -8,7 +8,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  AccessibilityRole,
+  type TextStyle,
+  type NamedStyles,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Linking from 'expo-linking';
@@ -25,12 +26,19 @@ export const COLORS = DARK_THEME;
 
 // ─── Shared text styles ────────────────────────────────────────────────────────
 
-export const TextStyles = StyleSheet.create({
+const textPresets: NamedStyles<{
+  address: TextStyle;
+  body:    TextStyle;
+  label:   TextStyle;
+  badge:   TextStyle;
+}> = {
   address: { fontSize: 28, fontWeight: '600', color: COLORS.white, lineHeight: 34 },
   body:     { fontSize: 18, fontWeight: '400', color: COLORS.white, lineHeight: 24 },
   label:    { fontSize: 13, fontWeight: '500', color: COLORS.gray, letterSpacing: 1.5 },
   badge:    { fontSize: 13, fontWeight: '600', color: COLORS.white },
-});
+};
+
+export const TextStyles = StyleSheet.create(textPresets);
 
 // ─── Badge component ───────────────────────────────────────────────────────────
 
