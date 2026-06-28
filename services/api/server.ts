@@ -77,6 +77,13 @@ if (NODE_ENV === 'production') {
     console.error('[mj-maps-api] FATAL: JWT_SECRET is required in production');
     process.exit(1);
   }
+  if (
+    process.env.JWT_SECRET === 'dev-secret-not-for-production' ||
+    process.env.JWT_SECRET === 'changeme_insecure_default'
+  ) {
+    console.error('[mj-maps-api] FATAL: JWT_SECRET is set to an insecure default value in production');
+    process.exit(1);
+  }
 }
 
 process.on('uncaughtException', (err: Error) => {
