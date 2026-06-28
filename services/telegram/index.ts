@@ -32,51 +32,7 @@ async function sendMessage(chatId: string | number, text: string, parseMode: 'HT
   }
 }
 
-// ── Driver alerts ─────────────────────────────────────────────────────────────
-
-export async function alertRedTurn(opts: {
-  driverChatId: string | number;
-  stopAddress: string;
-  vehicleLabel: string;
-  roadWidthM: number;
-  minWidthM: number;
-  instruction: string;
-}): Promise<void> {
-  const msg = [
-    `🔴 <b>TURN WARNING — DO NOT ENTER</b>`,
-    ``,
-    `📍 <b>Stop:</b> ${opts.stopAddress}`,
-    `🚛 <b>Vehicle:</b> ${opts.vehicleLabel}`,
-    ``,
-    `⚠️ Road width: <b>${opts.roadWidthM.toFixed(1)}m</b>`,
-    `✅ Needs: <b>${opts.minWidthM.toFixed(1)}m</b> to turn`,
-    ``,
-    `📋 ${opts.instruction}`,
-    ``,
-    `<i>Turn around now — find alternative approach.</i>`,
-  ].join('\n');
-  await sendMessage(opts.driverChatId, msg);
-}
-
-export async function alertAmberTurn(opts: {
-  driverChatId: string | number;
-  stopAddress: string;
-  vehicleLabel: string;
-  roadWidthM: number;
-  instruction: string;
-}): Promise<void> {
-  const msg = [
-    `🟡 <b>TIGHT ROAD AHEAD</b>`,
-    ``,
-    `📍 <b>Stop:</b> ${opts.stopAddress}`,
-    `🚛 <b>Vehicle:</b> ${opts.vehicleLabel}`,
-    ``,
-    `Road width: <b>${opts.roadWidthM.toFixed(1)}m</b> — proceed with caution.`,
-    ``,
-    `📋 ${opts.instruction}`,
-  ].join('\n');
-  await sendMessage(opts.driverChatId, msg);
-}
+// ── New stop added ─────────────────────────────────────────────────────────────
 
 export async function alertNewStopAdded(opts: {
   driverChatId: string | number;
