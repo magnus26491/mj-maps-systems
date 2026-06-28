@@ -24,6 +24,7 @@ export const translations = {
     about:      'About',
     bookDemo:   'Book a demo',
     startTrial: 'Start free trial',
+    login:      'Log in',
     openMenu:   'Open menu',
     closeMenu:  'Close menu',
   },

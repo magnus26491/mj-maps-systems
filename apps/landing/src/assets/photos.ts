@@ -32,12 +32,13 @@ export const photos = {
     'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1600&q=85&auto=format&fit=crop',
 
   /**
-   * Before/after supporting photo — MapLibre dark-map with teal precision
-   * delivery pin. Replaces the stock telephone photo. Matches the product's
-   * vector tile navigation aesthetic (OpenFreeMap / MapLibre dark theme).
+   * Before/after supporting photo — MapLibre GL dark vector tile map
+   * with a teal precision delivery pin dropped on a UK farm gate approach.
+   * Shows OS-style street grid with UK postcode label overlay.
+   * Replaces the previous stock telephone / person-at-gate photos.
    */
   gatePinDelivery:
-    'https://user-gen-media-assets.s3.amazonaws.com/gpt4o_images/b1405735-d2d0-44eb-8f16-1d40cf00b095.png',
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=85&auto=format&fit=crop',
 
   /**
    * HeroHUD inset photo — dashboard / navigation screen at night.
