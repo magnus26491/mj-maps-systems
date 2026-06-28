@@ -3,8 +3,27 @@
 
 const API_BASE = '/api/v1';
 
+// ── In-memory auth store ──────────────────────────────────────────────────────
+// localStorage / sessionStorage are blocked inside sandboxed iframes.
+// An in-memory module-level Map survives React re-renders within the same
+// page session. Hard page refresh logs the admin out — acceptable for a
+// privileged portal, and more secure (tokens never hit storage APIs).
+const _store = new Map<string, string>();
+
+function storeGet(key: string): string | null {
+  return _store.get(key) ?? null;
+}
+function storeSet(key: string, value: string): void {
+  _store.set(key, value);
+}
+function storeRemove(key: string): void {
+  _store.delete(key);
+}
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
 export function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('mj_admin_token');
+  const token = storeGet('mj_admin_token');
   if (!token) throw new Error('Not authenticated');
   return {
     'Content-Type': 'application/json',
@@ -54,27 +73,27 @@ export async function adminLogin(email: string, password: string): Promise<{
       status: 403, code: 'ADMIN_REQUIRED',
     });
   }
-  // Persist token
-  localStorage.setItem('mj_admin_token', body.accessToken);
-  localStorage.setItem('mj_admin_refresh', body.refreshToken);
-  localStorage.setItem('mj_admin_user', JSON.stringify(body.user));
+  // Store in memory
+  storeSet('mj_admin_token', body.accessToken);
+  storeSet('mj_admin_refresh', body.refreshToken);
+  storeSet('mj_admin_user', JSON.stringify(body.user));
   return body;
 }
 
 export function logout(): void {
-  localStorage.removeItem('mj_admin_token');
-  localStorage.removeItem('mj_admin_refresh');
-  localStorage.removeItem('mj_admin_user');
+  storeRemove('mj_admin_token');
+  storeRemove('mj_admin_refresh');
+  storeRemove('mj_admin_user');
 }
 
 export function getStoredUser(): { id: string; email: string; role: string; isOwner: boolean } | null {
-  const raw = localStorage.getItem('mj_admin_user');
+  const raw = storeGet('mj_admin_user');
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
 }
 
 export function isAuthenticated(): boolean {
-  return !!localStorage.getItem('mj_admin_token');
+  return !!storeGet('mj_admin_token');
 }
 
 export function isOwner(): boolean {
