@@ -134,14 +134,14 @@ export default function StopDetailScreen() {
       <PodCapture onPhotoSelected={setPodUri} photoUri={podUri} />
 
       {submitting ? (
-        <ActivityIndicator color="#3b82f6" style={{ marginTop: 24 }} />
+        <ActivityIndicator color="#00C2A8" style={{ marginTop: 24 }} />
       ) : (
         <View style={styles.actions}>
           <TouchableOpacity style={styles.deliverBtn} onPress={handleDeliver}>
-            <Text style={styles.deliverBtnText}>✅  Mark Delivered</Text>
+            <Text style={styles.deliverBtnText}>Mark Delivered</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.failBtn} onPress={() => setShowFailure(true)}>
-            <Text style={styles.failBtnText}>❌  Mark Failed</Text>
+            <Text style={styles.failBtnText}>Mark Failed</Text>
           </TouchableOpacity>
         </View>
       )}

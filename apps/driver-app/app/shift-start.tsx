@@ -280,7 +280,7 @@ export default function ShiftStartScreen() {
                 accessibilityLabel={`Your free trial ends in ${daysLeft} days`}
               >
                 <Text style={[styles.trialBannerText, { color: '#f59e0b' }]}>
-                  ⚠️  Your free trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                  Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''} — upgrade now
                 </Text>
               </TouchableOpacity>
             );
@@ -330,7 +330,7 @@ export default function ShiftStartScreen() {
               accessibilityRole="button"
             >
               <Text style={styles.locationBtnText}>
-                {depotLabel || '📍 Use current location'}
+                {depotLabel || 'Use current location'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -344,7 +344,7 @@ export default function ShiftStartScreen() {
               accessibilityRole="button"
               accessibilityLabel="Build route manually by searching addresses"
             >
-              <Text style={styles.planRouteBtnText}>🗺️  Plan My Route →</Text>
+              <Text style={styles.planRouteBtnText}>Plan My Route</Text>
             </TouchableOpacity>
             <View style={styles.importRow}>
               <TouchableOpacity
@@ -352,21 +352,21 @@ export default function ShiftStartScreen() {
                 onPress={handlePasteImport}
                 accessibilityRole="button"
               >
-                <Text style={styles.importBtnText}>📋 Paste CSV</Text>
+                <Text style={styles.importBtnText}>Paste CSV</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.importBtn}
                 onPress={handleFilePick}
                 accessibilityRole="button"
               >
-                <Text style={styles.importBtnText}>📂 Upload CSV</Text>
+                <Text style={styles.importBtnText}>Upload CSV</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.importBtn}
                 onPress={handleTextImport}
                 accessibilityRole="button"
               >
-                <Text style={styles.importBtnText}>⚡ Parse</Text>
+                <Text style={styles.importBtnText}>Parse</Text>
               </TouchableOpacity>
             </View>
             <TextInput
@@ -383,7 +383,7 @@ export default function ShiftStartScreen() {
               accessibilityHint="Enter one address per line or paste CSV"
             />
             {stops.length > 0 && (
-              <Text style={[styles.stopsCount, { color: colors.green }]}>✓ {stops.length} stops ready</Text>
+              <Text style={[styles.stopsCount, { color: colors.green }]}>{stops.length} stops ready</Text>
             )}
           </View>
         </ScrollView>

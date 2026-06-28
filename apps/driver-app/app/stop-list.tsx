@@ -67,7 +67,7 @@ export default function StopListScreen() {
                 item.alertLevel === 'AMBER' && styles.alertPillAmber,
               ]}>
                 <Text style={styles.alertPillText}>
-                  {item.alertLevel === 'RED' ? '🚨 No turn' : '⚠️ Tight'}
+                  {item.alertLevel === 'RED' ? 'No turn' : 'Tight'}
                 </Text>
               </View>
             )}
