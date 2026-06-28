@@ -31,8 +31,24 @@ const plans: PlanId[] = ['navigation', 'custom'];
   <main id="main-content">
     <div class="page-hero">
       <div class="container">
-        <h1 class="reveal">Pricing</h1>
-        <p class="page-hero-sub reveal">One plan for solo drivers. Enterprise for fleets. No hidden fees.</p>
+        <h1 class="reveal">Simple, honest pricing</h1>
+        <p class="page-hero-sub reveal">Driver Pro for solo drivers. Enterprise for fleet operators. All prices include VAT. Cancel any time — no auto-renew, no cancellation fees.</p>
+        <div class="page-hero-trust reveal" data-delay="80">
+          <span class="trust-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            14-day free trial
+          </span>
+          <span class="trust-sep" aria-hidden="true">·</span>
+          <span class="trust-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            No card required to start
+          </span>
+          <span class="trust-sep" aria-hidden="true">·</span>
+          <span class="trust-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Cancel anytime
+          </span>
+        </div>
       </div>
     </div>
 
@@ -104,8 +120,29 @@ const plans: PlanId[] = ['navigation', 'custom'];
     color: var(--ink-muted);
     font-size: 1.125rem;
     margin-top: 12px;
-    max-width: 480px;
+    max-width: 520px;
     margin-inline: auto;
+    margin-bottom: 20px;
+  }
+
+  .page-hero-trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+  }
+
+  .page-hero-trust .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-hero-trust .trust-sep {
+    color: var(--ink-faint);
   }
 
   .compare-section h2 {

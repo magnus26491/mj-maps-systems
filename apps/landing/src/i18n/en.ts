@@ -60,10 +60,10 @@ export const translations = {
   hero: {
     eyebrowLabel: 'Live routing',
     coords:      '51.5074° N, 0.1278° W',
-    headline:     'Navigation built for\nUK delivery drivers',
-    sub:         'Vehicle-aware routing knows your van\'s height and weight. Turn-score chips grade every junction before you reach it. Exact gate-pin delivery — all offline.',
+    headline:     'Stop guessing\nat every junction',
+    sub:         'MJ Maps knows your van\'s height, weight, and turning radius. Every junction gets a GREEN, AMBER, or RED score before you reach it — plus the exact gate pin for every stop.',
     ctaPrimary:  'Start free trial — 14 days',
-    ctaSecondary:'See how it works',
+    ctaSecondary:'See features',
     trustCancel:   'Cancel anytime',
     trustNoRenew:  'No auto-renew',
     trustOffline:  'Works offline',
@@ -80,8 +80,8 @@ export const translations = {
   // ── Before/After slider ──────────────────────────────────────────────────────
   beforeAfter: {
     label:          'Precision delivery',
-    headline:        'From "somewhere\non this road"',
-    sub:             'Standard sat-nav drops you at the postcode centroid — often the middle of a farm track, 400 m from the actual gate. MJ Maps pins the exact delivery point and encodes it as a Plus Code anyone can find without signal.',
+    headline:        'Know exactly\nwhere the gate is',
+    sub:             'Standard sat-nav drops you at the postcode centroid — often 400 m from the actual gate, down a track your van can\'t turn around in. MJ Maps pins the exact delivery point and encodes it as a Plus Code.',
     tagPlusCodes:   'Plus Code encoding',
     tagGatePins:    'Gate & yard pins',
     tagCommunity:   'Community verification',
@@ -96,7 +96,7 @@ export const translations = {
     headline:  'Know before\nyou turn',
     sub1:      'Every junction gets scored against your exact vehicle profile. Green means clear. Amber means reduce speed. Red means re-routing around it — before you\'ve committed to the turn.',
     sub2:      'The score factors in your vehicle height, weight, turning radius, road width, and any active restrictions in OSM.',
-    cta:       'How turn-score works →',
+    cta:       'See all features →',
   },
 
   // ── Features ─────────────────────────────────────────────────────────────────
