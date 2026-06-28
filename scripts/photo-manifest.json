@@ -1,0 +1,85 @@
+{
+  "_comment": "Photo manifest for MJ Maps landing site. Every slot maps to a verified Unsplash photo relevant to delivery, couriers, vans, HGV trucks, or navigation UIs. Run scripts/fetch-photos.js to download and process all images to apps/landing/public/img/photos/.",
+  "photos": [
+    {
+      "slug": "hero-van-dawn",
+      "unsplash_id": "MsJ8PxyBrEA",
+      "photographer": "Rhys Moult",
+      "description": "White delivery van on a misty UK country road at dawn — hero background for index and about pages",
+      "width": 1920,
+      "height": 1080,
+      "focus": "center 40%",
+      "used_in": ["index.astro hero", "about.astro hero", "HeroHUD default bg"]
+    },
+    {
+      "slug": "drivers-van-lane",
+      "unsplash_id": "eMCHHxJtUzU",
+      "photographer": "Quinton Coetzee",
+      "description": "White transit van driving down a sunny rural lane — drivers page hero and narrative background",
+      "width": 1920,
+      "height": 1080,
+      "focus": "center 35%",
+      "used_in": ["drivers.astro hero", "drivers.astro narrative-section bg"]
+    },
+    {
+      "slug": "turn-score-night",
+      "unsplash_id": "hrlvr2ZlUNk",
+      "photographer": "Marc Schulte",
+      "description": "Night junction with street lights — reinforces the turn-score HUD night theme",
+      "width": 1280,
+      "height": 720,
+      "focus": "center center",
+      "used_in": ["drivers.astro ts-demo-section bg", "TurnScoreDemo.astro map bg", "FeatureGrid turn-score card bg"]
+    },
+    {
+      "slug": "gate-pin-delivery",
+      "unsplash_id": "UErWoQEoMrc",
+      "photographer": "Claudio Schwarz",
+      "description": "Courier on a smartphone at a gate — gate-pin delivery pinning feature",
+      "width": 800,
+      "height": 600,
+      "focus": "center 30%",
+      "used_in": ["index.astro feature card", "HeroHUD gate-pin-delivery"]
+    },
+    {
+      "slug": "pod-signature",
+      "unsplash_id": "DZpc4UY8ZtY",
+      "photographer": "Scott Graham",
+      "description": "Close-up of courier handing over a tablet for digital signature — proof of delivery",
+      "width": 800,
+      "height": 600,
+      "focus": "center center",
+      "used_in": ["HeroHUD pod-signature"]
+    },
+    {
+      "slug": "offline-no-signal",
+      "unsplash_id": "NPFu4GfFZ7E",
+      "photographer": "Štefan Štefančík",
+      "description": "Rural road cutting through hills with no infrastructure — offline / no-signal navigation feature",
+      "width": 800,
+      "height": 600,
+      "focus": "center 50%",
+      "used_in": ["HeroHUD offline-no-signal"]
+    },
+    {
+      "slug": "fleet-routing",
+      "unsplash_id": "GOD2mDNujuU",
+      "photographer": "Nigel Tadyanehondo",
+      "description": "Aerial view of a fleet of lorries and vans in a logistics yard — fleet routing, pricing, and contact pages",
+      "width": 1920,
+      "height": 1080,
+      "focus": "center center",
+      "used_in": ["features.astro hero", "fleet.astro hero", "contact.astro hero", "pricing.astro hero", "PricingCards bg"]
+    },
+    {
+      "slug": "bridge-hgv",
+      "unsplash_id": "O--4pdRpKYY",
+      "photographer": "Caleb George",
+      "description": "HGV truck approaching a low bridge on a UK road — FeatureGrid HGV routing featured card background",
+      "width": 1200,
+      "height": 400,
+      "focus": "center 60%",
+      "used_in": ["FeatureGrid.astro fg-featured card bg"]
+    }
+  ]
+}
