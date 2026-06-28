@@ -43,6 +43,8 @@
  */
 
 import type { FastifyRequest, FastifyReply, FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import crypto from 'node:crypto';
 import { pool } from '../../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
@@ -54,6 +56,32 @@ import {
   getClientIp,
   type AdminAction,
 } from '../middleware/admin.js';
+
+// ── Email (Resend) ─────────────────────────────────────────────────────────────
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? '';
+const FROM_EMAIL     = 'noreply@mjmapsystems.com';
+
+async function sendInviteEmail(opts: { to: string; subject: string; body: string }): Promise<void> {
+  if (!RESEND_API_KEY) {
+    console.warn(`[admin] RESEND_API_KEY not set — would send email to ${opts.to}: ${opts.subject}`);
+    return;
+  }
+  const resp = await fetch('https://api.resend.com/emails', {
+    method:  'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from:    FROM_EMAIL,
+      to:      [opts.to],
+      subject: opts.subject,
+      text:    opts.body,
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Resend API error ${resp.status}: ${text}`);
+  }
+}
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 
@@ -1804,4 +1832,237 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
     };
   });
+
+  // ── VIP Invite Schemas ────────────────────────────────────────────────────
+
+  const SendVipInviteSchema = z.object({
+    email: z.string().email().max(254),
+    note:  z.string().max(500).optional(),
+  });
+
+  // ── POST /admin/vip-invites — send a new VIP invite ───────────────────────
+
+  fastify.post('/vip-invites', async (request, reply) => {
+    const parsed = SendVipInviteSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ ok: false, error: 'Valid email required', code: 'INVALID_INPUT' });
+    }
+    const { email, note } = parsed.data;
+    const aid = adminId(request);
+
+    // Check for existing pending invite
+    const { rows: existingPending } = await pool.query(
+      `SELECT id FROM vip_invites WHERE email = $1 AND status = 'pending'`,
+      [email],
+    );
+    if (existingPending.length > 0) {
+      return reply.code(409).send({
+        ok: false, error: 'A pending invite already exists for this email. Use resend.', code: 'INVITE_PENDING',
+      });
+    }
+
+    // Check if user with this email already has vip status
+    const { rows: existingUser } = await pool.query(
+      `SELECT id, plan_status FROM users WHERE email = $1`,
+      [email],
+    );
+    if (existingUser.length > 0 && (existingUser[0] as { plan_status: string }).plan_status === 'vip') {
+      return reply.code(409).send({
+        ok: false, error: 'This user already has VIP access.', code: 'ALREADY_VIP',
+      });
+    }
+
+    // Generate token — raw goes in email, only hash touches DB
+    const rawToken  = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO vip_invites (email, token_hash, invited_by, note)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [email, tokenHash, aid, note ?? null],
+    );
+    const inviteId = rows[0].id;
+
+    // Send invite email
+    const inviteUrl = `https://mjmapsystems.com/invite/accept?token=${rawToken}`;
+    const emailBody = [
+      `You've been invited to MJ Maps Pro — full access, no credit card required.`,
+      ``,
+      `Accept your invite: ${inviteUrl}`,
+      ``,
+      `This invite link expires when it's used or revoked.`,
+    ].join('\n');
+
+    sendInviteEmail({
+      to:      email,
+      subject: "You've been invited to MJ Maps Pro",
+      body:    emailBody,
+    }).catch(err => {
+      request.log.error({ err, email }, '[admin] vip invite email failed');
+    });
+
+    await createAuditLog(buildAuditEntry(request, aid, 'vip_invite_sent', {
+      targetType: 'vip_invite',
+      targetId:   inviteId,
+      newValue:   { email, note },
+    }));
+
+    return reply.code(201).send({ ok: true, inviteId, email });
+  });
+
+  // ── GET /admin/vip-invites — list all VIP invites ─────────────────────────
+
+  fastify.get('/vip-invites', async (request, reply) => {
+    const { status } = (request.query as { status?: string }) ?? {};
+    const params: unknown[] = [];
+    let where = 'WHERE 1=1';
+    if (status && ['pending', 'accepted', 'revoked'].includes(status)) {
+      params.push(status);
+      where += ` AND vi.status = $${params.length}`;
+    }
+    params.push(100);
+
+    const { rows } = await pool.query(
+      `SELECT
+         vi.id,
+         vi.email,
+         vi.status,
+         vi.note,
+         vi.invited_by,
+         vi.user_id,
+         u.email    AS user_email,
+         u.role     AS user_role,
+         vi.sent_at,
+         vi.resent_at,
+         vi.accepted_at,
+         vi.revoked_at,
+         vi.revoked_by,
+         vi.created_at
+       FROM vip_invites vi
+       LEFT JOIN users u ON u.id = vi.user_id
+       ${where}
+       ORDER BY vi.created_at DESC
+       LIMIT $${params.length}`,
+      params,
+    );
+
+    return {
+      ok: true,
+      invites: (rows as Record<string, unknown>[]).map(r => ({
+        id:          r.id,
+        email:       r.email,
+        status:      r.status,
+        note:        r.note ?? null,
+        invitedBy:   r.invited_by,
+        userId:      r.user_id ?? null,
+        userEmail:   r.user_email ?? null,
+        userRole:    r.user_role ?? null,
+        sentAt:      (r.sent_at as Date).toISOString(),
+        resentAt:    r.resent_at ? (r.resent_at as Date).toISOString() : null,
+        acceptedAt:  r.accepted_at ? (r.accepted_at as Date).toISOString() : null,
+        revokedAt:   r.revoked_at ? (r.revoked_at as Date).toISOString() : null,
+        revokedBy:   r.revoked_by ?? null,
+        createdAt:   (r.created_at as Date).toISOString(),
+      })),
+    };
+  });
+
+  // ── POST /admin/vip-invites/:id/resend — resend pending invite ─────────────
+
+  fastify.post<{ Params: { id: string } }>(
+    '/vip-invites/:id/resend',
+    async (request, reply) => {
+      const { id } = request.params;
+      const aid = adminId(request);
+
+      const { rows: inviteRows } = await pool.query(
+        `SELECT id, email, status FROM vip_invites WHERE id = $1`,
+        [id],
+      );
+      if (!inviteRows.length) {
+        return reply.code(404).send({ ok: false, error: 'Invite not found' });
+      }
+      const invite = inviteRows[0] as { id: string; email: string; status: string };
+
+      if (invite.status !== 'pending') {
+        return reply.code(400).send({
+          ok: false, error: `Cannot resend a ${invite.status} invite`, code: 'NOT_PENDING',
+        });
+      }
+
+      // Invalidate old token and issue a new one
+      const rawToken  = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      await pool.query(
+        `UPDATE vip_invites SET token_hash = $1, resent_at = NOW() WHERE id = $2`,
+        [tokenHash, id],
+      );
+
+      const inviteUrl = `https://mjmapsystems.com/invite/accept?token=${rawToken}`;
+      sendInviteEmail({
+        to:      invite.email,
+        subject: "You've been invited to MJ Maps Pro",
+        body:    [`Your MJ Maps Pro invite (resent): ${inviteUrl}`].join('\n'),
+      }).catch(err => {
+        request.log.error({ err, email: invite.email }, '[admin] vip invite resend failed');
+      });
+
+      await createAuditLog(buildAuditEntry(request, aid, 'vip_invite_resent', {
+        targetType: 'vip_invite',
+        targetId:   id,
+      }));
+
+      return { ok: true };
+    },
+  );
+
+  // ── POST /admin/vip-invites/:id/revoke — revoke invite and remove VIP ─────
+
+  fastify.post<{ Params: { id: string } }>(
+    '/vip-invites/:id/revoke',
+    async (request, reply) => {
+      const { id } = request.params;
+      const aid = adminId(request);
+
+      const { rows: inviteRows } = await pool.query(
+        `SELECT id, email, status, user_id FROM vip_invites WHERE id = $1`,
+        [id],
+      );
+      if (!inviteRows.length) {
+        return reply.code(404).send({ ok: false, error: 'Invite not found' });
+      }
+      const invite = inviteRows[0] as { id: string; email: string; status: string; user_id: string | null };
+
+      if (invite.status === 'revoked') {
+        return reply.code(400).send({ ok: false, error: 'Invite already revoked', code: 'ALREADY_REVOKED' });
+      }
+
+      // Mark invite as revoked
+      await pool.query(
+        `UPDATE vip_invites
+         SET status = 'revoked', revoked_at = NOW(), revoked_by = $1
+         WHERE id = $2`,
+        [aid, id],
+      );
+
+      // If accepted, downgrade the user (keep tier='pro' so they can still use the app)
+      if (invite.user_id) {
+        await pool.query(
+          `UPDATE users SET plan_status = 'free' WHERE id = $1 AND plan_status = 'vip'`,
+          [invite.user_id],
+        );
+      }
+
+      await createAuditLog(buildAuditEntry(request, aid, 'vip_invite_revoked', {
+        targetType: 'vip_invite',
+        targetId:   id,
+        oldValue:   { status: invite.status },
+        newValue:   { status: 'revoked' },
+      }));
+
+      return { ok: true };
+    },
+  );
 };

@@ -706,3 +706,217 @@ fastify.post('/reset-password', {
   return reply.send({ ok: true });
 });
 };
+
+
+// ── VIP Invite Redemption ─────────────────────────────────────────────────────
+// Public routes (no auth) registered separately at /invite prefix in server.ts.
+// These functions are exported so server.ts can register them at the correct path.
+
+const RegisterVipSchema = z.object({
+  token:       z.string().length(64).regex(/^[a-f0-9]+$/),
+  name:        z.string().min(1).max(200),
+  newPassword: z.string().min(8).max(128),
+});
+
+export const inviteRoutes: FastifyPluginAsync = async (fastify) => {
+
+  // ── GET /invite/accept?token=<rawToken> ─────────────────────────────────────
+  // Redirects to the app with the right outcome:
+  //   - Existing user → upgrades to vip, redirects to app with JWT
+  //   - New user      → redirects to /register?invite=<rawToken>
+  fastify.get<{ Querystring: { token?: string } }>(
+    '/accept',
+    async (request, reply) => {
+      const rawToken = (request.query as { token?: string }).token ?? '';
+
+      if (!rawToken || !/^[a-f0-9]{64}$/.test(rawToken)) {
+        return reply.redirect(302, 'https://mjmapsystems.com/invite-invalid');
+      }
+
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      const { rows } = await pool.query<{
+        id:         number;
+        email:      string;
+        status:     string;
+        invited_by: string;
+        user_id:    string | null;
+      }>(
+        `SELECT id, email, status, invited_by, user_id
+         FROM vip_invites
+         WHERE token_hash = $1`,
+        [tokenHash],
+      );
+
+      if (!rows.length || rows[0].status !== 'pending') {
+        return reply.redirect(302, 'https://mjmapsystems.com/invite-invalid');
+      }
+
+      const invite = rows[0];
+
+      // Check if user with this email already exists
+      const { rows: existingUsers } = await pool.query<{
+        id: string; email: string; role: string; subscription_tier: string;
+      }>(
+        `SELECT id, email, role, subscription_tier FROM users WHERE email = $1`,
+        [invite.email],
+      );
+
+      if (existingUsers.length > 0) {
+        // Upgrade existing user to vip
+        const existingUser = existingUsers[0];
+
+        await pool.query(
+          `UPDATE users
+           SET plan_status = 'vip', subscription_tier = 'pro'
+           WHERE id = $1`,
+          [existingUser.id],
+        );
+
+        await pool.query(
+          `UPDATE vip_invites
+           SET status = 'accepted', accepted_at = NOW(), user_id = $1
+           WHERE id = $2`,
+          [existingUser.id, invite.id],
+        );
+
+        // Re-fetch to get updated plan_id and is_owner
+        const { rows: updatedUser } = await pool.query<{
+          id: string; role: string; subscription_tier: string;
+          plan_id: string; is_owner: boolean;
+        }>(
+          `SELECT id, role, subscription_tier,
+                  COALESCE(plan_id, 'navigation') as plan_id,
+                  COALESCE(is_owner, false) as is_owner
+           FROM users WHERE id = $1`,
+          [existingUser.id],
+        );
+        const u = updatedUser[0];
+
+        const tokens = signTokenPair({
+          userId:  u.id,
+          role:    u.role,
+          tier:    u.subscription_tier,
+          planId:  u.plan_id,
+          isOwner: u.is_owner,
+        });
+
+        return reply.redirect(
+          302,
+          `https://mjmapsystems.com/vip-welcome#token=${tokens.accessToken}&refresh=${tokens.refreshToken}`,
+        );
+      }
+
+      // New user — redirect to registration with invite token pre-filled
+      return reply.redirect(
+        302,
+        `https://mjmapsystems.com/register?invite=${rawToken}`,
+      );
+    },
+  );
+
+
+  // ── POST /register-vip ───────────────────────────────────────────────────────
+  // Creates a new account from a VIP invite link. No auth required.
+  fastify.post<{ Body: { token?: string; name?: string; password?: string } }>(
+    '/register-vip',
+    async (request, reply) => {
+      const body = request.body ?? {};
+      const parsed = RegisterVipSchema.safeParse(body);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          ok:   false,
+          error: 'Invalid input: token must be 64 hex chars, name required, password 8–128 chars.',
+          code: 'INVALID_INPUT',
+        });
+      }
+
+      const { token: rawToken, name: _name, newPassword: password } = parsed.data;
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      // Look up pending invite
+      const { rows: inviteRows } = await pool.query<{
+        id:         number;
+        email:      string;
+        status:     string;
+        invited_by: string;
+      }>(
+        `SELECT id, email, status, invited_by
+         FROM vip_invites
+         WHERE token_hash = $1`,
+        [tokenHash],
+      );
+
+      if (!inviteRows.length || inviteRows[0].status !== 'pending') {
+        return reply.code(400).send({
+          ok:   false,
+          error: 'This invite link is invalid or has already been used. Please request a new invite.',
+          code: 'INVITE_INVALID',
+        });
+      }
+      const invite = inviteRows[0];
+
+      // Check if email already registered (race condition guard)
+      const { rows: existingRows } = await pool.query(
+        `SELECT id FROM users WHERE email = $1`,
+        [invite.email],
+      );
+      if (existingRows.length > 0) {
+        return reply.code(409).send({
+          ok:   false,
+          error: 'An account with this email already exists. Please log in and use the invite link to upgrade.',
+          code: 'EMAIL_EXISTS',
+        });
+      }
+
+      // Hash password and create user
+      const passwordHash = await hashPassword(password);
+
+      await pool.query('BEGIN');
+      try {
+        const { rows: newUserRows } = await pool.query<{
+          id: string; email: string; role: string; subscription_tier: string;
+        }>(
+          `INSERT INTO users (email, password_hash, role, subscription_tier, plan_status)
+           VALUES ($1, $2, 'driver', 'pro', 'vip')
+           RETURNING id, email, role, subscription_tier`,
+          [invite.email, passwordHash],
+        );
+        const newUser = newUserRows[0];
+
+        await pool.query(
+          `UPDATE vip_invites
+           SET status = 'accepted', accepted_at = NOW(), user_id = $1
+           WHERE id = $2`,
+          [newUser.id, invite.id],
+        );
+
+        await pool.query('COMMIT');
+
+        // Issue JWT pair
+        const tokens = signTokenPair({
+          userId:  newUser.id,
+          role:    newUser.role,
+          tier:    newUser.subscription_tier,
+          planId:  'navigation',
+          isOwner: false,
+        });
+
+        return reply.send({
+          ok:          true,
+          accessToken:  tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: {
+            id:    newUser.id,
+            email: newUser.email,
+            role:  newUser.role,
+            tier:  newUser.subscription_tier,
+          },
+        });
+      } catch (err) {
+        await pool.query('ROLLBACK');
+        throw err;
+      }
+    },
+  );
+};

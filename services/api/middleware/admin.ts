@@ -74,7 +74,10 @@ export type AdminAction =
   | 'ticket_update'
   | 'overview_view'
   | 'trial_view'
-  | 'error_view';
+  | 'error_view'
+  | 'vip_invite_sent'
+  | 'vip_invite_resent'
+  | 'vip_invite_revoked';
 
 // ── requireAdmin ────────────────────────────────────────────────────────────────
 

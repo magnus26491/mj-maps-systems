@@ -42,7 +42,7 @@ import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index.js';
 import { confirmPinRoute } from './routes/confirm-pin.js';
 import { mapConfigRoute } from './routes/map-config.js';
 import { autocompleteRoute } from './routes/autocomplete.js';
-import { authRoutes } from './routes/auth.js';
+import { authRoutes, inviteRoutes } from './routes/auth.js';
 import { podRoute } from './routes/pod.js';
 import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
@@ -205,6 +205,8 @@ const start = async () => {
 
   // ── Routes ──────────────────────────────────────────────────────────────────
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
+  // Public invite redemption routes — no auth prefix
+  await server.register(inviteRoutes, { prefix: '/invite' });
   await server.register(registerBillingRoutes);
   await server.register(registerStoragePresignRoutes);
   await server.register(confirmPinRoute);
