@@ -1044,106 +1044,117 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   // ── GET /admin/overview ────────────────────────────────────────────────────
 
   fastify.get('/overview', async (request, reply) => {
+
+    // Wraps each query so one missing column/table doesn't kill the whole panel.
+    async function safeQuery<T extends Record<string, unknown> = Record<string, unknown>>(
+      label: string,
+      fn: () => Promise<{ rows: T[] }>,
+    ): Promise<{ rows: T[]; warnings: string[] }> {
+      try {
+        const result = await fn();
+        return { rows: result.rows, warnings: [] };
+      } catch (err) {
+        const msg = (err as Error).message;
+        request.log.warn({ err }, `[admin/overview] "${label}" query failed — ${msg}`);
+        return { rows: [{}] as T[], warnings: [msg] };
+      }
+    }
     const aid = adminId(request);
 
-    const [
-      userCounts,
-      planMix,
-      trialCount,
-      newSignups7,
-      newSignups30,
-      openTickets,
-      recentErrors,
-      dbSizeResult,
-      uptimeResult,
-    ] = await Promise.all([
-      // User counts by role and owner flag
-      pool.query(`
-        SELECT
-          COUNT(*)::int                                        AS total,
-          COUNT(*) FILTER (WHERE role = 'admin' AND is_owner = TRUE)::int  AS owners,
-          COUNT(*) FILTER (WHERE role = 'admin' AND is_owner = FALSE)::int AS admins,
-          COUNT(*) FILTER (WHERE role = 'driver')::int         AS drivers,
-          COUNT(*) FILTER (WHERE role = 'dispatcher')::int    AS dispatchers,
-          COUNT(*) FILTER (WHERE is_active = FALSE)::int       AS inactive
-        FROM users
-      `),
-      // Plan mix
-      pool.query(`
-        SELECT plan_id, plan_status, COUNT(*)::int AS count
-        FROM users
-        GROUP BY ROLLUP (plan_id, plan_status)
-        ORDER BY plan_id NULLS LAST, plan_status NULLS LAST
-      `),
-      // Trial count
-      pool.query(`
-        SELECT COUNT(*)::int AS count
-        FROM users
-        WHERE plan_status = 'trialing'
-          AND trial_ends_at > NOW()
-      `),
-      // New signups 7 days
-      pool.query(`
-        SELECT COUNT(*)::int AS count
-        FROM users
-        WHERE created_at >= NOW() - INTERVAL '7 days'
-      `),
-      // New signups 30 days
-      pool.query(`
-        SELECT COUNT(*)::int AS count
-        FROM users
-        WHERE created_at >= NOW() - INTERVAL '30 days'
-      `),
-      // Open tickets
-      pool.query(`
-        SELECT COUNT(*)::int AS count
-        FROM tickets
-        WHERE status = 'open'
-      `),
-      // Recent errors (from server logs table or error store)
-      pool.query(`
-        SELECT COUNT(*)::int AS count
-        FROM admin_audit_logs
-        WHERE action = 'server_error'
-          AND created_at >= NOW() - INTERVAL '24 hours'
-      `),
-      // DB size
-      pool.query(`
-        SELECT pg_size_pretty(pg_database_size(current_database())) AS size,
-               pg_database_size(current_database())                  AS bytes
-      `),
-      // Uptime
-      Promise.resolve({ rows: [{ uptime: process.uptime() }] }),
-    ]);
+    // Run queries independently so one failure doesn't cascade.
+    const [userCounts, planMix, trialCount, newSignups7, newSignups30, openTickets, recentErrors, dbSizeResult] =
+      await Promise.all([
+        safeQuery('userCounts', () => pool.query(`
+          SELECT
+            COUNT(*)::int                                           AS total,
+            COUNT(*) FILTER (WHERE role = 'admin' AND is_owner = TRUE)::int  AS owners,
+            COUNT(*) FILTER (WHERE role = 'admin' AND is_owner = FALSE)::int AS admins,
+            COUNT(*) FILTER (WHERE role = 'driver')::int          AS drivers,
+            COUNT(*) FILTER (WHERE role = 'dispatcher')::int     AS dispatchers,
+            COUNT(*) FILTER (WHERE is_active = FALSE)::int        AS inactive
+          FROM users
+        `)),
+        safeQuery('planMix', () => pool.query(`
+          SELECT plan_id, plan_status, COUNT(*)::int AS count
+          FROM users
+          GROUP BY ROLLUP (plan_id, plan_status)
+          ORDER BY plan_id NULLS LAST, plan_status NULLS LAST
+        `)),
+        safeQuery('trialCount', () => pool.query(`
+          SELECT COUNT(*)::int AS count
+          FROM users
+          WHERE plan_status = 'trialing'
+            AND trial_ends_at > NOW()
+        `)),
+        safeQuery('newSignups7', () => pool.query(`
+          SELECT COUNT(*)::int AS count
+          FROM users
+          WHERE created_at >= NOW() - INTERVAL '7 days'
+        `)),
+        safeQuery('newSignups30', () => pool.query(`
+          SELECT COUNT(*)::int AS count
+          FROM users
+          WHERE created_at >= NOW() - INTERVAL '30 days'
+        `)),
+        safeQuery('openTickets', () => pool.query(`
+          SELECT COUNT(*)::int AS count
+          FROM tickets
+          WHERE status = 'open'
+        `)),
+        safeQuery('recentErrors', () => pool.query(`
+          SELECT COUNT(*)::int AS count
+          FROM admin_audit_logs
+          WHERE action = 'server_error'
+            AND created_at >= NOW() - INTERVAL '24 hours'
+        `)),
+        safeQuery('dbSize', () => pool.query(`
+          SELECT pg_size_pretty(pg_database_size(current_database())) AS size,
+                 pg_database_size(current_database())                  AS bytes
+        `)),
+      ]);
 
-    const u = userCounts.rows[0] as Record<string, unknown>;
+    const warnings = [
+      ...userCounts.warnings,
+      ...planMix.warnings,
+      ...trialCount.warnings,
+      ...newSignups7.warnings,
+      ...newSignups30.warnings,
+      ...openTickets.warnings,
+      ...recentErrors.warnings,
+      ...dbSizeResult.warnings,
+    ];
+
+    const u  = userCounts.rows[0] as Record<string, unknown>;
     const pm = planMix.rows as Record<string, unknown>[];
     const ds = dbSizeResult.rows[0] as Record<string, unknown>;
-    const up = uptimeResult.rows[0] as Record<string, unknown>;
 
     return {
       ok: true,
+      warnings: warnings.length ? warnings : undefined,
       overview: {
         users: {
-          total:    u.total,
-          owners:   u.owners,
-          admins:   u.admins,
-          drivers:  u.drivers,
-          dispatchers: u.dispatchers,
-          inactive: u.inactive,
+          total:       u.total ?? 0,
+          owners:      u.owners ?? 0,
+          admins:      u.admins ?? 0,
+          drivers:     u.drivers ?? 0,
+          dispatchers: u.dispatchers ?? 0,
+          inactive:    u.inactive ?? 0,
         },
         plans: pm.map(row => ({
           planId:     row.plan_id ?? 'all',
           planStatus: row.plan_status ?? 'all',
-          count:      row.count,
+          count:      row.count ?? 0,
         })),
-        trials: { onTrial: trialCount.rows[0].count },
-        newSignups: { last7d: newSignups7.rows[0].count, last30d: newSignups30.rows[0].count },
-        tickets: { open: openTickets.rows[0].count },
-        errors24h: recentErrors.rows[0].count,
-        dbSize: ds.size,
-        dbBytes: Number(ds.bytes),
-        uptimeSeconds: Math.round(Number(up.uptime)),
+        trials:     { onTrial: trialCount.rows[0]?.count ?? 0 },
+        newSignups: {
+          last7d:  newSignups7.rows[0]?.count ?? 0,
+          last30d: newSignups30.rows[0]?.count ?? 0,
+        },
+        tickets:   { open: openTickets.rows[0]?.count ?? 0 },
+        errors24h: recentErrors.rows[0]?.count ?? 0,
+        dbSize:    (ds.size as string) ?? 'unknown',
+        dbBytes:   Number(ds.bytes) || 0,
+        uptimeSeconds: Math.round(process.uptime()),
         timestamp: new Date().toISOString(),
       },
     };
@@ -1152,33 +1163,38 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   // ── GET /admin/trials ──────────────────────────────────────────────────────
 
   fastify.get('/trials', async (request, reply) => {
-    const { rows } = await pool.query(`
-      SELECT id, email, role,
-             trial_ends_at,
-             plan_status,
-             created_at,
-             last_login,
-             EXTRACT(DAY FROM (trial_ends_at - NOW()))::int AS days_remaining
-      FROM users
-      WHERE plan_status = 'trialing'
-        AND trial_ends_at > NOW()
-      ORDER BY trial_ends_at ASC
-      LIMIT 200
-    `);
+    try {
+      const { rows } = await pool.query(`
+        SELECT id, email, role,
+               trial_ends_at,
+               plan_status,
+               created_at,
+               last_login,
+               EXTRACT(DAY FROM (trial_ends_at - NOW()))::int AS days_remaining
+        FROM users
+        WHERE plan_status = 'trialing'
+          AND trial_ends_at > NOW()
+        ORDER BY trial_ends_at ASC
+        LIMIT 200
+      `);
 
-    return {
-      ok: true,
-      trials: (rows as Record<string, unknown>[]).map(r => ({
-        id:            r.id,
-        email:         r.email,
-        role:          r.role,
-        trialEndsAt:   (r.trial_ends_at as Date).toISOString(),
-        daysRemaining: r.days_remaining,
-        planStatus:    r.plan_status,
-        joinedAt:      (r.created_at as Date).toISOString(),
-        lastLogin:     r.last_login ? (r.last_login as Date).toISOString() : null,
-      })),
-    };
+      return {
+        ok: true,
+        trials: (rows as Record<string, unknown>[]).map(r => ({
+          id:            r.id,
+          email:         r.email,
+          role:          r.role,
+          trialEndsAt:   r.trial_ends_at ? (r.trial_ends_at as Date).toISOString() : null,
+          daysRemaining: r.days_remaining ?? null,
+          planStatus:    r.plan_status ?? 'trialing',
+          joinedAt:      r.created_at ? (r.created_at as Date).toISOString() : null,
+          lastLogin:     r.last_login ? (r.last_login as Date).toISOString() : null,
+        })),
+      };
+    } catch (err) {
+      request.log.warn({ err }, '[admin/trials] query failed — trial columns may be missing');
+      return { ok: true, trials: [] };
+    }
   });
 
   // ── PATCH /admin/users/:id ─────────────────────────────────────────────────

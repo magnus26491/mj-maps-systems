@@ -502,15 +502,23 @@ function BillingTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    adminGetSubscriptions()
-      .then(setData)
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await adminGetSubscriptions();
+      setData(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load subscriptions');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { load(); }, [load]);
+
   if (loading) return <div style={loadingStyle}>Loading subscriptions...</div>;
-  if (error) return <div style={errorStyle}>{error}</div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
   if (!data) return null;
 
   return (
@@ -576,6 +584,7 @@ function FlagsTab({
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await adminGetFeatureFlags();
       setFlags(data.flags);
@@ -609,7 +618,7 @@ function FlagsTab({
   };
 
   if (loading) return <div style={loadingStyle}>Loading feature flags...</div>;
-  if (error) return <div style={errorStyle}>{error}</div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div>
@@ -701,6 +710,7 @@ function AuditTab() {
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
+    setError(null);
     try {
       const data = await adminGetAuditLogs({
         page: p, limit: 30,
@@ -767,7 +777,7 @@ function AuditTab() {
       <PaginationBar page={page} totalPages={totalPages} total={total} onPage={load} />
 
       {loading && <div style={loadingStyle}>Loading audit logs...</div>}
-      {error && <div style={errorStyle}>{error}</div>}
+      {error && <ErrorState message={error} onRetry={() => load(1)} />}
 
       {!loading && !error && (
         <div className="d-card" style={{ overflow: 'auto', maxHeight: '60vh' }}>
@@ -831,15 +841,23 @@ function AnalyticsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    adminGetPlatformAnalytics()
-      .then(r => setData(r.analytics))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await adminGetPlatformAnalytics();
+      setData(r.analytics);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { load(); }, [load]);
+
   if (loading) return <div style={loadingStyle}>Loading platform analytics...</div>;
-  if (error) return <div style={errorStyle}>{error}</div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
   if (!data) return null;
 
   const metric = (label: string, value: number | string, color = 'var(--color-text-primary)') => (
@@ -941,15 +959,23 @@ function SystemTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    adminGetSystemHealth()
-      .then(r => setData(r.health))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await adminGetSystemHealth();
+      setData(r.health);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to check system health');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { load(); }, [load]);
+
   if (loading) return <div style={loadingStyle}>Checking system health...</div>;
-  if (error) return <div style={errorStyle}>{error}</div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
   if (!data) return null;
 
   const statusColor = (s: string) => s === 'ok' ? 'var(--color-green)' : s === 'degraded' ? 'var(--color-amber)' : 'var(--color-red)';
@@ -1030,6 +1056,38 @@ const thStyle: React.CSSProperties = { padding: '0.5rem 0.75rem', textAlign: 'le
 const tdStyle: React.CSSProperties = { padding: '0.5rem 0.75rem', verticalAlign: 'middle' };
 const loadingStyle: React.CSSProperties = { textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' };
 const errorStyle: React.CSSProperties = { background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.30)', borderRadius: 'var(--r-md)', padding: '1rem', color: 'var(--color-red)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' };
+
+// ── Error state with retry ─────────────────────────────────────────────────────
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div style={{ ...errorStyle, display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5"/>
+          <path d="M8 5v3.5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="8" cy="11" r="0.75" fill="#EF4444"/>
+        </svg>
+        <span>{message}</span>
+      </div>
+      <button
+        onClick={onRetry}
+        style={{
+          background: 'rgba(239,68,68,0.15)',
+          border: '1px solid rgba(239,68,68,0.40)',
+          borderRadius: 'var(--r-md)',
+          color: '#EF4444',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          padding: '4px 14px',
+          cursor: 'pointer',
+        }}
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
 
 // ── Main Admin Page ────────────────────────────────────────────────────────────
 export default function AdminPage() {

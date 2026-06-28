@@ -401,22 +401,49 @@ export interface AdminSystemHealth {
   tableSizes: Record<string, number>;
 }
 
-async function adminFetch(path: string, init?: RequestInit): Promise<unknown> {
-  const res = await fetch(path, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...init?.headers },
-  });
-  if (res.status === 403) {
-    const body = await res.json().catch(() => ({})) as { error?: string; code?: string };
-    throw Object.assign(new Error(body.error ?? 'Admin access required'), {
-      code: body.code ?? 'ADMIN_REQUIRED',
+const ADMIN_API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
+async function adminFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+
+  try {
+    const res = await fetch(`${ADMIN_API_BASE}/api/v1/admin${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        ...(init?.headers ?? {}),
+      },
+      signal: controller.signal,
     });
+
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({})) as { error?: string; code?: string };
+      throw Object.assign(new Error(body.error ?? 'Admin access required'), {
+        code: body.code ?? 'ADMIN_REQUIRED',
+      });
+    }
+
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}`;
+      try {
+        const body = await res.json() as { error?: string };
+        errMsg = body.error ?? errMsg;
+      } catch { /* ignore parse error */ }
+      throw new Error(errMsg);
+    }
+
+    return res.json() as Promise<T>;
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      throw new Error('Request timed out — API may be down');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: 'Request failed' })) as { error?: string };
-    throw new Error(body.error ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
 }
 
 export async function adminGetUsers(params?: {
