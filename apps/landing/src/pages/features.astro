@@ -99,8 +99,20 @@ const softwareSchema = {
   <main id="main-content">
 
     <div class="page-hero">
+      <picture>
+        <source srcset="/img/photos/fleet-bg-abstract.webp" type="image/webp" />
+        <img
+          src="/img/photos/fleet-bg-abstract.png"
+          alt="MJ Maps — vehicle-aware routing for UK delivery"
+          class="hero-photo"
+          loading="eager"
+          fetchpriority="high"
+          width="1600"
+          height="900"
+        />
+      </picture>
+      <div class="hero-scrim" aria-hidden="true"></div>
       <div class="container">
-        <div class="chip chip-brand hero-chip reveal">Built for real routes</div>
         <h1 class="reveal">Every feature exists because a driver needed it on a real UK round.</h1>
         <p class="page-hero-sub reveal">Not adapted from a consumer map — built from scratch for professional delivery. Six capability areas that set MJ Maps apart.</p>
       </div>
@@ -186,11 +198,27 @@ const softwareSchema = {
 
 <style>
   .page-hero {
+    position: relative;
     padding-block: 120px 64px;
-    background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(0,194,168,0.07) 0%, transparent 60%), var(--void);
     text-align: center;
+    overflow: hidden;
   }
-  .hero-chip { margin-bottom: 16px; display: inline-flex; }
+  .page-hero .container { position: relative; z-index: 2; }
+  .hero-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+    z-index: 0;
+  }
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(to bottom, rgba(10,12,16,0.97) 0%, rgba(10,12,16,0.78) 30%, rgba(10,12,16,0.38) 52%, transparent 72%);
+  }
   .page-hero h1 { max-width: 700px; margin-inline: auto; }
   .page-hero-sub {
     color: var(--ink-muted);

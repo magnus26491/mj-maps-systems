@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Isometric top-down view of a UK town showing 3 vans with coloured route lines, dispatcher dashboard overlay">
+  <title>3D fleet routing visualisation — For Fleets hero</title>
+  <defs>
+    <linearGradient id="bg7" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#0a0e18"/>
+      <stop offset="100%" stop-color="#0d1520"/>
+    </linearGradient>
+    <linearGradient id="route-a" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#00C2A8"/>
+    </linearGradient>
+    <linearGradient id="route-b" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#00C2A8"/>
+    </linearGradient>
+    <linearGradient id="route-c" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#00C2A8"/>
+    </linearGradient>
+    <filter id="glow7" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+    <radialGradient id="vignette7" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+    </radialGradient>
+    <filter id="grain7" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="n"/>
+      <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+      <feBlend in="SourceGraphic" in2="g" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="900" fill="url(#bg7)"/>
+
+  <!-- ====== MAP GRID ====== -->
+  <!-- Major roads (A-roads) -->
+  <g stroke="#1e3040" stroke-width="14" stroke-linecap="round" opacity="0.7">
+    <line x1="0"   y1="200" x2="1600" y2="200"/>
+    <line x1="0"   y1="450" x2="1600" y2="450"/>
+    <line x1="0"   y1="700" x2="1600" y2="700"/>
+    <line x1="300" y1="0"   x2="300"  y2="900"/>
+    <line x1="700" y1="0"   x2="700"  y2="900"/>
+    <line x1="1100" y1="0"  x2="1100" y2="900"/>
+    <line x1="1400" y1="0"  x2="1400" y2="900"/>
+  </g>
+  <!-- Secondary roads (B-roads) -->
+  <g stroke="#162030" stroke-width="8" stroke-linecap="round" opacity="0.6">
+    <line x1="0" y1="100" x2="1600" y2="100"/>
+    <line x1="0" y1="350" x2="1600" y2="350"/>
+    <line x1="0" y1="600" x2="1600" y2="600"/>
+    <line x1="0" y1="800" x2="1600" y2="800"/>
+    <line x1="150" y1="0" x2="150" y2="900"/>
+    <line x1="500" y1="0" x2="500" y2="900"/>
+    <line x1="900" y1="0" x2="900" y2="900"/>
+    <line x1="1250" y1="0" x2="1250" y2="900"/>
+  </g>
+  <!-- Minor streets -->
+  <g stroke="#0f1820" stroke-width="4" stroke-linecap="round" opacity="0.5">
+    <line x1="0" y1="500" x2="1600" y2="500"/>
+    <line x1="0" y1="300" x2="1600" y2="300"/>
+    <line x1="450" y1="0" x2="450" y2="900"/>
+    <line x1="850" y1="0" x2="850" y2="900"/>
+    <line x1="1000" y1="0" x2="1000" y2="900"/>
+  </g>
+
+  <!-- ====== CITY BLOCKS ====== -->
+  <g fill="#111820" opacity="0.8">
+    <!-- Block 1 -->
+    <rect x="150" y="100" width="200" height="100" rx="2"/>
+    <!-- Block 2 -->
+    <rect x="500" y="100" width="200" height="100" rx="2"/>
+    <!-- Block 3 -->
+    <rect x="850" y="100" width="200" height="100" rx="2"/>
+    <!-- Block 4 -->
+    <rect x="1250" y="100" width="150" height="100" rx="2"/>
+    <!-- Row 2 -->
+    <rect x="150" y="350" width="200" height="100" rx="2"/>
+    <rect x="500" y="350" width="200" height="100" rx="2"/>
+    <rect x="850" y="350" width="200" height="100" rx="2"/>
+    <rect x="1250" y="350" width="150" height="100" rx="2"/>
+    <!-- Row 3 -->
+    <rect x="150" y="600" width="200" height="100" rx="2"/>
+    <rect x="500" y="600" width="200" height="100" rx="2"/>
+    <rect x="850" y="600" width="200" height="100" rx="2"/>
+    <rect x="1250" y="600" width="150" height="100" rx="2"/>
+    <!-- Row 4 -->
+    <rect x="150" y="800" width="200" height="100" rx="2"/>
+    <rect x="500" y="800" width="200" height="100" rx="2"/>
+    <rect x="850" y="800" width="200" height="100" rx="2"/>
+    <rect x="1250" y="800" width="150" height="100" rx="2"/>
+  </g>
+
+  <!-- Park / green areas -->
+  <g fill="#0a1808" opacity="0.7">
+    <rect x="300" y="200" width="200" height="100" rx="4"/>
+    <rect x="700" y="450" width="200" height="100" rx="4"/>
+    <rect x="1100" y="200" width="150" height="100" rx="4"/>
+  </g>
+
+  <!-- ====== ROUTE LINES (3 vans) ====== -->
+  <!-- Route A: blue — depot (left) → south loop -->
+  <g filter="url(#glow7)">
+    <path d="M 120 850 Q 120 600 250 500 Q 380 400 450 400 Q 600 400 600 600 Q 600 750 700 800 Q 800 850 900 800 Q 1000 750 1000 600"
+          stroke="url(#route-a)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
+          fill="none" opacity="0.9"/>
+  </g>
+
+  <!-- Route B: purple — depot (top) → north route -->
+  <g filter="url(#glow7)">
+    <path d="M 300 80 Q 400 120 500 200 Q 600 280 700 200 Q 850 100 1000 200 Q 1100 260 1100 400 Q 1100 520 1250 600 Q 1400 680 1400 800"
+          stroke="url(#route-b)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
+          fill="none" opacity="0.9"/>
+  </g>
+
+  <!-- Route C: amber — depot (centre) → east route -->
+  <g filter="url(#glow7)">
+    <path d="M 800 450 Q 950 380 1100 350 Q 1200 320 1300 400 Q 1400 460 1450 600 Q 1500 720 1400 800"
+          stroke="url(#route-c)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
+          fill="none" opacity="0.9"/>
+  </g>
+
+  <!-- ====== DEPOT ====== -->
+  <g transform="translate(200, 820)">
+    <rect x="0" y="0" width="80" height="60" rx="4" fill="#1a2838" stroke="#00C2A8" stroke-width="1.5"/>
+    <text x="40" y="25" text-anchor="middle" fill="#00C2A8" font-family="'Space Grotesk', sans-serif" font-size="8" font-weight="700">DEPOT</text>
+    <text x="40" y="40" text-anchor="middle" fill="#64748B" font-family="'IBM Plex Mono', monospace" font-size="6">Worcester</text>
+    <!-- Glow -->
+    <circle cx="40" cy="30" r="50" fill="#00C2A8" fill-opacity="0.06"/>
+  </g>
+
+  <!-- ====== STOP MARKERS ====== -->
+  <!-- Route A stops (blue) -->
+  <g fill="#3B82F6">
+    <circle cx="250" cy="500" r="5" opacity="0.9"/>
+    <circle cx="450" cy="400" r="5" opacity="0.8"/>
+    <circle cx="600" cy="600" r="5" opacity="0.8"/>
+    <circle cx="900" cy="800" r="5" opacity="0.8"/>
+  </g>
+
+  <!-- Route B stops (purple) -->
+  <g fill="#8B5CF6">
+    <circle cx="500" cy="200" r="5" opacity="0.9"/>
+    <circle cx="700" cy="200" r="5" opacity="0.8"/>
+    <circle cx="1000" cy="200" r="5" opacity="0.8"/>
+    <circle cx="1250" cy="600" r="5" opacity="0.8"/>
+  </g>
+
+  <!-- Route C stops (amber) -->
+  <g fill="#F59E0B">
+    <circle cx="1100" cy="350" r="5" opacity="0.9"/>
+    <circle cx="1300" cy="400" r="5" opacity="0.8"/>
+    <circle cx="1400" cy="800" r="5" opacity="0.8"/>
+  </g>
+
+  <!-- ====== VANS (isometric dots) ====== -->
+  <!-- Van A (blue route, mid-route) -->
+  <g transform="translate(580, 410)">
+    <rect x="0" y="0" width="28" height="18" rx="4" fill="#3B82F6" opacity="0.9"/>
+    <rect x="2" y="2" width="10" height="6" rx="1" fill="#1a2030" opacity="0.8"/>
+    <circle cx="8"  cy="20" r="5" fill="#1a1a1a"/>
+    <circle cx="20" cy="20" r="5" fill="#1a1a1a"/>
+  </g>
+
+  <!-- Van B (purple route, mid-route) -->
+  <g transform="translate(980, 220)">
+    <rect x="0" y="0" width="28" height="18" rx="4" fill="#8B5CF6" opacity="0.9"/>
+    <rect x="2" y="2" width="10" height="6" rx="1" fill="#1a2030" opacity="0.8"/>
+    <circle cx="8"  cy="20" r="5" fill="#1a1a1a"/>
+    <circle cx="20" cy="20" r="5" fill="#1a1a1a"/>
+  </g>
+
+  <!-- Van C (amber route, mid-route) -->
+  <g transform="translate(1350, 650)">
+    <rect x="0" y="0" width="28" height="18" rx="4" fill="#F59E0B" opacity="0.9"/>
+    <rect x="2" y="2" width="10" height="6" rx="1" fill="#1a2030" opacity="0.8"/>
+    <circle cx="8"  cy="20" r="5" fill="#1a1a1a"/>
+    <circle cx="20" cy="20" r="5" fill="#1a1a1a"/>
+  </g>
+
+  <!-- ====== DISPATCHER HUD OVERLAY ====== -->
+  <!-- Fleet stats panel (top-left) -->
+  <g transform="translate(30, 30)">
+    <rect x="0" y="0" width="220" height="120" rx="8" fill="#0a0e18" fill-opacity="0.9" stroke="#1e3040" stroke-width="1"/>
+    <!-- Header -->
+    <text x="16" y="24" fill="#00C2A8" font-family="'Space Grotesk', sans-serif" font-size="11" font-weight="700">Fleet Overview</text>
+    <line x1="0" y1="34" x2="220" y2="34" stroke="#1e3040" stroke-width="1"/>
+    <!-- Stats row -->
+    <text x="16" y="54" fill="#F1F5F9" font-family="'IBM Plex Mono', monospace" font-size="20" font-weight="700">3</text>
+    <text x="36" y="54" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="10">active</text>
+    <text x="16" y="74" fill="#10B981" font-family="'IBM Plex Mono', monospace" font-size="14">12/18</text>
+    <text x="56" y="74" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="9">stops done</text>
+    <text x="16" y="94" fill="#F59E0B" font-family="'IBM Plex Mono', monospace" font-size="14">2</text>
+    <text x="32" y="94" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="9">amber alerts</text>
+    <!-- Colour dots -->
+    <circle cx="148" cy="52" r="5" fill="#3B82F6"/>
+    <circle cx="148" cy="72" r="5" fill="#8B5CF6"/>
+    <circle cx="148" cy="92" r="5" fill="#F59E0B"/>
+  </g>
+
+  <!-- Live alert panel (top-right) -->
+  <g transform="translate(1300, 30)">
+    <rect x="0" y="0" width="270" height="80" rx="8" fill="#1a0808" fill-opacity="0.9" stroke="#EF4444" stroke-width="1"/>
+    <rect x="12" y="12" width="50" height="22" rx="11" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-width="1"/>
+    <text x="37" y="27" text-anchor="middle" fill="#EF4444" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="700">RED</text>
+    <text x="74" y="22" fill="#F1F5F9" font-family="'Space Grotesk', sans-serif" font-size="11" font-weight="600">Low bridge — Route A</text>
+    <text x="74" y="38" fill="#94A3B8" font-family="'IBM Plex Mono', monospace" font-size="9">4.2m bridge · NL63 OXM rerouting</text>
+    <text x="74" y="54" fill="#64748B" font-family="'IBM Plex Mono', monospace" font-size="8">14:28 · 2 min ago</text>
+    <!-- Dismiss button -->
+    <rect x="200" y="12" width="58" height="22" rx="4" fill="#1a1a1a" stroke="#334155" stroke-width="1"/>
+    <text x="229" y="27" text-anchor="middle" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="9">Dismiss</text>
+  </g>
+
+  <!-- Bottom legend -->
+  <g transform="translate(30, 800)">
+    <rect x="0" y="0" width="380" height="70" rx="8" fill="#0a0e18" fill-opacity="0.9" stroke="#1e3040" stroke-width="1"/>
+    <text x="16" y="22" fill="#64748B" font-family="'IBM Plex Mono', monospace" font-size="8">LIVE FLEET · MJ Maps Dispatcher</text>
+    <line x1="0" y1="30" x2="380" y2="30" stroke="#1e3040" stroke-width="1"/>
+    <!-- Route dots -->
+    <circle cx="30" cy="50" r="5" fill="#3B82F6"/>
+    <text x="44" y="54" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="9">Van A — 6 stops</text>
+    <circle cx="160" cy="50" r="5" fill="#8B5CF6"/>
+    <text x="174" y="54" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="9">Van B — 8 stops</text>
+    <circle cx="280" cy="50" r="5" fill="#F59E0B"/>
+    <text x="294" y="54" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="9">Van C — 4 stops</text>
+  </g>
+
+  <!-- Vignette + grain -->
+  <rect width="1600" height="900" fill="url(#vignette7)"/>
+  <rect width="1600" height="900" fill="#808080" fill-opacity="0.02" filter="url(#grain7)"/>
+</svg>

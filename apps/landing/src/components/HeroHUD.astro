@@ -1,276 +1,144 @@
 ---
-// HUD hero: animated route-draw, 1100ms on load, runs once
+/**
+ * HeroHUD.astro — Self-contained hero-right device/HUD card
+ *
+ * Shows a device frame (phone) with a real photo background and the
+ * live MJ Maps turn-by-turn HUD overlay on top.
+ *
+ * Props:
+ *   photo: which photo to show in the HUD map area
+ *         'turn-score-night' | 'gate-pin-delivery' | 'pod-signature' | 'offline-no-signal'
+ *   score: 'green' | 'amber' | 'red' (turn-score chip colour)
+ *   road: turn instruction road name
+ *   distance: distance to turn
+ *   eta: ETA time string
+ *   stopsLeft: remaining stops
+ *   totalStops: total stops
+ *   class: additional CSS class
+ */
+interface Props {
+  photo?: 'turn-score-night' | 'gate-pin-delivery' | 'pod-signature' | 'offline-no-signal';
+  score?: 'green' | 'amber' | 'red';
+  road?: string;
+  distance?: string;
+  eta?: string;
+  stopsLeft?: number;
+  totalStops?: number;
+  distanceLeft?: string;
+  class?: string;
+}
+
+const {
+  photo = 'turn-score-night',
+  score = 'amber',
+  road = 'Long Lane, B4132',
+  distance = '0.3 mi',
+  eta = '14:32',
+  stopsLeft = 4,
+  totalStops = 32,
+  distanceLeft = '12.4 mi',
+  class: className = '',
+} = Astro.props;
+
+const PHOTO_MAP: Record<string, string> = {
+  'turn-score-night':    '/img/photos/turn-score-night.webp',
+  'gate-pin-delivery':   '/img/photos/gate-pin-delivery.webp',
+  'pod-signature':       '/img/photos/pod-signature.webp',
+  'offline-no-signal':   '/img/photos/offline-no-signal.webp',
+};
+const mapSrc = PHOTO_MAP[photo] ?? PHOTO_MAP['turn-score-night'];
+
+const SCORE_COLORS = {
+  green: { chip: 'chip-green',   label: 'GREEN',      color: '#10B981' },
+  amber: { chip: 'chip-amber',   label: 'AMBER',      color: '#F59E0B' },
+  red:   { chip: 'chip-red',     label: 'RED',        color: '#EF4444' },
+};
+const sc = SCORE_COLORS[score];
 ---
 
-<section id="hero" aria-labelledby="hero-heading">
-  <div class="container hero-inner">
-    <!-- Text content -->
-    <div class="hero-text">
-      <div class="hero-eyebrow">
-        <span class="chip chip-green">
-          <span aria-hidden="true">●</span> Live
-        </span>
-        <span class="mono hero-data">51.5074°N, 0.1278°W</span>
-      </div>
-
-      <h1 id="hero-heading">
-        UK delivery navigation that gets you to the exact door — and warns you before the tight turn.
-      </h1>
-
-      <p class="hero-sub">
-        Vehicle-aware routing that knows your van's height and weight. Turn-score chips that grade every junction before you reach it. Exact gate-pin delivery down to the last 50 metres — all offline.
-      </p>
-
-      <!-- App store badges as primary CTAs -->
-      <div class="hero-ctas">
-        <a href="/register?plan=navigation" class="store-badge" aria-label="Download on the App Store">
-          <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
-            <rect width="140" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="44" y="16" fill="#8AA0B2" font-size="8" font-family="Inter,sans-serif">Download on the</text>
-            <text x="44" y="31" fill="#EAF2FA" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">App Store</text>
-            <path d="M20 10 Q16 10 14 14 L14 30 Q14 34 18 34 L22 34 Q22 30 20 28 L20 16 Q20 14 22 14 L26 14 Q26 10 22 10 Z" fill="white" fill-opacity="0.8"/>
-          </svg>
-        </a>
-        <a href="/register?plan=navigation" class="store-badge" aria-label="Get it on Google Play">
-          <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
-            <rect width="140" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="44" y="16" fill="#8AA0B2" font-size="8" font-family="Inter,sans-serif">Get it on</text>
-            <text x="44" y="31" fill="#EAF2FA" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">Google Play</text>
-            <path d="M17 12 L28 22 L17 32 L15 30 L15 14 Z M29 21 L31 22 L29 23 L23 27 L21 24 L17 22 L21 20 L23 17 Z" fill="white" fill-opacity="0.8"/>
-          </svg>
-        </a>
-        <a href="/features" class="btn btn-secondary hero-see-more">See how it works →</a>
-      </div>
-
-      <!-- Trust signals -->
-      <div class="hero-trust">
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Cancel anytime
-        </span>
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          No auto-renew
-        </span>
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Works offline
-        </span>
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          UK GDPR compliant
-        </span>
-      </div>
-    </div>
-
-    <!-- HUD display -->
-    <div class="hero-hud" aria-hidden="true">
-      <div class="hud-glow"></div>
-      <div class="hud-panel glass">
-        <!-- Map background: real baked hero-map + animated route SVG overlay -->
-        <div class="hud-map">
-          <!-- Real map base (hero-map SVG or screen capture if present) -->
-          <img
-            src="/img/hero-map.svg"
-            alt=""
-            class="hud-map-bg"
-            width="280"
-            height="200"
-            loading="eager"
-            fetchpriority="high"
+<!-- Self-contained HUD card for hero-right — shows a real photo + live MJ Maps nav HUD -->
+<div class:list={['hero-hud-wrap', className]} aria-hidden="true">
+  <div class="hero-hud">
+    <div class="hud-glow"></div>
+    <div class="hud-panel glass">
+      <!-- Photo background: real scene image -->
+      <div class="hud-map">
+        <img
+          src={mapSrc}
+          alt="MJ Maps navigation HUD"
+          class="hud-map-bg"
+          width="280"
+          height="200"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <!-- Animated route SVG overlay -->
+        <svg class="route-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="route-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#3B82F6"/>
+              <stop offset="100%" stop-color={sc.color}/>
+            </linearGradient>
+          </defs>
+          <path
+            d="M 40 170 L 40 120 L 80 120 L 80 80 L 140 80 L 140 50 L 200 50 L 240 90"
+            stroke="url(#route-grad)"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+            class="route-line"
           />
-          <!-- Animated route overlay on top -->
-          <svg class="route-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-              <linearGradient id="route-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#3B82F6"/>
-                <stop offset="100%" stop-color="#2EE6CE"/>
-              </linearGradient>
-            </defs>
-            <!-- Route path (drawn via CSS animation) -->
-            <path
-              id="route-path"
-              d="M 40 170 L 40 120 L 80 120 L 80 80 L 140 80 L 140 50 L 200 50 L 240 90"
-              stroke="url(#route-grad)"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              fill="none"
-              class="route-line"
-            />
+          <circle cx="40"  cy="170" r="5" fill="#3B82F6" class="stop-pip"/>
+          <circle cx="80"  cy="120" r="4" fill="rgba(59,130,246,0.6)"/>
+          <circle cx="140" cy="80"  r="4" fill="rgba(59,130,246,0.6)"/>
+          <circle cx="200" cy="50"  r="4" fill="rgba(59,130,246,0.6)"/>
+          <circle cx="240" cy="90"  r="6"  fill={sc.color} class="end-pip"/>
+          <circle cx="240" cy="90"  r="10" fill={sc.color} fill-opacity="0.2" class="end-pulse"/>
+        </svg>
+      </div>
 
-            <!-- Stop markers -->
-            <circle cx="40" cy="170" r="5" fill="#3B82F6" class="stop-pip"/>
-            <circle cx="80" cy="120" r="4" fill="rgba(59,130,246,0.6)"/>
-            <circle cx="140" cy="80"  r="4" fill="rgba(59,130,246,0.6)"/>
-            <circle cx="200" cy="50"  r="4" fill="rgba(59,130,246,0.6)"/>
-
-            <!-- End pip (animated colour) -->
-            <circle id="end-pip" cx="240" cy="90" r="6" fill="#22C55E" class="end-pip"/>
-            <circle cx="240" cy="90" r="10" fill="#22C55E" fill-opacity="0.2" class="end-pulse"/>
+      <!-- Turn instruction card -->
+      <div class="hud-card glass">
+        <div class="hud-turn-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" stroke={sc.color} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-
-        <!-- Turn instruction card -->
-        <div class="hud-card glass">
-          <div class="hud-turn-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 12h14M13 6l6 6-6 6" stroke="#2EE6CE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="hud-turn-info">
-            <div class="hud-turn-dist mono">0.3 mi</div>
-            <div class="hud-turn-road">Long Lane</div>
-          </div>
-          <div class="chip chip-amber hud-turn-score">⚠ Tight</div>
+        <div class="hud-turn-info">
+          <div class="hud-turn-dist mono">{distance}</div>
+          <div class="hud-turn-road">{road}</div>
         </div>
+        <div class:list={['chip', sc.chip, 'hud-turn-score']}>{sc.label}</div>
+      </div>
 
-        <!-- ETA strip -->
-        <div class="hud-eta">
-          <span class="mono">ETA <strong>14:32</strong></span>
-          <span class="hud-sep"></span>
-          <span class="mono"><strong class="chip chip-green">4</strong> stops left</span>
-          <span class="hud-sep"></span>
-          <span class="mono text-muted">12.4 mi</span>
-        </div>
+      <!-- ETA strip -->
+      <div class="hud-eta">
+        <span class="mono">ETA <strong>{eta}</strong></span>
+        <span class="hud-sep" aria-hidden="true"></span>
+        <span class="mono"><strong class="chip chip-green">{stopsLeft}</strong> stops left</span>
+        <span class="hud-sep" aria-hidden="true"></span>
+        <span class="mono text-muted">{distanceLeft}</span>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- Sticky bottom CTA (mobile only, slides up after hero leaves viewport) -->
-<div id="sticky-cta" class="sticky-cta glass" aria-label="Get started" aria-hidden="true">
-  <div class="sticky-cta-inner">
-    <a href="/register?plan=navigation" class="btn btn-primary btn-full">Start free trial — no card needed</a>
   </div>
 </div>
 
+
+
 <style>
-  #hero {
-    position: relative;
-    min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    padding-block: 96px 64px;
-    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,194,168,0.07) 0%, transparent 60%),
-                var(--void);
-    overflow: hidden;
-  }
-
-  /* Subtle grain */
-  #hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    background-size: 200px 200px;
-    pointer-events: none;
-    opacity: 0.5;
-  }
-
-  .hero-inner {
-    display: flex;
-    flex-direction: column;
-    gap: 48px;
-    align-items: center;
+  /* Wrapper: positions the HUD in the hero right column */
+  .hero-hud-wrap {
+    flex-shrink: 0;
     width: 100%;
+    max-width: 340px;
   }
 
-  @media (min-width: 900px) {
-    .hero-inner {
-      flex-direction: row;
-      gap: 64px;
-      align-items: center;
-    }
+  @media (prefers-reduced-motion: reduce) {
+    .route-line { animation: none; }
   }
 
-  .hero-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    text-align: center;
-    max-width: 600px;
-    margin-inline: auto;
-  }
-
-  @media (min-width: 900px) {
-    .hero-text {
-      text-align: left;
-      margin-inline: 0;
-    }
-  }
-
-  .hero-eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    justify-content: center;
-  }
-
-  @media (min-width: 900px) {
-    .hero-eyebrow { justify-content: flex-start; }
-  }
-
-  .hero-data {
-    color: var(--ink-faint);
-    font-size: 0.8125rem;
-  }
-
-  #hero-heading {
-    margin-bottom: 12px;
-  }
-
-  .hero-sub {
-    color: var(--ink-muted);
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    max-width: 480px;
-    margin-inline: auto;
-    margin-bottom: 24px;
-  }
-
-  @media (min-width: 900px) {
-    .hero-sub { margin-inline: 0; }
-  }
-
-  .hero-ctas {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 24px;
-    justify-content: center;
-  }
-
-  @media (min-width: 900px) {
-    .hero-ctas { justify-content: flex-start; }
-  }
-
-  .store-badge {
-    display: inline-flex;
-    text-decoration: none;
-    border-radius: 10px;
-    transition: opacity var(--dur-micro) ease-out, transform var(--dur-micro) ease-out;
-  }
-
-  @media (hover: hover) {
-    .store-badge:hover { opacity: 0.85; transform: translateY(-1px); }
-  }
-
-  .store-badge:active { transform: scale(0.97); }
-
-  .hero-see-more {
-    height: 44px;
-    padding: 0 20px;
+  .hero-hud {
     font-size: 0.9375rem;
     align-self: center;
   }

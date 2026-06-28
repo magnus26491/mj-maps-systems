@@ -164,7 +164,7 @@ section {
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
+  text-transform: none;
   padding: 3px 8px;
   border-radius: var(--r-pill);
   line-height: 1;

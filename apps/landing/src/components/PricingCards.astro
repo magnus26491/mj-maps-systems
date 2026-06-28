@@ -412,8 +412,9 @@ const MAX_FEATURES = 6;
     const saveEl = document.getElementById('save-navigation');
 
     amounts.forEach(el => {
-      const key = `${currency.toLowerCase()}-${period}` as const;
-      const val = el.dataset[key.replace('-', '') as keyof typeof el.dataset];
+      // Data attributes are data-gbp-monthly, data-gbp-yearly, etc. (with hyphen)
+      const key = `${currency.toLowerCase()}-${period}` as `${string}-${string}`;
+      const val = (el.dataset as Record<string, string | undefined>)[key];
       if (val !== undefined) el.textContent = parseFloat(val).toFixed(2);
     });
 

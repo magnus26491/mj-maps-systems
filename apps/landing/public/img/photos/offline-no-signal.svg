@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="White delivery van parked in a rural area with no mobile signal — no bars showing on the phone">
+  <title>Van in rural area — offline mode feature</title>
+  <defs>
+    <linearGradient id="sky6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1a2040"/>
+      <stop offset="50%"  stop-color="#2a3050"/>
+      <stop offset="100%" stop-color="#1a1a30"/>
+    </linearGradient>
+    <linearGradient id="ground6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1a2a14"/>
+      <stop offset="100%" stop-color="#0c1808"/>
+    </linearGradient>
+    <linearGradient id="vbody6" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#e8e8e8"/>
+      <stop offset="100%" stop-color="#c0c0c0"/>
+    </linearGradient>
+    <radialGradient id="vignette6" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.65"/>
+    </radialGradient>
+    <filter id="sw6" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#000" flood-opacity="0.5"/></filter>
+    <filter id="grain6" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" stitchTiles="stitch" result="n"/>
+      <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+      <feBlend in="SourceGraphic" in2="g" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Sky: dark, moody, no signal atmosphere -->
+  <rect width="1600" height="900" fill="url(#sky6)"/>
+  <!-- Moon (thin crescent) -->
+  <circle cx="1200" cy="120" r="50" fill="#c8c8d0" opacity="0.15"/>
+  <circle cx="1220" cy="110" r="45" fill="#0a0e1a" opacity="0.9"/>
+
+  <!-- Distant hills/trees -->
+  <path d="M 0 500 Q 200 460 400 480 Q 600 500 800 470 Q 1000 440 1200 470 Q 1400 490 1600 460 L 1600 900 L 0 900 Z" fill="#0c180a"/>
+
+  <!-- Ground -->
+  <rect x="0" y="600" width="1600" height="300" fill="url(#ground6)"/>
+
+  <!-- Grass tufts -->
+  <g fill="#1a3810" opacity="0.7">
+    <ellipse cx="100"  cy="620" rx="120" ry="30"/>
+    <ellipse cx="400"  cy="640" rx="100" ry="25"/>
+    <ellipse cx="700"  cy="630" rx="110" ry="28"/>
+    <ellipse cx="1000" cy="650" rx="90"  ry="22"/>
+    <ellipse cx="1300" cy="620" rx="120" ry="30"/>
+    <ellipse cx="1500" cy="640" rx="100" ry="25"/>
+  </g>
+
+  <!-- Farm buildings in distance (silhouettes) -->
+  <g fill="#0c1408" opacity="0.6">
+    <rect x="200"  y="400" width="60" height="100" rx="2"/>
+    <rect x="260"  y="380" width="40" height="120" rx="2"/>
+    <rect x="1200" y="410" width="80" height="90"  rx="2"/>
+    <rect x="1280" y="390" width="50" height="110" rx="2"/>
+  </g>
+
+  <!-- VAN (side view, parked, rear facing camera) -->
+  <g filter="url(#sw6)">
+    <!-- Shadow -->
+    <ellipse cx="800" cy="920" rx="350" ry="28" fill="#000" fill-opacity="0.4"/>
+    <!-- Cargo box -->
+    <rect x="480" y="480" width="640" height="400" rx="8" fill="url(#vbody6)"/>
+    <!-- Panel ribs -->
+    <g stroke="#d0d0d0" stroke-width="0.7" opacity="0.3">
+      <line x1="480" y1="560" x2="1120" y2="560"/>
+      <line x1="480" y1="640" x2="1120" y2="640"/>
+      <line x1="480" y1="720" x2="1120" y2="720"/>
+      <line x1="480" y1="800" x2="1120" y2="800"/>
+    </g>
+    <!-- Rear doors (split) -->
+    <line x1="800" y1="480" x2="800" y2="880" stroke="#c0c0c0" stroke-width="2"/>
+    <rect x="480"  y="480" width="320" height="400" fill="none" stroke="#c8c8c8" stroke-width="2"/>
+    <rect x="800"  y="480" width="320" height="400" fill="none" stroke="#c8c8c8" stroke-width="2"/>
+    <!-- Door handles -->
+    <rect x="776" y="680" width="14" height="6" rx="2" fill="#a0a0a0"/>
+    <rect x="810" y="680" width="14" height="6" rx="2" fill="#a0a0a0"/>
+    <!-- Side panel -->
+    <rect x="1120" y="480" width="80" height="400" fill="#d0d0d0"/>
+    <rect x="1124" y="500" width="72" height="360" rx="3" fill="#e4e4e4"/>
+    <!-- Cab (side) -->
+    <rect x="1200" y="520" width="220" height="360" rx="10" fill="url(#vbody6)"/>
+    <!-- Cab roof -->
+    <rect x="1194" y="508" width="232" height="28" rx="5" fill="#e0e0e0"/>
+    <!-- Side windows -->
+    <rect x="1210" y="530" width="100" height="90" rx="5" fill="#1a2030" fill-opacity="0.85"/>
+    <rect x="1215" y="535" width="40" height="4"  rx="2" fill="#fff"   fill-opacity="0.1"/>
+    <rect x="1210" y="640" width="100" height="90" rx="5" fill="#1a2030" fill-opacity="0.85"/>
+    <!-- Wheels -->
+    <ellipse cx="580"  cy="880" rx="50" ry="20" fill="#111"/>
+    <ellipse cx="580"  cy="880" rx="32" ry="13" fill="#1c1c1c"/>
+    <ellipse cx="580"  cy="880" rx="12" ry="6"  fill="#282828"/>
+    <ellipse cx="1000" cy="880" rx="50" ry="20" fill="#111"/>
+    <ellipse cx="1000" cy="880" rx="32" ry="13" fill="#1c1c1c"/>
+    <ellipse cx="1000" cy="880" rx="12" ry="6"  fill="#282828"/>
+    <!-- Bumper -->
+    <rect x="1190" y="858" width="230" height="28" rx="4" fill="#b8b8b8"/>
+    <!-- Number plate -->
+    <rect x="1280" y="862" width="55" height="22" rx="2" fill="#f0f0dc"/>
+    <text x="1307" y="878" text-anchor="middle" fill="#1a1a28" font-family="monospace" font-size="10" font-weight="bold">NL63 OXM</text>
+  </g>
+
+  <!-- "NO SIGNAL" indicator chip (top-right) -->
+  <g transform="translate(1260, 60)">
+    <rect x="0" y="0" width="180" height="56" rx="8" fill="#1a0808" stroke="#EF4444" stroke-width="1.5" opacity="0.95"/>
+    <!-- No signal icon: phone with X -->
+    <rect x="14" y="10" width="18" height="30" rx="3" fill="#1a1a28" stroke="#EF4444" stroke-width="1"/>
+    <line x1="16" y1="14" x2="30" y2="28" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="30" y1="14" x2="16" y2="28" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- "No signal" -->
+    <text x="42" y="22" fill="#F1F5F9" font-family="'Space Grotesk', sans-serif" font-size="11" font-weight="600">No signal</text>
+    <text x="42" y="36" fill="#94A3B8" font-family="'IBM Plex Mono', monospace" font-size="8">Offline maps active</text>
+    <!-- Signal bars crossed out -->
+    <g transform="translate(144, 10)">
+      <rect x="0"  y="18" width="4" height="8"  rx="1" fill="#EF4444" opacity="0.4"/>
+      <rect x="6"  y="14" width="4" height="12" rx="1" fill="#EF4444" opacity="0.4"/>
+      <rect x="12" y="10" width="4" height="16" rx="1" fill="#EF4444" opacity="0.4"/>
+      <rect x="18" y="6"  width="4" height="20" rx="1" fill="#EF4444" opacity="0.4"/>
+      <line x1="0"  y1="26" x2="22" y2="6"  stroke="#EF4444" stroke-width="1.5"/>
+    </g>
+  </g>
+
+  <!-- MJ Maps offline indicator (bottom-left) -->
+  <g transform="translate(60, 760)">
+    <rect x="0" y="0" width="200" height="50" rx="8" fill="#0d1a14" stroke="#00C2A8" stroke-width="1.5"/>
+    <!-- Offline map icon -->
+    <circle cx="28" cy="25" r="14" fill="#00C2A8" fill-opacity="0.15" stroke="#00C2A8" stroke-width="1"/>
+    <path d="M 20 20 L 36 30 M 36 20 L 20 30" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="52" y="20" fill="#F1F5F9" font-family="'Space Grotesk', sans-serif" font-size="11" font-weight="600">Maps offline</text>
+    <text x="52" y="36" fill="#00C2A8" font-family="'IBM Plex Mono', monospace" font-size="8">Navigation active — no signal needed</text>
+  </g>
+
+  <!-- Stars (faint) -->
+  <g fill="#ffffff" opacity="0.3">
+    <circle cx="200"  cy="100" r="1.5"/>
+    <circle cx="400"  cy="60"  r="1"/>
+    <circle cx="600"  cy="140" r="1.5"/>
+    <circle cx="900"  cy="80"  r="1"/>
+    <circle cx="1100" cy="160" r="1.5"/>
+    <circle cx="1400" cy="90"  r="1"/>
+    <circle cx="1600" cy="130" r="1"/>
+  </g>
+
+  <!-- Vignette + grain -->
+  <rect width="1600" height="900" fill="url(#vignette6)"/>
+  <rect width="1600" height="900" fill="#808080" fill-opacity="0.025" filter="url(#grain6)"/>
+</svg>

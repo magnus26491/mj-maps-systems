@@ -10,7 +10,7 @@ import BeforeAfterSlider from '../components/BeforeAfterSlider.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingCards from '../components/PricingCards.astro';
 import FAQ from '../components/FAQ.astro';
-import HeroIllustration from '../components/HeroIllustration.astro';
+import HeroHUD from '../components/HeroHUD.astro';
 import GatePinIllustration from '../components/GatePinIllustration.astro';
 import { t } from '../i18n/index';
 ---
@@ -38,11 +38,21 @@ import { t } from '../i18n/index';
     <!-- HERO — editorial asymmetric: map bg + device + route HUD          -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section id="hero" class="hero-section" aria-labelledby="hero-heading">
-      <!-- Dark map grid background — subtle UK road network -->
-      <MapBackground variant="hero" overlay={true} opacity={0.45} />
-
-      <!-- Teal ambient glow (intersection highlight) -->
-      <div class="hero-radial" aria-hidden="true"></div>
+      <!-- Full-bleed atmospheric van photo (eager — LCP element) -->
+      <picture>
+        <source srcset="/img/photos/hero-van-dawn.webp" type="image/webp" />
+        <img
+          src="/img/photos/hero-van-dawn.png"
+          alt="White box van on a foggy UK rural lane at dawn — MJ Maps navigation"
+          class="hero-photo"
+          loading="eager"
+          fetchpriority="high"
+          width="1920"
+          height="1080"
+        />
+      </picture>
+      <!-- Dark left scrim: text readable on left, photo bleeds through on right -->
+      <div class="hero-scrim" aria-hidden="true"></div>
 
       <div class="container hero-inner">
         <!-- Left: bold editorial text column -->
@@ -99,17 +109,9 @@ import { t } from '../i18n/index';
           </div>
         </div>
 
-        <!-- Right: cinematic SVG illustration — van + live HUD -->
-        <div class="hero-device-wrap reveal" data-delay="160" aria-hidden="true">
-          <!-- Ambient floating RouteLine motif -->
-          <div class="hero-routeline">
-            <RouteLine score="teal" animated={true} viewBox="0 0 320 180" />
-          </div>
-
-          <!-- Hero illustration: dark cinematic delivery scene -->
-          <div class="hero-illustration-wrap">
-            <HeroIllustration />
-          </div>
+        <!-- Right: live device HUD with real photo background -->
+        <div class="hero-device-wrap reveal" data-delay="160">
+          <HeroHUD photo="turn-score-night" score="green" />
         </div>
       </div>
 
@@ -122,6 +124,22 @@ import { t } from '../i18n/index';
         </svg>
       </div>
     </section>
+
+    <script>
+      // ── Hero parallax: subtle translate on scroll, mobile-safe ────────────
+      (function () {
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReduced) return;
+        const heroPhoto = document.querySelector<HTMLImageElement>('.hero-photo');
+        if (!heroPhoto) return;
+        function onScroll() {
+          const scrolled = window.scrollY;
+          // Move photo at 30% of scroll speed (subtle depth)
+          heroPhoto.style.transform = `translateY(${scrolled * 0.30}px)`;
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+      })();
+    </script>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- TRUST BAR — honest badges only                                    -->
@@ -186,13 +204,29 @@ import { t } from '../i18n/index';
           </div>
           <div class="ba-slider-wrap reveal" data-delay="120">
             <BeforeAfterSlider
-              beforeSrc="/img/before-postcode-centroid.svg"
-              afterSrc="/img/after-gate-pin.svg"
+              beforeSrc="/img/maps/before-postcode-centroid.svg"
+              afterSrc="/img/maps/after-gate-pin.svg"
               beforeLabel={t('beforeAfter.beforeLabel')}
               afterLabel={t('beforeAfter.afterLabel')}
               initialPosition={45}
             />
             <p class="ba-hint mono">{t('beforeAfter.hint')}</p>
+            <!-- Supporting driver-at-gate photo -->
+            <figure class="ba-supporting-photo reveal" data-delay="200">
+              <picture>
+                <source srcset="/img/photos/gate-pin-delivery.webp" type="image/webp" />
+                <img
+                  src="/img/photos/gate-pin-delivery.png"
+                  alt="Driver in hi-vis at a UK farm gate with phone showing exact Plus Code delivery pin"
+                  width="600"
+                  height="338"
+                  loading="lazy"
+                />
+              </picture>
+              <figcaption class="mono">
+                Driver at the gate — pin within 2 metres, no need to ask
+              </figcaption>
+            </figure>
           </div>
         </div>
       </div>
@@ -434,16 +468,29 @@ import { t } from '../i18n/index';
     overflow: hidden;
   }
 
-  .hero-radial {
+  /* Full-bleed van-dawn photo */
+  .hero-photo {
     position: absolute;
-    top: -20%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 800px;
-    height: 600px;
-    background: radial-gradient(ellipse, rgba(0, 194, 168, 0.08) 0%, transparent 65%);
-    pointer-events: none;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+    z-index: 0;
+  }
+
+  /* Left-to-dark scrim: text readable left, photo bleeds right */
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
     z-index: 1;
+    background: linear-gradient(
+      to right,
+      rgba(10, 12, 16, 0.97) 0%,
+      rgba(10, 12, 16, 0.78) 30%,
+      rgba(10, 12, 16, 0.40) 52%,
+      transparent 72%
+    );
   }
 
   .hero-inner {
@@ -735,6 +782,27 @@ import { t } from '../i18n/index';
     color: var(--ink-faint);
     font-size: 0.75rem;
     margin-top: 10px;
+  }
+
+  .ba-supporting-photo {
+    margin: 24px 0 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-base);
+  }
+
+  .ba-supporting-photo img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .ba-supporting-photo figcaption {
+    background: var(--surface-1);
+    color: var(--ink-faint);
+    font-size: 0.75rem;
+    padding: 10px 14px;
+    text-align: center;
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */

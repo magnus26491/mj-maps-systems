@@ -55,15 +55,18 @@ const messages: Record<string, { heading: string; sub: string; badge: string }> 
 >
   <!-- SVG road scene -->
   <div class="turn-scene" aria-hidden="true">
-    <!-- Real cartographic background: baked junction-map SVG -->
-    <img
-      src="/img/junction-map.svg"
-      alt=""
-      class="turn-map-bg"
-      width="320"
-      height="180"
-      loading="lazy"
-    />
+    <!-- Real photo background: night driving scene with HUD -->
+    <picture>
+      <source srcset="/img/photos/turn-score-night.webp" type="image/webp" />
+      <img
+        src="/img/photos/turn-score-night.png"
+        alt="Night driving scene — MJ Maps navigation HUD with GREEN turn score"
+        class="turn-map-bg"
+        width="320"
+        height="180"
+        loading="lazy"
+      />
+    </picture>
     <!-- Turn score SVG overlay -->
     <svg
       class="turn-svg"

@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-label="White delivery van driving down a sunny UK rural lane, stone walls on both sides, blue sky">
+  <title>Van on a sunny rural lane — For Drivers hero</title>
+  <defs>
+    <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1a4a80"/>
+      <stop offset="30%"  stop-color="#3a70a8"/>
+      <stop offset="55%"  stop-color="#6a9ac8"/>
+      <stop offset="100%" stop-color="#9ab8d8"/>
+    </linearGradient>
+    <linearGradient id="road2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#2a2a30"/>
+      <stop offset="100%" stop-color="#18181e"/>
+    </linearGradient>
+    <linearGradient id="vbody2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#f0f0f0"/>
+      <stop offset="100%" stop-color="#c4c4c4"/>
+    </linearGradient>
+    <linearGradient id="wall-l" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#888070"/>
+      <stop offset="100%" stop-color="#a09880"/>
+    </linearGradient>
+    <linearGradient id="wall-r" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0%"   stop-color="#888070"/>
+      <stop offset="100%" stop-color="#a09880"/>
+    </linearGradient>
+    <radialGradient id="headlight2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#fff8d0" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ffd080" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette2" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
+    </radialGradient>
+    <filter id="sw2" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/></filter>
+    <filter id="grain2" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch" result="n"/>
+      <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+      <feBlend in="SourceGraphic" in2="g" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="1080" fill="url(#sky2)"/>
+
+  <!-- Clouds -->
+  <g fill="#ffffff" opacity="0.6" filter="url(#sw2)">
+    <ellipse cx="200"  cy="120" rx="120" ry="50"/>
+    <ellipse cx="320"  cy="100" rx="100" ry="45"/>
+    <ellipse cx="150"  cy="140" rx="80"  ry="35"/>
+    <ellipse cx="1400" cy="90"  rx="130" ry="55"/>
+    <ellipse cx="1540" cy="70"  rx="100" ry="45"/>
+    <ellipse cx="1600" cy="110" rx="80"  ry="38"/>
+    <ellipse cx="700"  cy="60"  rx="90"  ry="40"/>
+    <ellipse cx="800"  cy="45"  rx="70"  ry="32"/>
+  </g>
+
+  <!-- Grass/fields -->
+  <rect x="0"   y="550" width="1920" height="530" fill="#4a7a2a"/>
+  <g fill="#3a6820" opacity="0.4">
+    <ellipse cx="400"  cy="600" rx="200" ry="60"/>
+    <ellipse cx="1100" cy="580" rx="250" ry="70"/>
+    <ellipse cx="1600" cy="610" rx="180" ry="55"/>
+  </g>
+
+  <!-- Left stone wall -->
+  <rect x="0" y="480" width="580" height="600" fill="url(#wall-l)"/>
+  <g stroke="#706858" stroke-width="0.8" opacity="0.6">
+    <!-- Horizontal mortar lines -->
+    <line x1="0" y1="510" x2="580" y2="510"/>
+    <line x1="0" y1="545" x2="580" y2="545"/>
+    <line x1="0" y1="580" x2="580" y2="580"/>
+    <line x1="0" y1="615" x2="580" y2="615"/>
+    <line x1="0" y1="650" x2="580" y2="650"/>
+    <line x1="0" y1="685" x2="580" y2="685"/>
+    <line x1="0" y1="720" x2="580" y2="720"/>
+    <line x1="0" y1="755" x2="580" y2="755"/>
+    <line x1="0" y1="790" x2="580" y2="790"/>
+    <line x1="0" y1="825" x2="580" y2="825"/>
+    <line x1="0" y1="860" x2="580" y2="860"/>
+    <line x1="0" y1="895" x2="580" y2="895"/>
+    <line x1="0" y1="930" x2="580" y2="930"/>
+    <line x1="0" y1="965" x2="580" y2="965"/>
+    <line x1="0" y1="1000" x2="580" y2="1000"/>
+    <line x1="0" y1="1035" x2="580" y2="1035"/>
+  </g>
+  <!-- Wall coping -->
+  <rect x="0" y="472" width="580" height="14" rx="2" fill="#989088"/>
+  <!-- Ivy/moss on wall -->
+  <g fill="#2a4818" opacity="0.3">
+    <ellipse cx="100" cy="520" rx="30" ry="15"/>
+    <ellipse cx="280" cy="550" rx="25" ry="12"/>
+    <ellipse cx="450" cy="530" rx="35" ry="16"/>
+    <ellipse cx="200" cy="590" rx="20" ry="10"/>
+  </g>
+
+  <!-- Right stone wall -->
+  <rect x="1340" y="480" width="580" height="600" fill="url(#wall-r)"/>
+  <g stroke="#706858" stroke-width="0.8" opacity="0.6">
+    <line x1="1340" y1="510" x2="1920" y2="510"/>
+    <line x1="1340" y1="545" x2="1920" y2="545"/>
+    <line x1="1340" y1="580" x2="1920" y2="580"/>
+    <line x1="1340" y1="615" x2="1920" y2="615"/>
+    <line x1="1340" y1="650" x2="1920" y2="650"/>
+    <line x1="1340" y1="685" x2="1920" y2="685"/>
+    <line x1="1340" y1="720" x2="1920" y2="720"/>
+    <line x1="1340" y1="755" x2="1920" y2="755"/>
+    <line x1="1340" y1="790" x2="1920" y2="790"/>
+    <line x1="1340" y1="825" x2="1920" y2="825"/>
+    <line x1="1340" y1="860" x2="1920" y2="860"/>
+    <line x1="1340" y1="895" x2="1920" y2="895"/>
+    <line x1="1340" y1="930" x2="1920" y2="930"/>
+    <line x1="1340" y1="965" x2="1920" y2="965"/>
+    <line x1="1340" y1="1000" x2="1920" y2="1000"/>
+    <line x1="1340" y1="1035" x2="1920" y2="1035"/>
+  </g>
+  <rect x="1340" y="472" width="580" height="14" rx="2" fill="#989088"/>
+
+  <!-- Road -->
+  <path d="M 580 600 L 1340 600 L 1920 1080 L 0 1080 Z" fill="url(#road2)"/>
+  <!-- Road edge lines -->
+  <line x1="580" y1="600" x2="0"   y2="1080" stroke="#38383e" stroke-width="2.5" opacity="0.6"/>
+  <line x1="1340" y1="600" x2="1920" y2="1080" stroke="#38383e" stroke-width="2.5" opacity="0.6"/>
+  <!-- Centre dashes -->
+  <g stroke="#48484e" stroke-width="1.5" stroke-dasharray="24,32" stroke-linecap="round" opacity="0.4">
+    <line x1="590" y1="620" x2="1920" y2="1080"/>
+    <line x1="1330" y1="620" x2="0"   y2="1080"/>
+  </g>
+
+  <!-- Van (front 3/4 view, heading right into lane) -->
+  <g filter="url(#sw2)">
+    <!-- Shadow -->
+    <ellipse cx="960" cy="940" rx="250" ry="30" fill="#000" fill-opacity="0.3"/>
+    <!-- Cab body -->
+    <rect x="760" y="640" width="400" height="260" rx="10" fill="url(#vbody2)"/>
+    <!-- Cab roof -->
+    <rect x="750" y="625" width="420" height="28" rx="6" fill="#e0e0e0"/>
+    <!-- Windscreen -->
+    <rect x="1000" y="645" width="140" height="90" rx="6" fill="#1a2838" fill-opacity="0.85"/>
+    <rect x="1005" y="650" width="55" height="5" rx="2" fill="#fff" fill-opacity="0.18"/>
+    <!-- Side windows -->
+    <rect x="770" y="655" width="80"  height="60" rx="4" fill="#1a2838" fill-opacity="0.75"/>
+    <rect x="860" y="655" width="80"  height="60" rx="4" fill="#1a2838" fill-opacity="0.75"/>
+    <!-- Cargo box (rear) -->
+    <rect x="480" y="640" width="290" height="260" rx="6" fill="url(#vbody2)"/>
+    <!-- Box ribs -->
+    <g stroke="#d0d0d0" stroke-width="0.7" opacity="0.3">
+      <line x1="480" y1="710" x2="770" y2="710"/>
+      <line x1="480" y1="780" x2="770" y2="780"/>
+      <line x1="480" y1="850" x2="770" y2="850"/>
+    </g>
+    <!-- Side panel -->
+    <rect x="480" y="640" width="50" height="260" fill="#c8c8c8"/>
+    <rect x="484" y="660" width="42" height="220" rx="2" fill="#e0e0e0"/>
+    <!-- Bumper -->
+    <rect x="1150" y="870" width="30" height="36" rx="4" fill="#b0b0b0"/>
+    <!-- Headlights -->
+    <rect x="1152" y="780" width="26" height="30" rx="4" fill="#f0f0a0" fill-opacity="0.9"/>
+    <rect x="1152" y="820" width="26" height="30" rx="4" fill="#f0f0a0" fill-opacity="0.7"/>
+    <!-- Number plate -->
+    <rect x="1110" y="872" width="44" height="20" rx="2" fill="#f0f0dc"/>
+    <text x="1132" y="886" text-anchor="middle" fill="#1a1a28" font-family="monospace" font-size="9" font-weight="bold">NL63 OXM</text>
+    <!-- Side mirror -->
+    <rect x="740" y="660" width="14" height="10" rx="2" fill="#b8b8b8"/>
+    <!-- Wheels -->
+    <ellipse cx="580"  cy="900" rx="46" ry="20" fill="#111"/>
+    <ellipse cx="580"  cy="900" rx="30" ry="13" fill="#1c1c1c"/>
+    <ellipse cx="580"  cy="900" rx="12" ry="6"  fill="#282828"/>
+    <ellipse cx="1060" cy="900" rx="46" ry="20" fill="#111"/>
+    <ellipse cx="1060" cy="900" rx="30" ry="13" fill="#1c1c1c"/>
+    <ellipse cx="1060" cy="900" rx="12" ry="6"  fill="#282828"/>
+  </g>
+
+  <!-- Headlight glow -->
+  <ellipse cx="1170" cy="820" rx="80" ry="50" fill="url(#headlight2)" opacity="0.5"/>
+
+  <!-- Foreground verge -->
+  <g fill="#3a6020" opacity="0.7">
+    <path d="M 0 1000 Q 80 980 160 990 Q 240 1000 320 990 L 320 1080 L 0 1080 Z"/>
+    <path d="M 1920 1000 Q 1840 980 1760 990 Q 1680 1000 1600 990 L 1600 1080 L 1920 1080 Z"/>
+  </g>
+
+  <!-- Vignette + grain -->
+  <rect width="1920" height="1080" fill="url(#vignette2)"/>
+  <rect width="1920" height="1080" fill="#808080" fill-opacity="0.02" filter="url(#grain2)"/>
+</svg>
