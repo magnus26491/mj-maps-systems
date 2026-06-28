@@ -91,7 +91,14 @@ const plans: PlanId[] = ['navigation', 'custom'];
         </div>
 
         <div class="compare-table-wrap reveal">
-          <table class="compare-table" role="table">
+          <table class="compare-table">
+            <thead class="sr-only">
+              <tr>
+                <th scope="col">Feature</th>
+                <th scope="col">Driver Pro</th>
+                <th scope="col">Enterprise</th>
+              </tr>
+            </thead>
             <tbody>
               {allFeatureKeys.map(key => {
                 const meta = FEATURE_META[key];

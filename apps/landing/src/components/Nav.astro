@@ -67,8 +67,8 @@ const links = [
   </div>
 </header>
 
-<!-- Mobile drawer -->
-<div id="nav-drawer" class="nav-drawer glass" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Navigation menu">
+<!-- Mobile drawer — NOT aria-hidden when closed (aria-hidden blocks focus+accessibility tree) -->
+<div id="nav-drawer" class="nav-drawer glass" aria-label="Navigation menu">
   <div class="drawer-inner">
     <button id="nav-close" class="drawer-close" aria-label={t("nav.closeMenu")}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -216,6 +216,8 @@ const links = [
 
   /* Drawer */
   .nav-drawer {
+    visibility: hidden;
+    pointer-events: none;
     position: fixed;
     inset: 0;
     z-index: 200;
@@ -230,6 +232,8 @@ const links = [
   }
 
   .nav-drawer.open {
+    visibility: visible;
+    pointer-events: auto;
     transform: translateX(0);
     opacity: 1;
   }
@@ -332,7 +336,7 @@ const links = [
   function openMenu() {
     drawer.classList.add('open');
     overlay.classList.add('open');
-    drawer.removeAttribute('aria-hidden');
+    
     hamburger.setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
     closeBtn.focus();
@@ -341,7 +345,7 @@ const links = [
   function closeMenu() {
     drawer.classList.remove('open');
     overlay.classList.remove('open');
-    drawer.setAttribute('aria-hidden', 'true');
+    
     hamburger.setAttribute('aria-expanded', 'false');
     document.body.style.overflow = '';
     hamburger.focus();
