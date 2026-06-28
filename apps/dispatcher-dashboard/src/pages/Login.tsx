@@ -18,7 +18,8 @@ export default function Login() {
     if (localStorage.getItem('mj_dispatcher_token')) {
       navigateRef.current('/');
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

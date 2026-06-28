@@ -25,6 +25,7 @@ export async function login(email: string, password: string) {
 
 export function logout(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('mj_user_role');
 }
 
 function authHeaders(): HeadersInit {
@@ -135,14 +136,24 @@ export async function deleteDriver(driverId: string): Promise<{ success: boolean
 
 // ── SSE URL helpers ──────────────────────────────────────────────────────────
 
-export function getAlertStreamUrl(): string {
-  const token = localStorage.getItem(TOKEN_KEY) ?? '';
+/** Returns the alert SSE URL only when a non-empty token is present. */
+export function getAlertStreamUrl(): string | null {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
   return `/api/v1/dispatcher/alerts/stream?token=${encodeURIComponent(token)}`;
 }
 
-export function getLocationStreamUrl(): string {
-  const token = localStorage.getItem(TOKEN_KEY) ?? '';
+/** Returns the location SSE URL only when a non-empty token is present. */
+export function getLocationStreamUrl(): string | null {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
   return `/api/v1/dispatcher/locations/stream?token=${encodeURIComponent(token)}`;
+}
+
+/** True when a valid token is known to exist in localStorage. */
+export function hasToken(): boolean {
+  const t = localStorage.getItem(TOKEN_KEY);
+  return Boolean(t && t.length > 0);
 }
 
 export async function getStopPod(stopId: string): Promise<{ podUrl: string; podType: string; podCapturedAt: string }> {
@@ -456,7 +467,7 @@ export async function adminGetUsers(params?: {
   if (params?.plan) qs.set('plan', params.plan);
   if (params?.isActive) qs.set('isActive', params.isActive);
   if (params?.sort) qs.set('sort', params.sort);
-  const path = `/api/v1/admin/users${qs.size ? `?${qs}` : ''}`;
+  const path = `/users${qs.size ? `?${qs}` : ''}`;
   const data = await adminFetch(path) as { ok: boolean; users: AdminUser[]; pagination: { page: number; limit: number; total: number; totalPages: number } };
   return { users: data.users, pagination: data.pagination };
 }
@@ -465,7 +476,7 @@ export async function adminGetUser(userId: string): Promise<{
   user: AdminUser;
   recentRoutes: { id: string; status: string; totalStops: number; completedStops: number; failedStops: number; shiftStart: string | null; createdAt: string }[];
 }> {
-  return adminFetch(`/api/v1/admin/users/${userId}`) as Promise<{
+  return adminFetch(`/users/${userId}`) as Promise<{
     user: AdminUser;
     recentRoutes: { id: string; status: string; totalStops: number; completedStops: number; failedStops: number; shiftStart: string | null; createdAt: string }[];
   }>;
@@ -475,7 +486,7 @@ export async function adminImpersonate(userId: string, reason: string): Promise<
   token: string; expiresAt: string; sessionId: string;
   impersonatedUser: { id: string; email: string; role: string };
 }> {
-  const data = await adminFetch(`/api/v1/admin/users/${userId}/impersonate`, {
+  const data = await adminFetch(`/users/${userId}/impersonate`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   }) as { ok: boolean; token: string; expiresAt: string; sessionId: string; impersonatedUser: { id: string; email: string; role: string } };
@@ -483,7 +494,7 @@ export async function adminImpersonate(userId: string, reason: string): Promise<
 }
 
 export async function adminEndImpersonation(sessionId?: string): Promise<{ success: boolean }> {
-  return adminFetch('/api/v1/admin/impersonation/end', {
+  return adminFetch('/impersonation/end', {
     method: 'POST',
     body: JSON.stringify({ sessionId }),
   }) as Promise<{ success: boolean }>;
@@ -492,7 +503,7 @@ export async function adminEndImpersonation(sessionId?: string): Promise<{ succe
 export async function adminChangePlan(userId: string, newPlan: string, reason: string): Promise<{
   user: { id: string; email: string; plan: string };
 }> {
-  return adminFetch(`/api/v1/admin/users/${userId}/plan`, {
+  return adminFetch(`/users/${userId}/plan`, {
     method: 'PATCH',
     body: JSON.stringify({ newPlan, reason }),
   }) as Promise<{ user: { id: string; email: string; plan: string } }>;
@@ -510,29 +521,29 @@ export async function adminGetAuditLogs(params?: {
   if (params?.to) qs.set('to', params.to);
   if (params?.page) qs.set('page', String(params.page));
   if (params?.limit) qs.set('limit', String(params.limit));
-  const path = `/api/v1/admin/audit-logs${qs.size ? `?${qs}` : ''}`;
+  const path = `/audit-logs${qs.size ? `?${qs}` : ''}`;
   return adminFetch(path) as Promise<{ logs: AdminAuditLog[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>;
 }
 
 export async function adminGetFeatureFlags(): Promise<{ flags: AdminFeatureFlag[] }> {
-  return adminFetch('/api/v1/admin/feature-flags') as Promise<{ flags: AdminFeatureFlag[] }>;
+  return adminFetch('/feature-flags') as Promise<{ flags: AdminFeatureFlag[] }>;
 }
 
 export async function adminToggleFeatureFlag(key: string, value: unknown, reason: string): Promise<{
   flag: { key: string; value: unknown; description: string };
 }> {
-  return adminFetch(`/api/v1/admin/feature-flags/${encodeURIComponent(key)}`, {
+  return adminFetch(`/feature-flags/${encodeURIComponent(key)}`, {
     method: 'PATCH',
     body: JSON.stringify({ value, reason }),
   }) as Promise<{ flag: { key: string; value: unknown; description: string } }>;
 }
 
 export async function adminGetPlatformAnalytics(): Promise<{ analytics: AdminPlatformAnalytics }> {
-  return adminFetch('/api/v1/admin/platform-analytics') as Promise<{ analytics: AdminPlatformAnalytics }>;
+  return adminFetch('/platform-analytics') as Promise<{ analytics: AdminPlatformAnalytics }>;
 }
 
 export async function adminGetSystemHealth(): Promise<{ health: AdminSystemHealth }> {
-  return adminFetch('/api/v1/admin/system-health') as Promise<{ health: AdminSystemHealth }>;
+  return adminFetch('/system-health') as Promise<{ health: AdminSystemHealth }>;
 }
 
 export async function adminGetSubscriptions(params?: { page?: number; limit?: number }): Promise<{
@@ -542,7 +553,7 @@ export async function adminGetSubscriptions(params?: { page?: number; limit?: nu
   const qs = new URLSearchParams();
   if (params?.page) qs.set('page', String(params.page));
   if (params?.limit) qs.set('limit', String(params.limit));
-  const path = `/api/v1/admin/subscriptions${qs.size ? `?${qs}` : ''}`;
+  const path = `/subscriptions${qs.size ? `?${qs}` : ''}`;
   return adminFetch(path) as Promise<{
     subscriptions: unknown[];
     pagination: { page: number; limit: number; note?: string };

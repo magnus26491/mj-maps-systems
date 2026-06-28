@@ -16,6 +16,23 @@ import { useRoutes } from '../hooks/useRoutes';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  // Auth check state — guard all data hooks behind it
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Auth guard: run FIRST, before any hooks fire their API requests.
+  // The `authChecked` flag gates the entire render so no unauthenticated
+  // API calls are made while the token check is in-flight.
+  useEffect(() => {
+    if (!localStorage.getItem('mj_dispatcher_token')) {
+      navigate('/login');
+      return;
+    }
+    setAuthChecked(true);
+  }, [navigate]);
+
+  // While auth is being checked, render nothing to prevent API flood.
+  if (!authChecked) return null;
+
   const { stats, isLoading: statsLoading } = useStats();
   const { routes, isLoading: routesLoading } = useRoutes();
   const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
@@ -25,15 +42,8 @@ export default function Dashboard() {
   // Determine if current user is an admin (from persisted login role)
   const isAdmin = localStorage.getItem('mj_user_role') === 'admin';
 
-  useEffect(() => {
-    if (!localStorage.getItem('mj_dispatcher_token')) {
-      navigate('/login');
-    }
-  }, [navigate]);
-
   function handleSignOut() {
     logout();
-    localStorage.removeItem('mj_user_role');
     navigate('/login');
   }
 
