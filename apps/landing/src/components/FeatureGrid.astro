@@ -14,11 +14,26 @@ const {
   featureKeys = HOME_FEATURE_KEYS,
 } = Astro.props;
 
+// Custom SVG icons per feature — matches cartographic/dark theme
+const FEATURE_ICONS: Record<FeatureKey, string> = {
+  HGV_ROUTING:        `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 10h2l4 4v4h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="18" r="1.5" fill="currentColor"/><circle cx="17" cy="18" r="1.5" fill="currentColor"/></svg>`,
+  BRIDGE_RESTRICTIONS:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 14h18M5 14l1-8h12l1 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 14v4M15 14v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 4V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="2" r="1" fill="currentColor"/></svg>`,
+  TURN_SCORE:         `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`,
+  UNPAVED_SCORING:    `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/></svg>`,
+  OFFLINE_CACHE:      `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h2M20 12h2M12 2v2M12 20v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.4"/></svg>`,
+  W3W_PIN:            `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="1.5"/></svg>`,
+  POD_PHOTO:          `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/><path d="M3 16l4-4 3 3 4-5 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  SIGNATURE_CAPTURE:  `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 16c2-3 3-4 5-4s3 2 5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  DISPATCHER:         `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M6 8h3M6 11h5M15 8h3M15 11h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  LIVE_TRACKING_WS:   `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.5"/></svg>`,
+};
+
 const features = featureKeys.map(key => ({
   key,
   ...FEATURE_META[key],
   inPro: hasFeature('navigation', key),
   inEnterprise: hasFeature('custom', key),
+  icon: FEATURE_ICONS[key] ?? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/></svg>`,
 }));
 ---
 
@@ -31,21 +46,29 @@ const features = featureKeys.map(key => ({
     <div class="fg-grid">
       {features.map((f, i) => (
         <div class="fg-card card reveal" data-delay={String(i * 60)}>
-          <div class="fg-card-top">
-            <h3 class="fg-card-title">{f.label}</h3>
-            {f.signal && (
-              <span class={`chip chip-${f.signal}`} aria-label={`Turn-score: ${f.signal}`}>
-                {f.signal === 'green' ? '● Safe' : f.signal === 'amber' ? '⚠ Caution' : '✕ Alert'}
-              </span>
-            )}
-            {f.comingSoon && (
-              <span class="chip chip-brand">Soon</span>
-            )}
+          <!-- Icon row -->
+          <div class="fg-card-icon-row">
+            <div class="fg-card-icon" aria-hidden="true" set:html={f.icon} />
+            <div class="fg-card-chips">
+              {f.signal && (
+                <span class={`chip chip-${f.signal} chip-sm`} aria-label={`Turn-score: ${f.signal}`}>
+                  {f.signal === 'green' ? '● Safe' : f.signal === 'amber' ? '⚠ Caution' : '✕ Alert'}
+                </span>
+              )}
+              {f.comingSoon && (
+                <span class="chip chip-brand chip-sm">Soon</span>
+              )}
+            </div>
           </div>
+
+          <!-- Content -->
+          <h3 class="fg-card-title">{f.label}</h3>
           <p class="fg-card-desc text-muted">{f.description}</p>
+
+          <!-- Plan dots -->
           <div class="fg-plan-dots" aria-label={`Available in: ${f.inPro ? 'Driver Pro' : ''}${f.inPro && f.inEnterprise ? ', ' : ''}${f.inEnterprise ? 'Enterprise' : ''}`}>
-            {f.inPro && <span class="plan-dot plan-dot-pro" title="Driver Pro">Pro</span>}
-            {f.inEnterprise && !f.inPro && <span class="plan-dot plan-dot-ent" title="Enterprise">Enterprise</span>}
+            {f.inPro && <span class="plan-dot plan-dot-pro">Driver Pro</span>}
+            {f.inEnterprise && !f.inPro && <span class="plan-dot plan-dot-ent">Enterprise</span>}
           </div>
         </div>
       ))}
@@ -81,47 +104,87 @@ const features = featureKeys.map(key => ({
   .fg-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    transition: background var(--dur-micro) ease-out,
-                box-shadow var(--dur-micro) ease-out;
+    gap: 10px;
+    transition:
+      background var(--dur-micro) ease-out,
+      box-shadow var(--dur-micro) ease-out,
+      border-color var(--dur-micro) ease-out;
+    border: 1px solid transparent;
   }
 
   @media (hover: hover) {
     .fg-card:hover {
       background: var(--surface-2);
-      box-shadow: var(--sh-md);
+      border-color: rgba(0, 194, 168, 0.15);
+      box-shadow: 0 4px 20px rgb(0 0 0 / 0.25), 0 0 0 1px rgba(0, 194, 168, 0.08);
     }
   }
 
-  .fg-card-top {
+  .fg-card-icon-row {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
     justify-content: space-between;
+    gap: 12px;
+  }
+
+  .fg-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-md);
+    background: rgba(0, 194, 168, 0.08);
+    border: 1px solid rgba(0, 194, 168, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brand);
+    flex-shrink: 0;
+  }
+
+  .fg-card-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .chip-sm {
+    font-size: 0.6875rem;
+    padding: 2px 8px;
+    border-radius: var(--r-pill);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
   }
 
   .fg-card-title {
-    font-size: 1rem;
-    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.3;
   }
 
   .fg-card-desc {
+    font-size: 0.875rem;
+    line-height: 1.55;
     flex: 1;
   }
 
   .fg-plan-dots {
     display: flex;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: auto;
+    padding-top: 4px;
   }
 
   .plan-dot {
-    font-size: 0.6875rem;
-    font-weight: 600;
+    font-size: 0.625rem;
+    font-weight: 700;
     padding: 2px 8px;
     border-radius: var(--r-pill);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
 
   .plan-dot-pro  { background: rgba(0,194,168,0.12); color: var(--brand-bright); }
