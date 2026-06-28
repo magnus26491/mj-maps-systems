@@ -64,6 +64,7 @@ import { safetyRoutes } from './routes/safety.js';
 import { fleetStreamRoute } from './routes/fleet-stream.js';
 import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
 import { poisRoute } from './routes/pois.js';
+import { sendPlatformAlert } from '../notifications/telegram-alerts.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -88,6 +89,11 @@ if (NODE_ENV === 'production') {
 
 process.on('uncaughtException', (err: Error) => {
   console.error('[mj-maps-api] UNCAUGHT EXCEPTION:', err.message, err.stack);
+  sendPlatformAlert({
+    level:   'CRITICAL',
+    service: 'api',
+    message: `Uncaught exception: ${err.message}`,
+  }).catch(() => {});
   process.exit(1);
 });
 
@@ -250,6 +256,11 @@ const start = async () => {
       ]);
       return reply.send({ ok: true, status: 'ready' });
     } catch {
+      sendPlatformAlert({
+        level:   'CRITICAL',
+        service: 'database',
+        message: 'Health check failed: DB unreachable',
+      }).catch(() => {});
       return reply.code(503).send({
         ok: false,
         status: 'unavailable',
@@ -476,7 +487,10 @@ const shutdown = async (signal: string) => {
   }
 };
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGTERM', () => {
+  sendPlatformAlert({ level: 'INFO', service: 'api', message: 'Server shutting down gracefully (SIGTERM)' }).catch(() => {});
+  shutdown('SIGTERM');
+});
 process.on('SIGINT',  () => shutdown('SIGINT'));
 
 start();

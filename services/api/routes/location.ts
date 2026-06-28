@@ -60,19 +60,14 @@ async function detectOffRoute(
 
   await redis.setex(dedupeKey, OFF_ROUTE_DEDUP_TTL_S, '1').catch(() => {});
 
-  // Fire Telegram OFF_ROUTE alert
-  const botToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
-  const dispatcherChatId = process.env.TELEGRAM_DISPATCHER_CHAT_ID ?? '';
-  const driverChatIds: Record<string, string> = (() => {
-    try { return JSON.parse(process.env.TELEGRAM_DRIVER_CHAT_IDS ?? '{}'); } catch { return {}; }
-  })();
-  if (!botToken || !dispatcherChatId) return;
-
-  const { sendAlert } = await import('../../notifications/telegram-alerts.js');
-  await sendAlert(
-    { botToken, driverChatIds, dispatcherChatId },
-    { type: 'OFF_ROUTE', driverId, routeId },
-  ).catch(() => {});
+  // Deliver OFF_ROUTE alert via WebSocket to the driver's HUD (Layer 1)
+  const { broadcastToDriver } = await import('../driver-api.js');
+  broadcastToDriver(driverId, {
+    type:    'OFF_ROUTE_ALERT',
+    routeId,
+    message: 'You have deviated from the planned route. Recalculating…',
+    ts:      Date.now(),
+  });
 }
 
 export async function locationRoute(server: FastifyInstance): Promise<void> {
