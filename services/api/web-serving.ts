@@ -279,6 +279,24 @@ export async function registerWebRoutes(server: any): Promise<void> {
     });
   }
 
+  // Landing public assets (Astro public/img/*, etc.)
+  server.get('/img/*', async (request: any, reply: FastifyReply) => {
+    const subPath = request.url.split('?')[0].replace(/^\/img\//, '');
+    const filePath = `img/${subPath}`;
+    const safePath = resolveSafePath(filePath, LANDING_ROOT);
+    if (!safePath || !fileExists(safePath)) {
+      reply.code(404).send('Not Found');
+      return;
+    }
+    const content = readFileSafe(safePath);
+    if (!content) { reply.code(500).send('Internal Server Error'); return; }
+    reply
+      .header('Content-Type', getMimeType(safePath))
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('X-Content-Type-Options', 'nosniff')
+      .code(200).send(content);
+  });
+
   // Landing sub-pages (Astro directory routing)
   for (const page of ['/pricing', '/features', '/drivers', '/fleet', '/about', '/contact', '/register', '/login']) {
     const p = page;
