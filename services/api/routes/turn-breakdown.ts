@@ -8,12 +8,12 @@
  * Accessible to: route owner (driver), dispatcher, admin.
  */
 import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireTier } from '../middleware/auth.js';
 
 export async function turnBreakdownRoutes(server: FastifyInstance): Promise<void> {
   server.get<{ Params: { routeId: string } }>(
     '/api/v1/routes/:routeId/turn-breakdown',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireTier('courier', 'fleet', 'enterprise')] },
     async (request, reply) => {
       const { routeId } = request.params;
       const authUser = (request as unknown as { authUser?: { id: string; role: string } }).authUser;
