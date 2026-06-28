@@ -611,6 +611,24 @@ export function handleDriverWebSocket(
         // Register only after auth is confirmed — prevents unauthenticated push
         driverSockets.set(driverId, socket);
         socket.send(JSON.stringify({ type: 'CONNECTED', driverId, routeId }));
+
+        // ── Queue drain: deliver any queued dispatcher messages (Fix 3) ──
+        (async () => {
+          try {
+            const { redis } = await import('../cache/index.js');
+            const queueKey = `dispatcher:queue:${driverId}`;
+            const queued = await redis.lrange(queueKey, 0, -1);
+            if (queued.length > 0) {
+              for (const msg of queued) {
+                socket.send(msg);
+                await new Promise(r => setTimeout(r, 50));
+              }
+              await redis.del(queueKey);
+            }
+          } catch {
+            // Non-fatal — continue normally if Redis unavailable
+          }
+        })();
       } catch (err: any) {
         const code = err?.name === 'TokenExpiredError' ? WS_CODE_TOKEN_EXPIRED : WS_CODE_UNAUTHORIZED;
         socket.close(code, err?.name ?? 'Auth failed');

@@ -47,6 +47,7 @@ import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
 import { fcmTokenRoutes } from './routes/fcm-token.js';
 import { dispatcherRoutes } from './routes/dispatcher.js';
+import { registerDispatcherMessageRoutes } from './routes/dispatcher-message.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
@@ -194,6 +195,7 @@ const start = async () => {
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
   await server.register(dispatcherRoutes);
+  await registerDispatcherMessageRoutes(server);
   await server.register(analyticsRoutes, {
     prefix: '/api/v1/dispatcher',
     hooks: {
