@@ -1,6 +1,6 @@
 {
   "name": "mj-maps-systems",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MJ Maps Systems — AI-powered delivery route intelligence platform",
   "main": "dist/services/api/server.js",
   "scripts": {

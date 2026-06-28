@@ -73,6 +73,7 @@ DO $$
 DECLARE
   flagged_count INTEGER := 0;
   row_count     INTEGER;
+  _cnt          INTEGER;
 BEGIN
   -- Phase 1: set plan_id from subscription_tier where it is non-null
   UPDATE users
