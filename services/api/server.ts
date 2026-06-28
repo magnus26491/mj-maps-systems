@@ -145,7 +145,6 @@ const start = async () => {
       ? [
           'https://mjmapsystems.com',
           'https://www.mjmapsystems.com',
-          'https://api.mjmapsystems.com',
           ...extraOrigins,
         ]
       : true,
@@ -421,7 +420,20 @@ const start = async () => {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
       { websocket: true },
-      (socket: any, req: any) => {
+      async (socket: any, req: any) => {
+        const token = (req.query as any)?.token;
+        if (!token) {
+          socket.send(JSON.stringify({ type: 'error', code: 'AUTH_REQUIRED' }));
+          socket.close(1008, 'Authentication required');
+          return;
+        }
+        try {
+          (req as any).authUser = (server as any).jwt.verify(token);
+        } catch {
+          socket.send(JSON.stringify({ type: 'error', code: 'AUTH_INVALID' }));
+          socket.close(1008, 'Invalid token');
+          return;
+        }
         const { driverId, routeId } = req.params as { driverId: string; routeId: string };
         handleDriverWebSocket(socket, driverId, routeId);
       },
