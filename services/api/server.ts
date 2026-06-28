@@ -24,6 +24,7 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
+import { pool } from '../db/index.js';
 import { registerWebRoutes } from './web-serving.js';
 import { z } from 'zod';
 import {
@@ -483,6 +484,28 @@ const start = async () => {
   // ── Web Frontend Routes ────────────────────────────────────────────────
   // Uses web-serving.ts module for safe static file serving
   await registerWebRoutes(server);
+
+  // ── Token cleanup job ─────────────────────────────────────────────────────
+  // Hard-deletes used+expired tokens after 7 days — keeps rows for audit trail.
+  // Runs once 30s after startup, then every 24h.
+  async function cleanupExpiredTokens() {
+    try {
+      const { rowCount } = await pool.query(
+        `DELETE FROM password_reset_tokens
+         WHERE expires_at < NOW() - INTERVAL '7 days'
+           AND used_at IS NOT NULL`,
+      );
+      if (rowCount && rowCount > 0) {
+        console.log(`[cleanup] Deleted ${rowCount} expired password reset tokens`);
+      }
+    } catch (err) {
+      console.error('[cleanup] Token cleanup failed:', err);
+    }
+  }
+  setTimeout(() => {
+    cleanupExpiredTokens();
+    setInterval(cleanupExpiredTokens, 24 * 60 * 60 * 1000);
+  }, 30_000);
 
   // ── Listen ────────────────────────────────────────────────────────────────
   try {

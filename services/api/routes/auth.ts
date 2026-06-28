@@ -11,6 +11,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import crypto from 'node:crypto';
 import { pool } from '../../db/index';
 import {
@@ -24,6 +25,7 @@ import {
   // UserRole intentionally not imported — role is always 'driver' in registration
 } from '../../auth/index';
 import { requireAuth } from '../middleware/auth.js';
+import { createAuditLog } from '../middleware/admin.js';
 
 // ── Request body schemas ─────────────────────────────────────────────────────
 
@@ -73,6 +75,17 @@ const LogoutSchema = {
   },
   required: ['refreshToken'],
 };
+
+// ── Zod validation schemas (password reset) ────────────────────────────────────
+
+const ForgotPasswordSchema = z.object({
+  email: z.string().email().max(254),
+});
+
+const ResetPasswordSchema = z.object({
+  token:       z.string().length(64).regex(/^[a-f0-9]+$/),
+  newPassword: z.string().min(8).max(128),
+});
 
 // ── Email (Resend) ─────────────────────────────────────────────────────────────
 
@@ -501,102 +514,195 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // ── POST /forgot-password ─────────────────────────────────────────────────
-  fastify.post('/forgot-password', async (req, reply) => {
-    const body = req.body as { email?: string };
-    const email = (body?.email ?? '').trim().toLowerCase();
+// Rate limit: 3 per IP+email per 15 minutes (enforced at server level)
+// Always returns 200 — never reveals whether email exists.
+fastify.post('/forgot-password', {
+  config: {
+    rateLimit: {
+      max:       3,
+      timeWindow: '15 minutes',
+      keyGenerator: (req: any) => {
+        const body = req.body as { email?: string };
+        return `${req.ip}:${body?.email ?? 'unknown'}`;
+      },
+    },
+  },
+}, async (req, reply) => {
+  const body = req.body as { email?: string };
+  const rawEmail = (body?.email ?? '').trim().toLowerCase();
 
-    if (!email || !EMAIL_RE.test(email)) {
-      return reply.code(200).send({ ok: true });
-    }
+  // Validate email format — return generic 200 for bad format too
+  const parsed = ForgotPasswordSchema.safeParse({ email: rawEmail });
+  if (!parsed.success) {
+    return reply.code(200).send({ ok: true });
+  }
+  const email = parsed.data.email;
 
-    // Look up the driver by email
-    const { rows } = await pool.query<{ id: string; email: string }>(
-      `SELECT id, email FROM drivers WHERE LOWER(email) = $1 LIMIT 1`,
-      [email],
-    );
+  // Look up the user by email
+  const { rows } = await pool.query<{ id: string; email: string }>(
+    `SELECT id, email FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+    [email],
+  );
 
-    if (rows.length === 0) {
-      // Always return 200 — prevents email enumeration
-      return reply.code(200).send({ ok: true });
-    }
+  if (rows.length === 0) {
+    // Always return 200 — prevents email enumeration
+    return reply.code(200).send({ ok: true });
+  }
 
-    const driver = rows[0];
+  const user = rows[0];
 
-    // Generate a secure reset token
-    const token    = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 3_600_000); // 1 hour from now
+  // Generate a cryptographically secure 64-char hex token
+  const rawToken   = crypto.randomBytes(32).toString('hex');
+  const tokenHash  = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt  = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+  const clientIp   = (req.headers['x-forwarded-for'] as string | undefined)
+    ?? req.ip ?? null;
+  const userAgent  = (req.headers['user-agent'] ?? null)?.substring(0, 500) ?? null;
 
-    // Store token — upsert in case driver requested multiple resets
-    await pool.query(
-      `INSERT INTO password_reset_tokens (token, driver_id, expires_at)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (driver_id) DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at`,
-      [token, driver.id, expiresAt],
-    );
+  // Invalidate all previous unused tokens for this user
+  await pool.query(
+    `UPDATE password_reset_tokens SET used_at = NOW()
+     WHERE user_id = $1 AND used_at IS NULL`,
+    [user.id],
+  );
 
-    // Send reset email via Resend
-    const resetUrl = `https://mjmapsystems.com/reset-password?token=${token}`;
-    const emailBody = [
-      `Click this link to reset your password (valid 1 hour):`,
-      `${resetUrl}`,
-      ``,
-      `If you did not request this, ignore this email.`,
-    ].join('\n');
+  // Store only the hash — raw token never touches the DB
+  await pool.query(
+    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, ip_address, user_agent)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [user.id, tokenHash, expiresAt, clientIp, userAgent],
+  );
 
-    sendResetEmail({
-      to:      driver.email,
-      subject: 'Reset your MJ Maps password',
-      body:    emailBody,
-    }).catch(err => {
-      fastify.log.error({ err, email: driver.email }, '[auth] forgot-password email failed');
+  // Send rawToken to the user via email — this is the only time it exists in plaintext
+  const resetUrl = `https://mjmapsystems.com/reset-password?token=${rawToken}`;
+  const emailBody = [
+    `Click this link to reset your MJ Maps password (valid 1 hour):`,
+    ``,
+    `${resetUrl}`,
+    ``,
+    `If you did not request this, you can safely ignore this email.`,
+    `Your password will not change unless you click the link above.`,
+  ].join('\n');
+
+  sendResetEmail({
+    to:      user.email,
+    subject: 'Reset your MJ Maps password',
+    body:    emailBody,
+  }).catch(err => {
+    fastify.log.error({ err, email: user.email }, '[auth] forgot-password email failed');
+  });
+
+  return reply.code(200).send({ ok: true });
+});
+
+
+// ── POST /reset-password ───────────────────────────────────────────────────
+// Consumes the token and sets the new password atomically.
+// Always returns TOKEN_INVALID for any failure — never reveals why.
+// Rate limit: 5 per IP per 15 minutes (brute-force protection on token guess).
+fastify.post('/reset-password', {
+  config: {
+    rateLimit: {
+      max:       5,
+      timeWindow: '15 minutes',
+      keyGenerator: (req: any) => req.ip,
+    },
+  },
+}, async (req, reply) => {
+  const body = req.body as { token?: string; newPassword?: string };
+  const { token, newPassword } = body ?? {};
+
+  // Validate input shape with Zod
+  const parsed = ResetPasswordSchema.safeParse({ token, newPassword });
+  if (!parsed.success) {
+    return reply.code(400).send({
+      ok:   false,
+      error: 'This reset link is invalid or has expired. Please request a new one.',
+      code: 'TOKEN_INVALID',
     });
+  }
 
-    return reply.code(200).send({ ok: true });
+  const { token: rawToken, newPassword: newPwd } = parsed.data;
+
+  // Hash the incoming token and look it up
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+  const { rows } = await pool.query<{
+    id:        number;
+    user_id:   string;
+    expires_at: Date;
+    used_at:   Date | null;
+  }>(
+    `SELECT id, user_id, expires_at, used_at
+     FROM password_reset_tokens
+     WHERE token_hash = $1`,
+    [tokenHash],
+  );
+
+  // Constant-time-style rejection — don't reveal WHY it failed
+  if (
+    !rows.length ||
+    rows[0].used_at !== null ||
+    new Date(rows[0].expires_at) < new Date()
+  ) {
+    return reply.code(400).send({
+      ok:   false,
+      error: 'This reset link is invalid or has expired. Please request a new one.',
+      code: 'TOKEN_INVALID',
+    });
+  }
+
+  const { id: tokenId, user_id: userId } = rows[0];
+
+  // Hash the new password
+  const newHash = await hashPassword(newPwd);
+
+  // Atomic transaction: mark token used + update password + invalidate other tokens
+  await pool.query('BEGIN');
+  try {
+    // Mark this token as used
+    await pool.query(
+      `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
+      [tokenId],
+    );
+
+    // Invalidate any other pending tokens for this user
+    await pool.query(
+      `UPDATE password_reset_tokens
+       SET used_at = NOW()
+       WHERE user_id = $1 AND id != $2 AND used_at IS NULL`,
+      [userId, tokenId],
+    );
+
+    // Set the new password
+    await pool.query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [newHash, userId],
+    );
+
+    await pool.query('COMMIT');
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    throw err;
+  }
+
+  // Audit log — runs after commit so we don't block the response
+  createAuditLog({
+    admin_id:            userId,
+    action:              'password_reset',
+    target_type:         'user',
+    target_id:           userId,
+    old_value:           null,
+    new_value:           { method: 'email_token' },
+    reason:              null,
+    ip_address:          (req.headers['x-forwarded-for'] as string | undefined) ?? req.ip ?? null,
+    user_agent:          (req.headers['user-agent'] ?? null)?.substring(0, 500) ?? null,
+    impersonating:       false,
+    impersonated_user_id: null,
+  }).catch(err => {
+    fastify.log.error({ err, userId }, '[auth] password_reset audit log failed');
   });
 
-
-  // ── POST /reset-password ───────────────────────────────────────────────────
-  fastify.post('/reset-password', async (req, reply) => {
-    const body = req.body as { token?: string; newPassword?: string };
-    const { token, newPassword } = body ?? {};
-
-    // Validate token presence
-    if (!token || typeof token !== 'string') {
-      return reply.status(400).send({ error: 'Invalid or expired token' });
-    }
-
-    // Validate password strength
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
-      return reply.status(400).send({ error: 'Password must be at least 8 characters' });
-    }
-
-    // Look up valid, unexpired token
-    const { rows } = await pool.query<{ driver_id: string }>(
-      `SELECT driver_id FROM password_reset_tokens
-         WHERE token = $1 AND expires_at > NOW()
-         LIMIT 1`,
-      [token],
-    );
-
-    if (rows.length === 0) {
-      return reply.status(400).send({ error: 'Invalid or expired token' });
-    }
-
-    const driverId = rows[0].driver_id;
-
-    // Hash new password and update driver
-    const hash = await hashPassword(newPassword);
-    await pool.query(
-      `UPDATE drivers SET password_hash = $1 WHERE id = $2`,
-      [hash, driverId],
-    );
-
-    // Delete the token — single-use
-    await pool.query(
-      `DELETE FROM password_reset_tokens WHERE driver_id = $1`,
-      [driverId],
-    );
-
-    return reply.code(200).send({ ok: true });
-  });
+  return reply.send({ ok: true });
+});
 };
