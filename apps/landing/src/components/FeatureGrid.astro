@@ -37,41 +37,70 @@ const features = featureKeys.map(key => ({
 }));
 ---
 
+<!-- Editorial asymmetric feature grid:
+     Row 1: full-width featured card (HGV routing — the hero feature)
+     Row 2: 2-column (bridge restrictions, turn score — both shown prominently)
+     Row 3+: regular 3-column grid for the rest -->
 <section class="fg-section below-fold" aria-labelledby="fg-heading">
   <div class="container">
-    <div class="section-label reveal">{t("featuresPage.label")}</div>
     <h2 id="fg-heading" class="reveal">{title}</h2>
     <p class="section-sub reveal">{subtitle}</p>
 
-    <div class="fg-grid">
-      {features.map((f, i) => (
-        <div class="fg-card card reveal" data-delay={String(i * 60)}>
-          <!-- Icon row -->
-          <div class="fg-card-icon-row">
-            <div class="fg-card-icon" aria-hidden="true" set:html={f.icon} />
-            <div class="fg-card-chips">
-              {f.signal && (
-                <span class={`chip chip-${f.signal} chip-sm`} aria-label={`Turn-score: ${f.signal}`}>
-                  {f.signal === 'green' ? '● Safe' : f.signal === 'amber' ? '⚠ Caution' : '✕ Alert'}
-                </span>
-              )}
-              {f.comingSoon && (
-                <span class="chip chip-brand chip-sm">Soon</span>
-              )}
+    <!-- Editorial feature layout: featured + two-wide + grid -->
+    <div class="fg-editorial">
+      <!-- Featured: HGV Routing — full width, larger text, teal accent bar -->
+      {(() => {
+        const featured = features[0];
+        return (
+          <a href="/drivers" class="fg-featured card reveal" aria-label={featured.label}>
+            <div class="fg-featured-bar" aria-hidden="true"></div>
+            <div class="fg-featured-body">
+              <div class="fg-featured-icon" aria-hidden="true" set:html={featured.icon} />
+              <div class="fg-featured-text">
+                <h3 class="fg-featured-title">{featured.label}</h3>
+                <p class="fg-featured-desc">{featured.description}</p>
+              </div>
             </div>
-          </div>
+          </a>
+        );
+      })()}
 
-          <!-- Content -->
-          <h3 class="fg-card-title">{f.label}</h3>
-          <p class="fg-card-desc text-muted">{f.description}</p>
+      <!-- Two-column pair: Bridge Restrictions + Turn Score -->
+      <div class="fg-pair">
+        {features.slice(1, 3).map((f, i) => (
+          <a href="/features" class="fg-card card reveal" data-delay={String((i + 1) * 60)} aria-label={f.label}>
+            <div class="fg-card-icon-row">
+              <div class="fg-card-icon" aria-hidden="true" set:html={f.icon} />
+              <div class="fg-card-chips">
+                {f.signal && (
+                  <span class={`chip chip-${f.signal} chip-sm`}>{f.signal === 'green' ? 'Safe' : f.signal === 'amber' ? 'Caution' : 'Alert'}</span>
+                )}
+              </div>
+            </div>
+            <h3 class="fg-card-title">{f.label}</h3>
+            <p class="fg-card-desc text-muted">{f.description}</p>
+          </a>
+        ))}
+      </div>
 
-          <!-- Plan dots -->
-          <div class="fg-plan-dots" aria-label={`Available in: ${f.inPro ? 'Driver Pro' : ''}${f.inPro && f.inEnterprise ? ', ' : ''}${f.inEnterprise ? 'Enterprise' : ''}`}>
-            {f.inPro && <span class="plan-dot plan-dot-pro">Driver Pro</span>}
-            {f.inEnterprise && !f.inPro && <span class="plan-dot plan-dot-ent">Enterprise</span>}
-          </div>
-        </div>
-      ))}
+      <!-- Remaining features: standard 3-column grid -->
+      <div class="fg-grid">
+        {features.slice(3).map((f, i) => (
+          <a href="/features" class="fg-card card reveal" data-delay={String((i + 3) * 60)} aria-label={f.label}>
+            <div class="fg-card-icon-row">
+              <div class="fg-card-icon" aria-hidden="true" set:html={f.icon} />
+              <div class="fg-card-chips">
+                {f.comingSoon && <span class="chip chip-brand chip-sm">Soon</span>}
+                {f.signal && (
+                  <span class={`chip chip-${f.signal} chip-sm`}>{f.signal === 'green' ? 'Safe' : f.signal === 'amber' ? 'Caution' : 'Alert'}</span>
+                )}
+              </div>
+            </div>
+            <h3 class="fg-card-title">{f.label}</h3>
+            <p class="fg-card-desc text-muted">{f.description}</p>
+          </a>
+        ))}
+      </div>
     </div>
 
     <div class="fg-cta reveal">
@@ -86,11 +115,102 @@ const features = featureKeys.map(key => ({
     margin-bottom: 12px;
   }
 
+  /* Editorial asymmetric layout */
+  .fg-editorial {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  /* Featured card: full width, teal accent bar, larger scale */
+  .fg-featured {
+    display: block;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    padding: 32px 36px;
+    border: 1px solid transparent;
+    transition:
+      background var(--dur-micro) ease-out,
+      border-color var(--dur-micro) ease-out,
+      box-shadow var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .fg-featured:hover {
+      background: var(--surface-2);
+      border-color: rgba(0, 194, 168, 0.2);
+      box-shadow: 0 4px 24px rgb(0 0 0 / 0.3), 0 0 0 1px rgba(0, 194, 168, 0.1);
+    }
+  }
+
+  /* Teal accent bar — gives it "featured" weight without looking like a promo banner */
+  .fg-featured-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, var(--brand-bright), var(--brand));
+    border-radius: 4px 0 0 4px;
+  }
+
+  .fg-featured-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  .fg-featured-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--r-md);
+    background: rgba(0, 194, 168, 0.1);
+    border: 1px solid rgba(0, 194, 168, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brand-bright);
+    flex-shrink: 0;
+  }
+
+  .fg-featured-text {
+    flex: 1;
+  }
+
+  .fg-featured-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .fg-featured-desc {
+    color: var(--ink-muted);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  /* Two-column pair */
+  .fg-pair {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .fg-pair { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Standard 3-column grid */
   .fg-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 16px;
-    margin-bottom: 40px;
   }
 
   @media (min-width: 640px) {
@@ -101,15 +221,17 @@ const features = featureKeys.map(key => ({
     .fg-grid { grid-template-columns: repeat(3, 1fr); }
   }
 
+  /* Cards: clickable, text links */
   .fg-card {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    text-decoration: none;
+    border: 1px solid transparent;
     transition:
       background var(--dur-micro) ease-out,
       box-shadow var(--dur-micro) ease-out,
       border-color var(--dur-micro) ease-out;
-    border: 1px solid transparent;
   }
 
   @media (hover: hover) {
@@ -128,8 +250,8 @@ const features = featureKeys.map(key => ({
   }
 
   .fg-card-icon {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--r-md);
     background: rgba(0, 194, 168, 0.08);
     border: 1px solid rgba(0, 194, 168, 0.15);
@@ -169,26 +291,8 @@ const features = featureKeys.map(key => ({
     font-size: 0.875rem;
     line-height: 1.55;
     flex: 1;
+    margin: 0;
   }
-
-  .fg-plan-dots {
-    display: flex;
-    gap: 6px;
-    margin-top: auto;
-    padding-top: 4px;
-  }
-
-  .plan-dot {
-    font-size: 0.625rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: var(--r-pill);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  .plan-dot-pro  { background: rgba(0,194,168,0.12); color: var(--brand-bright); }
-  .plan-dot-ent  { background: rgba(59,130,246,0.12); color: #93C5FD; }
 
   .fg-cta {
     text-align: center;

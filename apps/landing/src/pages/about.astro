@@ -20,6 +20,19 @@ import { t } from '../i18n/index';
 
     <section class="about-body below-fold">
       <div class="container about-inner">
+        <!-- Warm paper founder quote — breaks the dark monotony -->
+        <div class="about-founder-quote reveal">
+          <div class="about-founder-card">
+            <svg class="about-quote-mark" viewBox="0 0 40 30" fill="none" aria-hidden="true">
+              <path d="M0 30V18C0 10.3 4.2 4.3 12.6 0L16 4.2C10.8 6.8 8.2 10.8 8.2 16H16V30H0ZM24 30V18C24 10.3 28.2 4.3 36.6 0L40 4.2C34.8 6.8 32.2 10.8 32.2 16H40V30H24Z" fill="currentColor"/>
+            </svg>
+            <blockquote class="about-pullquote">
+              The worst moment was reversing a Sprinter 400 metres down a farm track because the sat-nav said the destination was on the left. It wasn't.
+            </blockquote>
+            <p class="about-pullquote-attr">— MJ Maps founder, on what drove the creation of gate-pin routing</p>
+          </div>
+        </div>
+
         <div class="about-block reveal">
           <h2>The problem we're solving</h2>
           <p>UK delivery drivers face routing challenges that Google Maps and Waze were never built to handle. Postcode centroids that are 50 metres from the gate. Low bridges that appear without warning at the end of a narrow lane. Dead-ends that can't be reversed out of with a laden lorry. Unpaved farm tracks that destroy van suspensions.</p>
@@ -71,7 +84,10 @@ import { t } from '../i18n/index';
             { label: 'Data portability', detail: 'Export your routes, stops, and POD records at any time. Your data leaves when you do.' },
           ].map(t => (
             <div class="trust-card glass reveal">
-              <span class="trust-checkmark" aria-hidden="true">✓</span>
+              <svg class="trust-checkmark" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <circle cx="9" cy="9" r="8.5" stroke="#10B981" stroke-width="1" fill="rgba(16,185,129,0.12)"/>
+                <path d="M5.5 9L8 11.5L12.5 6.5" stroke="#10B981" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
               <div class="trust-text">
                 <strong class="trust-label">{t.label}</strong>
                 <p class="trust-detail text-muted">{t.detail}</p>
@@ -106,6 +122,46 @@ import { t } from '../i18n/index';
     gap: 48px;
   }
 
+  /* Warm paper founder quote — editorial pull-quote, no fake avatar */
+  .about-founder-quote {
+    margin-bottom: -8px; /* tighten against next block */
+  }
+
+  .about-founder-card {
+    background: #F5F0E8;
+    border: 1px solid rgba(26, 21, 18, 0.1);
+    border-radius: var(--r-xl);
+    padding: 40px;
+    box-shadow: 0 2px 16px rgba(26, 21, 18, 0.06);
+  }
+
+  .about-quote-mark {
+    width: 32px;
+    height: 24px;
+    color: var(--warm, #C9936A);
+    opacity: 0.5;
+    margin-bottom: 20px;
+    display: block;
+  }
+
+  .about-pullquote {
+    font-family: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.45;
+    color: #2D2420;
+    font-style: normal;
+    border: none;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  .about-pullquote-attr {
+    color: #7A6A60;
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
   .about-block h2 { margin-bottom: 16px; }
   .about-block p { color: var(--ink-muted); margin-bottom: 12px; }
   .about-block p:last-child { margin-bottom: 0; }
@@ -123,10 +179,15 @@ import { t } from '../i18n/index';
     position: relative;
   }
   .about-list li::before {
-    content: '→';
+    content: '';
     position: absolute;
     left: 0;
-    color: var(--brand-bright);
+    top: 8px;
+    width: 12px;
+    height: 12px;
+    background: var(--brand);
+    border-radius: 2px;
+    opacity: 0.7;
   }
   .about-list strong { color: var(--ink); }
 
@@ -154,13 +215,15 @@ import { t } from '../i18n/index';
     border-radius: var(--r-card);
     padding: 20px;
   }
+
+  /* SVG checkmark — no plain text characters */
   .trust-checkmark {
-    color: var(--green);
-    font-size: 1.125rem;
-    font-weight: 700;
     flex-shrink: 0;
     margin-top: 2px;
+    width: 18px;
+    height: 18px;
   }
+
   .trust-text { display: flex; flex-direction: column; gap: 4px; }
   .trust-label { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
   .trust-detail { font-size: 0.875rem; line-height: 1.55; margin: 0; }

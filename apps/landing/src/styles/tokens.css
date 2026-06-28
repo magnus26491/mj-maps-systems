@@ -1,18 +1,21 @@
 /* ─── Design Tokens — MJ Maps Systems ──────────────────────────────── */
-/* Deep cartographic night-map palette + functional turn-score accents */
+/* Deep cartographic night-map palette + functional turn-score accents.
+   Tonal variation: base (near-black) / surface-1 (dark) / surface-2 (mid-dark)
+   / paper (warm light — used for light sections).
+   Restrained warm secondary accent alongside teal. */
 
 :root {
   /* Colours */
   --color-base:       #0A0C10;
-  --color-surface-1:  #12151B;
-  --color-surface-2:  #1A1F26;
-  /* Aliases for existing CSS that references these */
+  --color-surface-1:  #111419;
+  --color-surface-2:  #181D24;
+  /* Aliases */
   --void:             #0A0C10;
-  --void-2:           #07090D;
-  --surface:          #12151B;
-  --surface-2:        #1A1F26;
-  --glass-bg:         rgba(18, 21, 27, 0.72);
-  --glass-brd:        rgba(255, 255, 255, 0.06);
+  --void-2:           #080A0E;
+  --surface:          #111419;
+  --surface-2:        #181D24;
+  --glass-bg:         rgba(17, 20, 25, 0.78);
+  --glass-brd:        rgba(255, 255, 255, 0.07);
 
   /* MJ teal — primary interactive */
   --brand:        #00C2A8;
@@ -25,15 +28,19 @@
   --amber:        #F59E0B;
   --red:          #EF4444;
 
+  /* Restrained warm accent — used sparingly alongside teal (e.g. founder quote, trust) */
+  --warm:         #D4976A;
+  --warm-bg:      rgba(212, 151, 106, 0.10);
+
   /* Text */
   --ink:          #F1F5F9;
   --ink-muted:    #94A3B8;
-  --ink-faint:    #64748B;
+  --ink-faint:    #5E6B7C;
 
   /* Focus ring */
   --focus:        rgba(0, 194, 168, 0.50);
 
-  /* Green / Amber / Red tinted backgrounds for chips */
+  /* Signal tinted backgrounds */
   --green-bg:  rgba(16, 185, 129, 0.12);
   --amber-bg:  rgba(245, 158, 11, 0.12);
   --red-bg:    rgba(239, 68, 68, 0.12);

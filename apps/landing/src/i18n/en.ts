@@ -79,7 +79,7 @@ export const translations = {
 
   // ── Before/After slider ──────────────────────────────────────────────────────
   beforeAfter: {
-    label:          'Precision delivery',
+    label:          'The delivery pin',
     headline:        'Know exactly\nwhere the gate is',
     sub:             'Standard sat-nav drops you at the postcode centroid — often 400 m from the actual gate, down a track your van can\'t turn around in. MJ Maps pins the exact delivery point and encodes it as a Plus Code.',
     tagPlusCodes:   'Plus Code encoding',

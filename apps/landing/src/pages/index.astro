@@ -172,7 +172,6 @@ import { t } from '../i18n/index';
         <!-- Asymmetric: text left (narrow), slider right (wide) -->
         <div class="ba-layout">
           <div class="ba-text">
-            <div class="section-label reveal">{t('beforeAfter.label')}</div>
             <h2 id="ba-heading" class="reveal" data-delay="80">
               {t('beforeAfter.headline').split('\n').map((line: string) => (
                 <>{line}{line !== t('beforeAfter.headline').split('\n').at(-1) && <br/>}</>
@@ -212,7 +211,6 @@ import { t } from '../i18n/index';
 
           <!-- Right: text column -->
           <div class="ts-text">
-            <div class="section-label reveal">{t("turnScore.label")}</div>
             <h2 id="ts-heading" class="reveal" data-delay="80">
               {t('turnScore.headline').split('\n').map((l: string) => (
                 <>{l}{l !== t('turnScore.headline').split('\n').at(-1) && <br/>}
@@ -238,7 +236,6 @@ import { t } from '../i18n/index';
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <section class="pricing-preview-section below-fold" aria-labelledby="pricing-heading">
       <div class="container">
-        <div class="section-label reveal">Pricing</div>
         <h2 id="pricing-heading" class="reveal" data-delay="60">{t("pricing.headline")}</h2>
         <p class="section-sub reveal" data-delay="120">{t('pricing.sub')}</p>
 
@@ -333,64 +330,60 @@ import { t } from '../i18n/index';
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- HONEST PROOF — no fabricated testimonials                         -->
+    <!-- FOUNDER STORY — warm light paper section, no fake avatar -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="proof-section below-fold" aria-labelledby="proof-heading">
+    <section class="founder-section below-fold" aria-labelledby="founder-heading">
       <div class="container">
-        <div class="section-label reveal">{t("proof.label")}</div>
-        <h2 id="proof-heading" class="reveal" data-delay="60">
-          We built this because<br/>we were those drivers
-        </h2>
-
-        <!-- Asymmetric: founder story + no fabricated claims -->
-        <div class="proof-grid">
-          <div class="proof-founder reveal" data-delay="120">
-            <div class="proof-founder-inner card">
-              <!-- TODO(swap-real-photo): Replace with authentic owner-supplied founder/driver photo -->
-              <div class="proof-founder-img" aria-label="Founder photo placeholder">
-                <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="120" height="120" rx="8" fill="#12151B"/>
-                  <circle cx="60" cy="48" r="24" fill="#1A1F26" stroke="rgba(0,194,168,0.2)" stroke-width="1"/>
-                  <circle cx="60" cy="46" r="12" fill="#1A1F26"/>
-                  <path d="M30 100 C30 78 90 78 90 100" fill="#1A1F26" stroke="rgba(0,194,168,0.2)" stroke-width="1"/>
-                </svg>
-              </div>
-              <div class="proof-founder-text">
-                <p class="proof-quote">
-                  "We spent three years doing rural parcel deliveries before building MJ Maps.
-                  Every wrong turn, every low bridge, every gate we couldn't find —
-                  we encoded that knowledge into the routing engine."
-                </p>
-                <p class="proof-attr mono">— MJ Maps founders, UK drivers 2019–2022</p>
-              </div>
+        <div class="founder-inner">
+          <!-- Left: founder pull-quote on warm paper bg -->
+          <div class="founder-quote-col reveal" data-delay="80">
+            <div class="founder-quote-card">
+              <!-- Decorative quote mark -->
+              <svg class="quote-mark" viewBox="0 0 40 30" fill="none" aria-hidden="true">
+                <path d="M0 30V18C0 10.3 4.2 4.3 12.6 0L16 4.2C10.8 6.8 8.2 10.8 8.2 16H16V30H0ZM24 30V18C24 10.3 28.2 4.3 36.6 0L40 4.2C34.8 6.8 32.2 10.8 32.2 16H40V30H24Z" fill="currentColor"/>
+              </svg>
+              <blockquote class="founder-quote">
+                We spent three years doing rural parcel deliveries before building MJ Maps.
+                Every wrong turn, every low bridge, every gate we couldn't find —
+                we encoded that knowledge into the routing engine.
+              </blockquote>
+              <p class="founder-attr">
+                <span class="founder-name">MJ Maps founders</span>
+                <span class="founder-role">UK delivery drivers, 2019–2022</span>
+              </p>
             </div>
           </div>
 
-          <!-- Honest proof: what we can actually verify -->
-          <div class="proof-facts reveal" data-delay="200">
-            <h4 class="proof-facts-heading">What we can tell you honestly</h4>
-            <ul class="proof-facts-list">
+          <!-- Right: honest facts on dark surface -->
+          <div class="founder-facts-col reveal" data-delay="160">
+            <h3 class="founder-facts-heading">What we can tell you honestly</h3>
+            <ul class="founder-facts-list">
               <li>
-                <span class="proof-fact-icon chip chip-green">14 days</span>
-                Free trial with no card required
+                <span class="fact-badge chip chip-green">14 days</span>
+                Free trial. No card required.
               </li>
               <li>
-                <span class="proof-fact-icon chip chip-brand">£9.97</span>
-                Driver Pro, billed monthly, VAT included
+                <span class="fact-badge chip chip-brand">£9.97 / mo</span>
+                Driver Pro, billed monthly, VAT included.
               </li>
               <li>
-                <span class="proof-fact-icon chip chip-brand">Cancel anytime</span>
-                No auto-renew, no cancellation fees
+                <span class="fact-badge chip chip-brand">Cancel anytime</span>
+                No auto-renew, no cancellation fees.
               </li>
               <li>
-                <span class="proof-fact-icon chip chip-brand">Offline-first</span>
-                Core navigation works without signal
+                <span class="fact-badge chip chip-brand">Offline-first</span>
+                Core navigation works without signal.
               </li>
               <li>
-                <span class="proof-fact-icon chip chip-brand">UK GDPR</span>
-                Location data used only for navigation, never sold
+                <span class="fact-badge chip chip-brand">UK GDPR</span>
+                Location data used only for navigation, never sold.
               </li>
             </ul>
+            <div class="founder-link">
+              <a href="/about" class="btn btn-secondary">
+                Our story →
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -713,9 +706,6 @@ import { t } from '../i18n/index';
     }
   }
 
-  .ba-text .section-label {
-    margin-bottom: 12px;
-  }
 
   .ba-text h2 {
     margin-bottom: 16px;
@@ -790,9 +780,6 @@ import { t } from '../i18n/index';
     }
   }
 
-  .ts-text .section-label {
-    margin-bottom: 12px;
-  }
 
   .ts-text h2 {
     margin-bottom: 16px;
@@ -960,114 +947,124 @@ import { t } from '../i18n/index';
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */
-  /* PROOF SECTION                                                     */
+  /* FOUNDER SECTION — warm light paper + dark facts split              */
   /* ═══════════════════════════════════════════════════════════════════ */
 
-  .proof-section {
+  .founder-section {
     padding-block: var(--section-py);
-    background: var(--color-surface-1);
+    /* Warm light paper — breaks the dark-only monotony */
+    background: #F5F0E8;
+    color: #1A1512;
     position: relative;
-    overflow: hidden;
   }
 
-  .proof-section h2 {
-    text-align: center;
-    margin-bottom: 48px;
-  }
-
-  .proof-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-    align-items: center;
+  .founder-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: start;
   }
 
   @media (min-width: 900px) {
-    .proof-grid {
-      flex-direction: row;
-      align-items: flex-start;
-      gap: 40px;
+    .founder-inner {
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
     }
   }
 
-  .proof-founder {
-    flex: 1;
-    max-width: 480px;
-    width: 100%;
+  /* Left: warm paper card with founder pull-quote */
+  .founder-quote-card {
+    background: #FDFAF5;
+    border: 1px solid rgba(26, 21, 18, 0.12);
+    border-radius: var(--r-xl);
+    padding: 40px;
+    position: relative;
+    box-shadow: 0 2px 16px rgba(26, 21, 18, 0.08);
   }
 
-  .proof-founder-inner {
+  /* Large decorative quote mark — warm amber */
+  .quote-mark {
+    width: 36px;
+    height: 28px;
+    color: var(--warm, #C9936A);
+    opacity: 0.6;
+    margin-bottom: 20px;
+    display: block;
+  }
+
+  .founder-quote {
+    font-family: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+    font-size: clamp(1.125rem, 2.5vw, 1.375rem);
+    font-weight: 500;
+    line-height: 1.5;
+    color: #2D2420;
+    margin-bottom: 28px;
+    font-style: normal;
+    border: none;
+    padding: 0;
+  }
+
+  .founder-attr {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 4px;
   }
 
-  @media (min-width: 560px) {
-    .proof-founder-inner {
-      flex-direction: row;
-      align-items: flex-start;
-    }
-  }
-
-  .proof-founder-img {
-    width: 80px;
-    height: 80px;
-    border-radius: var(--r-lg);
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  .proof-founder-img svg {
-    width: 100%;
-    height: 100%;
-  }
-
-  .proof-quote {
-    font-style: italic;
-    color: var(--ink-muted);
-    font-size: 0.9375rem;
-    line-height: 1.65;
-    margin-bottom: 12px;
-    max-width: none;
-  }
-
-  .proof-attr {
-    color: var(--ink-faint);
-    font-size: 0.75rem;
-    max-width: none;
-    margin: 0;
-  }
-
-  .proof-facts {
-    flex: 1;
-    max-width: 420px;
-    width: 100%;
-  }
-
-  .proof-facts-heading {
-    font-size: 1rem;
+  .founder-name {
     font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 20px;
+    color: #2D2420;
+    font-size: 0.9375rem;
   }
 
-  .proof-facts-list {
+  .founder-role {
+    color: #7A6A60;
+    font-size: 0.875rem;
+  }
+
+  /* Right: dark facts column — stays dark for contrast */
+  .founder-facts-col {
+    background: var(--color-surface-1);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-xl);
+    padding: 40px;
+  }
+
+  .founder-facts-heading {
+    font-size: 1.125rem;
+    color: var(--ink);
+    margin-bottom: 24px;
+  }
+
+  .founder-facts-list {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
+    margin-bottom: 28px;
   }
 
-  .proof-facts-list li {
+  .founder-facts-list li {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
-    font-size: 0.9rem;
+    font-size: 0.9375rem;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  .fact-badge {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .founder-link .btn-secondary {
+    border-color: rgba(255, 255, 255, 0.15);
     color: var(--ink-muted);
   }
 
-  .proof-fact-icon {
-    flex-shrink: 0;
+  .founder-link .btn-secondary:hover {
+    background: var(--surface-2);
+    color: var(--ink);
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */
@@ -1116,13 +1113,4 @@ import { t } from '../i18n/index';
   /* SHARED UTILITIES                                                  */
   /* ═══════════════════════════════════════════════════════════════════ */
 
-  .section-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--brand);
-    margin-bottom: 8px;
-  }
 </style>

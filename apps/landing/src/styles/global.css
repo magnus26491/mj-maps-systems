@@ -61,17 +61,9 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-h4 {
-  font-size: clamp(1.5rem, 3vw, 2rem);
-}
-
-h5 {
-  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
-}
-
-h6 {
-  font-size: clamp(1rem, 2vw, 1.25rem);
-}
+h4 { font-size: clamp(1.5rem, 3vw, 2rem); }
+h5 { font-size: clamp(1.25rem, 2.5vw, 1.5rem); }
+h6 { font-size: clamp(1rem, 2vw, 1.25rem); }
 
 p {
   font-size: 1rem;
@@ -80,36 +72,18 @@ p {
 }
 
 /* Text utility classes */
-.text-muted {
-  color: var(--ink-muted);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.text-faint {
-  color: var(--ink-faint);
-}
+.text-muted { color: var(--ink-muted); font-size: 0.9375rem; line-height: 1.6; }
+.text-faint { color: var(--ink-faint); font-size: 0.875rem; }
 
 /* Typography font stacks */
-.font-display {
-  font-family: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
-}
+.font-display { font-family: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif; }
+.font-body    { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
 
-.font-body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-}
-
-.font-mono {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
+/* IBM Plex Mono — FOR DATA ONLY (coordinates, ETAs, distances, Plus Codes).
+   KILL the monospace eyebrow / ALL-CAPS pattern — it reads as AI-generated. */
+.font-mono,
 .mono {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 0.875rem;
-  font-weight: 500;
 }
 
 /* ─── Layout ────────────────────────────────────────────────────────── */
@@ -162,9 +136,7 @@ section {
   }
 }
 
-.btn-primary:active {
-  transform: scale(0.98);
-}
+.btn-primary:active { transform: scale(0.98); }
 
 .btn-secondary {
   background: transparent;
@@ -180,13 +152,8 @@ section {
   }
 }
 
-.btn-secondary:active {
-  transform: scale(0.98);
-}
-
-.btn-full {
-  width: 100%;
-}
+.btn-secondary:active { transform: scale(0.98); }
+.btn-full { width: 100%; }
 
 /* ─── Signal chips ──────────────────────────────────────────────────── */
 
@@ -225,13 +192,8 @@ section {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal {
-    opacity: 1;
-    transform: none;
-  }
-  .reveal.revealed {
-    transition: none;
-  }
+  .reveal { opacity: 1; transform: none; }
+  .reveal.revealed { transition: none; }
 }
 
 /* ─── Section connector route line ─────────────────────────────────── */
@@ -268,10 +230,7 @@ section {
   border-width: 0;
 }
 
-img, svg {
-  max-width: 100%;
-  height: auto;
-}
+img, svg { max-width: 100%; height: auto; }
 
 a {
   color: var(--brand);
@@ -280,10 +239,7 @@ a {
 }
 
 @media (hover: hover) {
-  a:hover {
-    color: var(--brand-bright);
-    text-decoration: underline;
-  }
+  a:hover { color: var(--brand-bright); text-decoration: underline; }
 }
 
 /* Content visibility for below-fold performance */
@@ -302,7 +258,7 @@ section.below-fold {
   box-shadow: var(--sh-sm);
 }
 
-/* X.com-inspired: clean divider with teal accent */
+/* Section divider with teal accent — used sparingly */
 .divider-teal {
   height: 1px;
   background: linear-gradient(to right, transparent, var(--brand), transparent);
@@ -310,13 +266,8 @@ section.below-fold {
   border: none;
 }
 
-/* X.com-inspired: section border-top (subtle) */
-.section-border {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
+.section-border { border-top: 1px solid rgba(255, 255, 255, 0.06); }
 
 @media (min-width: 768px) {
-  .card {
-    padding: 24px;
-  }
+  .card { padding: 24px; }
 }

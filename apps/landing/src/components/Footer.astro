@@ -77,7 +77,12 @@ const year = new Date().getFullYear();
     </div>
 
     <div class="footer-bottom">
-      <p class="footer-copy">>{t("footer.copyright", { year })}<</p>
+      <p class="footer-copy">
+        <span>{t("footer.copyright", { year })}</span>
+        <span class="footer-admin-link" aria-label="Admin portal">
+          <a href="/admin" class="footer-admin">Admin</a>
+        </span>
+      </p>
       <p class="footer-contact">
         <a href="mailto:hello@mjmaps.app">{t("footer.supportEmail")}</a> · UK support, responds within 1 business day
       </p>
@@ -189,7 +194,39 @@ const year = new Date().getFullYear();
     align-items: center;
   }
 
-  .footer-copy,
+  .footer-copy {
+    color: var(--ink-faint);
+    font-size: 0.8125rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .footer-copy > span { display: block; }
+
+  /* Discreet Admin link — low emphasis, keyboard accessible */
+  .footer-admin-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .footer-admin {
+    color: var(--ink-faint);
+    font-size: 0.8125rem;
+    text-decoration: none;
+    transition: color var(--dur-micro) ease-out;
+    padding: 2px 6px;
+    border-radius: var(--r-sm);
+  }
+
+  @media (hover: hover) {
+    .footer-admin:hover {
+      color: var(--ink-muted);
+      text-decoration: none;
+    }
+  }
+
   .footer-contact {
     color: var(--ink-faint);
     font-size: 0.875rem;

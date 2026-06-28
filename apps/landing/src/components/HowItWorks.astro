@@ -23,16 +23,14 @@ const steps = [
 
 <section class="hiw-section below-fold" aria-labelledby="hiw-heading">
   <div class="container">
-    <div class="section-label reveal">How it works</div>
     <h2 id="hiw-heading" class="reveal">Three steps from stop list to delivered</h2>
-    <p class="section-sub reveal">No complex setup. Open the app, add your stops, and go. The routing intelligence runs in the background.</p>
+    <p class="section-sub reveal">No complex setup. Open the app, add your stops, and go.</p>
 
     <div class="hiw-steps">
       {steps.map((step, i) => (
         <div class="hiw-step reveal" data-delay={String(i * 100)}>
-          <div class="hiw-step-num mono">{step.num}</div>
-          <div class="hiw-connector" aria-hidden="true"></div>
           <div class="hiw-step-body card">
+            <div class="hiw-step-num" aria-hidden="true">{step.num}</div>
             <h3>{step.title}</h3>
             <p class="text-muted">{step.desc}</p>
           </div>
@@ -52,7 +50,6 @@ const steps = [
     display: grid;
     grid-template-columns: 1fr;
     gap: 0;
-    position: relative;
   }
 
   @media (min-width: 768px) {
@@ -66,34 +63,35 @@ const steps = [
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0;
-    position: relative;
   }
 
   @media (max-width: 767px) {
     .hiw-step {
-      padding-left: 56px;
-      padding-bottom: 40px;
+      padding-left: 52px;
+      padding-bottom: 36px;
     }
     .hiw-step:last-child { padding-bottom: 0; }
   }
 
+  /* Human-style numbered circle — not monospace or terminal */
   .hiw-step-num {
-    position: absolute;
-    left: 0;
-    top: 20px;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: var(--surface-2);
-    border: 1px solid var(--brand);
+    background: rgba(0,194,168,0.1);
+    border: 1px solid rgba(0,194,168,0.3);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--brand-bright);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 700;
-    z-index: 1;
+    flex-shrink: 0;
+    margin-bottom: 16px;
+    font-family: 'Space Grotesk Variable', sans-serif;
+    position: absolute;
+    left: 0;
+    top: 20px;
   }
 
   @media (min-width: 768px) {
@@ -104,22 +102,6 @@ const steps = [
       margin-bottom: 20px;
     }
   }
-
-  .hiw-connector {
-    position: absolute;
-    left: 19px;
-    top: 60px;
-    bottom: 0;
-    width: 2px;
-    background: linear-gradient(to bottom, var(--brand), transparent);
-    opacity: 0.3;
-  }
-
-  @media (min-width: 768px) {
-    .hiw-connector { display: none; }
-  }
-
-  .hiw-step:last-child .hiw-connector { display: none; }
 
   .hiw-step-body {
     width: 100%;
