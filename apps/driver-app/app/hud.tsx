@@ -27,7 +27,7 @@ import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useDrivingMode } from '../hooks/useDrivingMode';
 import { SlideToConfirm } from '../components/SlideToConfirm';
 import { ShiftProgressBar } from '../components/ShiftProgressBar';
-import { ThemeProvider, useTheme } from '../components/ThemeContext';
+import { useTheme } from '../lib/theme';
 import { useAuthStore } from '../lib/auth';
 import { useLocale } from '../components/LocaleProvider';
 
@@ -67,7 +67,7 @@ function HudInner() {
     if (!dispatcherMessage) return;
     // Haptic + voice announcement on arrival
     if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Info);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Speech.speak(`Message from ${dispatcherMessage.from}: ${dispatcherMessage.message}`, {
         language: speechLang,
         rate: 0.95,
@@ -111,7 +111,7 @@ function HudInner() {
 
   if (!shift || !currentStop) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.app.background }}>
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No active route.</Text>
           <TouchableOpacity
@@ -126,7 +126,7 @@ function HudInner() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.app.background }}>
 
       {/* ── Turn Alert Banner ─────────────────────────────────── */}
       {alert !== 'GREEN' && (
@@ -134,7 +134,7 @@ function HudInner() {
           style={[
             styles.alertBanner,
             {
-              backgroundColor: alert === 'RED' ? colors.red : colors.amber,
+              backgroundColor: alert === 'RED' ? colors.app.danger : colors.app.warning,
               transform: [{ scale: scaleAnim }],
             },
           ]}
@@ -166,49 +166,49 @@ function HudInner() {
 
       {/* ── Dispatcher Message Banner ─────────────────────────── */}
       {dispatcherMessage && (
-        <View style={styles.dispMsgBanner}>
+        <View style={[styles.dispMsgBanner, { backgroundColor: colors.app.surface, borderColor: colors.app.primary }]}>
           <View style={styles.dispMsgHeader}>
-            <Text style={styles.dispMsgLabel}>Message from {dispatcherMessage.from}</Text>
+            <Text style={[styles.dispMsgLabel, { color: colors.app.primary }]}>Message from {dispatcherMessage.from}</Text>
             <TouchableOpacity
               onPress={dismissDispMsg}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityLabel="Dismiss message"
               accessibilityRole="button"
             >
-              <Text style={styles.dispMsgClose}>✕</Text>
+              <Text style={[styles.dispMsgClose, { color: colors.app.textFaint }]}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.dispMsgText}>{dispatcherMessage.message}</Text>
+          <Text style={[styles.dispMsgText, { color: colors.app.text }]}>{dispatcherMessage.message}</Text>
         </View>
       )}
 
       {/* ── Current Stop ──────────────────────────────────────── */}
-      <View style={[styles.stopCard, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.stopIndex, { color: colors.subtext }]}>
+      <View style={[styles.stopCard, { backgroundColor: colors.app.surface }]}>
+        <Text style={[styles.stopIndex, { color: colors.app.textFaint }]}>
           Stop {currentStop.index + 1} of {shift.totalStops}
         </Text>
         <Text
-          style={[styles.stopAddress, { color: colors.text }]}
+          style={[styles.stopAddress, { color: colors.app.text }]}
           numberOfLines={3}
         >
           {currentStop.address}
         </Text>
         {currentStop.notes ? (
-          <Text style={[styles.stopNotes, { color: colors.amber }]}>
+          <Text style={[styles.stopNotes, { color: colors.app.warning }]}>
             {currentStop.notes}
           </Text>
         ) : null}
         <View style={styles.stopMeta}>
-          <Text style={[styles.metaItem, { color: colors.subtext }]}>
+          <Text style={[styles.metaItem, { color: colors.app.textFaint }]}>
             {currentStop.parcelCount} parcel{currentStop.parcelCount !== 1 ? 's' : ''}
           </Text>
           {currentStop.etaLabel && (
-            <Text style={[styles.metaItem, { color: colors.subtext }]}>
+            <Text style={[styles.metaItem, { color: colors.app.textFaint }]}>
               ETA {currentStop.etaLabel}
             </Text>
           )}
           {currentStop.distanceM != null && (
-            <Text style={[styles.metaItem, { color: colors.subtext }]}>
+            <Text style={[styles.metaItem, { color: colors.app.textFaint }]}>
               {currentStop.distanceM < 1000
                 ? `${currentStop.distanceM}m`
                 : `${(currentStop.distanceM / 1000).toFixed(1)}km`}
@@ -218,20 +218,20 @@ function HudInner() {
 
         {/* Dynamic route confidence badge — driven by live turn score */}
         {alert === 'RED' ? (
-          <View style={[styles.routeOkBadge, { backgroundColor: colors.redBg }]}>
-            <Text style={[styles.routeOkText, { color: colors.red }]}>
+          <View style={[styles.routeOkBadge, { backgroundColor: colors.app.dangerBg }]}>
+            <Text style={[styles.routeOkText, { color: colors.app.danger }]}>
               Route restricted — do not enter
             </Text>
           </View>
         ) : alert === 'AMBER' ? (
-          <View style={[styles.routeOkBadge, { backgroundColor: colors.amberBg }]}>
-            <Text style={[styles.routeOkText, { color: colors.amber }]}>
+          <View style={[styles.routeOkBadge, { backgroundColor: colors.app.warningBg }]}>
+            <Text style={[styles.routeOkText, { color: colors.app.warning }]}>
               Tight access — proceed with care
             </Text>
           </View>
         ) : (
-          <View style={[styles.routeOkBadge, { backgroundColor: colors.greenBg }]}>
-            <Text style={[styles.routeOkText, { color: colors.green }]}>
+          <View style={[styles.routeOkBadge, { backgroundColor: colors.app.successBg }]}>
+            <Text style={[styles.routeOkText, { color: colors.app.success }]}>
               Route clear for your vehicle
             </Text>
           </View>
@@ -280,35 +280,35 @@ function HudInner() {
       <View style={styles.actions}>
         {/* Failed */}
         {isDriving ? (
-          <View style={[styles.actionBtn, { backgroundColor: colors.surface, opacity: 0.3 }]}>
+          <View style={[styles.actionBtn, { backgroundColor: colors.app.surface, opacity: 0.3 }]}>
             <Text style={styles.actionIcon}>🔒</Text>
             <Text style={styles.actionLabel}>Parked only</Text>
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.redBg }]}
+            style={[styles.actionBtn, { backgroundColor: colors.app.dangerBg }]}
             onPress={failStop}
             accessibilityRole="button"
             accessibilityLabel="Mark as failed"
           >
-            <Text style={[styles.actionBtnText, { color: colors.red }]}>Failed</Text>
+            <Text style={[styles.actionBtnText, { color: colors.app.danger }]}>Failed</Text>
           </TouchableOpacity>
         )}
 
         {/* Stops */}
         {isDriving ? (
-          <View style={[styles.actionBtn, { backgroundColor: colors.surface, opacity: 0.4 }]}>
+          <View style={[styles.actionBtn, { backgroundColor: colors.app.surface, opacity: 0.4 }]}>
             <Text style={styles.actionIcon}>🔒</Text>
             <Text style={styles.actionLabel}>Parked only</Text>
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.surface }]}
+            style={[styles.actionBtn, { backgroundColor: colors.app.surface }]}
             onPress={() => router.push('/stop-list')}
             accessibilityRole="button"
             accessibilityLabel="View all stops"
           >
-            <Text style={[styles.actionBtnText, { color: colors.teal }]}>All stops</Text>
+            <Text style={[styles.actionBtnText, { color: colors.app.primary }]}>All stops</Text>
           </TouchableOpacity>
         )}
 
@@ -316,8 +316,8 @@ function HudInner() {
         <SlideToConfirm
           label="Deliver"
           sublabel={`${currentStop.parcelCount} parcel${currentStop.parcelCount !== 1 ? 's' : ''}`}
-          color={colors.green}
-          trackColor={colors.greenBg}
+          color={colors.app.success}
+          trackColor={colors.app.successBg}
           onConfirm={completeStop}
         />
       </View>
@@ -326,11 +326,7 @@ function HudInner() {
 }
 
 export default function HudScreen() {
-  return (
-    <ThemeProvider>
-      <HudInner />
-    </ThemeProvider>
-  );
+  return <HudInner />;
 }
 
 const styles = StyleSheet.create({

@@ -20,6 +20,7 @@ config.resolver.extraNodeModules = {
   'expo-speech': path.resolve(__dirname, 'shims/expo-speech.web.ts'),
   'expo-sqlite': path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
   'react-native-maps': path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
+  '@maplibre/maplibre-react-native': path.resolve(__dirname, 'shims/maplibre-react-native.web.tsx'),
 };
 
 module.exports = config;

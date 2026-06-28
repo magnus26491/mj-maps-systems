@@ -6,12 +6,18 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "mjmaps-driver",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "runtimeVersion": { "policy": "appVersion" },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#030712"
+      "backgroundColor": "#0A0C10",
+      "dark": {
+        "backgroundColor": "#0A0C10"
+      },
+      "light": {
+        "backgroundColor": "#f0f4f8"
+      }
     },
     "updates": {
       "url": "https://u.expo.dev/REPLACE_WITH_EAS_PROJECT_ID",
