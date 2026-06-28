@@ -1,7 +1,7 @@
 /**
  * Centralised photo URL registry.
  *
- * All images are sourced from Unsplash (free licence).
+ * All images are sourced from Unsplash (free licence) or generated assets.
  * To swap for real brand photos:
  *   1. Place optimised .webp + .png files in apps/landing/public/img/photos/
  *   2. Replace each value below with '/img/photos/<filename>.webp'
@@ -32,11 +32,12 @@ export const photos = {
     'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1600&q=85&auto=format&fit=crop',
 
   /**
-   * Before/after supporting photo — person at a gate/entrance.
-   * Unsplash: photo by Michal Parzuchowski (person by rural gate)
+   * Before/after supporting photo — MapLibre dark-map with teal precision
+   * delivery pin. Replaces the stock telephone photo. Matches the product's
+   * vector tile navigation aesthetic (OpenFreeMap / MapLibre dark theme).
    */
   gatePinDelivery:
-    'https://images.unsplash.com/photo-1534536281715-e28d76689b4d?w=800&q=85&auto=format&fit=crop',
+    'https://user-gen-media-assets.s3.amazonaws.com/gpt4o_images/b1405735-d2d0-44eb-8f16-1d40cf00b095.png',
 
   /**
    * HeroHUD inset photo — dashboard / navigation screen at night.
