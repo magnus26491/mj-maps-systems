@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api';
 
@@ -9,11 +9,18 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Capture navigate in a ref so the effect has no reactive deps — it only
+  // runs once on mount. This prevents the redirect loop caused by [navigate]
+  // being re-created on every render in React 18 strict mode.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
   useEffect(() => {
     if (localStorage.getItem('mj_dispatcher_token')) {
-      navigate('/');
+      navigateRef.current('/');
     }
-  }, [navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
