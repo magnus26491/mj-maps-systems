@@ -11,6 +11,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import crypto from 'node:crypto';
 import { pool } from '../../db/index';
 import {
   hashPassword,
@@ -72,6 +73,37 @@ const LogoutSchema = {
   },
   required: ['refreshToken'],
 };
+
+// ── Email (Resend) ─────────────────────────────────────────────────────────────
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? '';
+const FROM_EMAIL     = 'noreply@mjmapsystems.com';
+
+/**
+ * Send a plain-text password-reset email via Resend.
+ * Fire-and-forget — callers .catch() this.
+ */
+async function sendResetEmail(opts: { to: string; subject: string; body: string }): Promise<void> {
+  if (!RESEND_API_KEY) {
+    // Fall back to console in dev — production must have RESEND_API_KEY set
+    console.warn(`[auth] RESEND_API_KEY not set — would send email to ${opts.to}: ${opts.subject}`);
+    return;
+  }
+  const resp = await fetch('https://api.resend.com/emails', {
+    method:  'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from:    FROM_EMAIL,
+      to:      [opts.to],
+      subject: opts.subject,
+      text:    opts.body,
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Resend API error ${resp.status}: ${text}`);
+  }
+}
 
 // ── Plugin ─────────────────────────────────────────────────────────────────────
 
@@ -467,4 +499,104 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
     },
   );
+
+  // ── POST /forgot-password ─────────────────────────────────────────────────
+  fastify.post('/forgot-password', async (req, reply) => {
+    const body = req.body as { email?: string };
+    const email = (body?.email ?? '').trim().toLowerCase();
+
+    if (!email || !EMAIL_RE.test(email)) {
+      return reply.code(200).send({ ok: true });
+    }
+
+    // Look up the driver by email
+    const { rows } = await pool.query<{ id: string; email: string }>(
+      `SELECT id, email FROM drivers WHERE LOWER(email) = $1 LIMIT 1`,
+      [email],
+    );
+
+    if (rows.length === 0) {
+      // Always return 200 — prevents email enumeration
+      return reply.code(200).send({ ok: true });
+    }
+
+    const driver = rows[0];
+
+    // Generate a secure reset token
+    const token    = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3_600_000); // 1 hour from now
+
+    // Store token — upsert in case driver requested multiple resets
+    await pool.query(
+      `INSERT INTO password_reset_tokens (token, driver_id, expires_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (driver_id) DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at`,
+      [token, driver.id, expiresAt],
+    );
+
+    // Send reset email via Resend
+    const resetUrl = `https://mjmapsystems.com/reset-password?token=${token}`;
+    const emailBody = [
+      `Click this link to reset your password (valid 1 hour):`,
+      `${resetUrl}`,
+      ``,
+      `If you did not request this, ignore this email.`,
+    ].join('\n');
+
+    sendResetEmail({
+      to:      driver.email,
+      subject: 'Reset your MJ Maps password',
+      body:    emailBody,
+    }).catch(err => {
+      fastify.log.error({ err, email: driver.email }, '[auth] forgot-password email failed');
+    });
+
+    return reply.code(200).send({ ok: true });
+  });
+
+
+  // ── POST /reset-password ───────────────────────────────────────────────────
+  fastify.post('/reset-password', async (req, reply) => {
+    const body = req.body as { token?: string; newPassword?: string };
+    const { token, newPassword } = body ?? {};
+
+    // Validate token presence
+    if (!token || typeof token !== 'string') {
+      return reply.status(400).send({ error: 'Invalid or expired token' });
+    }
+
+    // Validate password strength
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      return reply.status(400).send({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Look up valid, unexpired token
+    const { rows } = await pool.query<{ driver_id: string }>(
+      `SELECT driver_id FROM password_reset_tokens
+         WHERE token = $1 AND expires_at > NOW()
+         LIMIT 1`,
+      [token],
+    );
+
+    if (rows.length === 0) {
+      return reply.status(400).send({ error: 'Invalid or expired token' });
+    }
+
+    const driverId = rows[0].driver_id;
+
+    // Hash new password and update driver
+    const hash = await hashPassword(newPassword);
+    await pool.query(
+      `UPDATE drivers SET password_hash = $1 WHERE id = $2`,
+      [hash, driverId],
+    );
+
+    // Delete the token — single-use
+    await pool.query(
+      `DELETE FROM password_reset_tokens WHERE driver_id = $1`,
+      [driverId],
+    );
+
+    return reply.code(200).send({ ok: true });
+  });
 };

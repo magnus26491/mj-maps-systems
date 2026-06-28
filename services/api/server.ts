@@ -48,6 +48,8 @@ import { vehiclesRoutes } from './routes/vehicles.js';
 import { fcmTokenRoutes } from './routes/fcm-token.js';
 import { dispatcherRoutes } from './routes/dispatcher.js';
 import { registerDispatcherMessageRoutes } from './routes/dispatcher-message.js';
+import { registerBillingRoutes } from './routes/billing.js';
+import { registerStoragePresignRoutes } from './routes/storage-presign.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
@@ -184,8 +186,26 @@ const start = async () => {
 
   await server.register(fastifyWebsocket);
 
+  // ── Stripe webhook raw body parser ─────────────────────────────────────────
+// Stripe requires the raw body for HMAC signature verification.
+// Register BEFORE the billing plugin so the webhook route reads unparsed bytes.
+  server.addContentTypeParser(
+    'application/json',
+    { parseAs: 'buffer' },
+    (req, body, done) => {
+      (req as any).rawBody = body;
+      try {
+        done(null, JSON.parse(body.toString()));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // ── Routes ──────────────────────────────────────────────────────────────────
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
+  await server.register(registerBillingRoutes);
+  await server.register(registerStoragePresignRoutes);
   await server.register(confirmPinRoute);
   await server.register(pinCorrectionRoute);
   await server.register(mapConfigRoute);
