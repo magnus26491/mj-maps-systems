@@ -3,27 +3,29 @@
 
 const API_BASE = '/api/v1';
 
-// ── In-memory auth store ──────────────────────────────────────────────────────
-// localStorage / sessionStorage are blocked inside sandboxed iframes.
-// An in-memory module-level Map survives React re-renders within the same
-// page session. Hard page refresh logs the admin out — acceptable for a
-// privileged portal, and more secure (tokens never hit storage APIs).
-const _store = new Map<string, string>();
+// ── Token storage ─────────────────────────────────────────────────────────────
+// localStorage is blocked in sandboxed iframe environments (Railway preview,
+// Vite dev proxy). sessionStorage works within the same browser tab session
+// and is the correct store for short-lived admin credentials.
 
-function storeGet(key: string): string | null {
-  return _store.get(key) ?? null;
+const TOKEN_KEY   = 'mj_admin_token';
+const REFRESH_KEY = 'mj_admin_refresh';
+const USER_KEY    = 'mj_admin_user';
+
+function store(key: string, value: string): void {
+  try { sessionStorage.setItem(key, value); } catch { /* sandboxed — silently ignore */ }
 }
-function storeSet(key: string, value: string): void {
-  _store.set(key, value);
+function retrieve(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
 }
-function storeRemove(key: string): void {
-  _store.delete(key);
+function remove(key: string): void {
+  try { sessionStorage.removeItem(key); } catch { /* ignore */ }
 }
 
-// ── Auth helpers ──────────────────────────────────────────────────────────────
+// ── Auth headers ─────────────────────────────────────────────────────────────
 
 export function authHeaders(): Record<string, string> {
-  const token = storeGet('mj_admin_token');
+  const token = retrieve(TOKEN_KEY);
   if (!token) throw new Error('Not authenticated');
   return {
     'Content-Type': 'application/json',
@@ -73,27 +75,27 @@ export async function adminLogin(email: string, password: string): Promise<{
       status: 403, code: 'ADMIN_REQUIRED',
     });
   }
-  // Store in memory
-  storeSet('mj_admin_token', body.accessToken);
-  storeSet('mj_admin_refresh', body.refreshToken);
-  storeSet('mj_admin_user', JSON.stringify(body.user));
+  // Persist token in sessionStorage (works in sandboxed iframe; localStorage does not)
+  store(TOKEN_KEY,   body.accessToken);
+  store(REFRESH_KEY, body.refreshToken);
+  store(USER_KEY,    JSON.stringify(body.user));
   return body;
 }
 
 export function logout(): void {
-  storeRemove('mj_admin_token');
-  storeRemove('mj_admin_refresh');
-  storeRemove('mj_admin_user');
+  remove(TOKEN_KEY);
+  remove(REFRESH_KEY);
+  remove(USER_KEY);
 }
 
 export function getStoredUser(): { id: string; email: string; role: string; isOwner: boolean } | null {
-  const raw = storeGet('mj_admin_user');
+  const raw = retrieve(USER_KEY);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
 }
 
 export function isAuthenticated(): boolean {
-  return !!storeGet('mj_admin_token');
+  return !!retrieve(TOKEN_KEY);
 }
 
 export function isOwner(): boolean {
