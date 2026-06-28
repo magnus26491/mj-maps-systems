@@ -42,11 +42,13 @@ function HudInner() {
   const { colors } = useTheme();
   const { isDriving } = useDrivingMode();
   const { speechLang, t } = useLocale();
-  const shift        = useShiftStore(s => s.shift);
-  const currentStop = useShiftStore(s => s.currentStop);
-  const completeStop = useShiftStore(s => s.completeStop);
-  const failStop     = useShiftStore(s => s.failStop);
-  const user         = useAuthStore(s => s.user);
+  const shift               = useShiftStore(s => s.shift);
+  const currentStop         = useShiftStore(s => s.currentStop);
+  const completeStop        = useShiftStore(s => s.completeStop);
+  const failStop            = useShiftStore(s => s.failStop);
+  const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
+  const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
+  const user                = useAuthStore(s => s.user);
 
   useDriverLocation();
   const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId);
@@ -54,6 +56,21 @@ function HudInner() {
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const hasGreeted = useRef(false);
+
+  // Auto-dismiss dispatcher message after 15s
+  useEffect(() => {
+    if (!dispatcherMessage) return;
+    // Haptic + voice announcement on arrival
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Info);
+      Speech.speak(`Message from ${dispatcherMessage.from}: ${dispatcherMessage.message}`, {
+        language: speechLang,
+        rate: 0.95,
+      });
+    }
+    const timer = setTimeout(dismissDispMsg, 15_000);
+    return () => clearTimeout(timer);
+  }, [dispatcherMessage]);
 
   // Lifecycle greeting: fires ONLY on ROUTE_PREPARED → READY_TO_GO (first HUD render with active shift)
   useEffect(() => {
@@ -136,6 +153,24 @@ function HudInner() {
         current={currentStop.index}
         total={shift.totalStops}
       />
+
+      {/* ── Dispatcher Message Banner (Fix 4) ─────────────────── */}
+      {dispatcherMessage && (
+        <View style={styles.dispMsgBanner}>
+          <View style={styles.dispMsgHeader}>
+            <Text style={styles.dispMsgLabel}>Message from {dispatcherMessage.from}</Text>
+            <TouchableOpacity
+              onPress={dismissDispMsg}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Dismiss message"
+              accessibilityRole="button"
+            >
+              <Text style={styles.dispMsgClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.dispMsgText}>{dispatcherMessage.message}</Text>
+        </View>
+      )}
 
       {/* ── Current Stop ──────────────────────────────────────── */}
       <View style={[styles.stopCard, { backgroundColor: colors.surface }]}>
@@ -302,6 +337,29 @@ const styles = StyleSheet.create({
     paddingVertical: 16, paddingHorizontal: 20,
     marginHorizontal: 12, marginTop: 8,
     borderRadius: 16, gap: 12, minHeight: 72,
+  },
+  dispMsgBanner: {
+    marginHorizontal: 12, marginTop: 8,
+    backgroundColor: '#1A2A3A',
+    borderWidth: 1,
+    borderColor: '#00C2A860',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  dispMsgHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 6,
+  },
+  dispMsgLabel: {
+    fontSize: 13, fontWeight: '700', color: '#00C2A8', letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  dispMsgClose: {
+    fontSize: 16, color: '#607080', fontWeight: '600',
+  },
+  dispMsgText: {
+    fontSize: 16, color: '#F1F5F9', lineHeight: 22,
   },
   alertEmoji:    { fontSize: 28 },
   alertTextWrap: { flex: 1 },

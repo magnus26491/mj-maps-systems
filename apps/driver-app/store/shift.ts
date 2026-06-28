@@ -80,6 +80,11 @@ interface ShiftState {
   applyStopUpdate:  (stopId: string, patch: Partial<DeliveryStop>) => void;
   applyEtaUpdate:   (etas: EtaMap) => void;
   setWsConnected:   (connected: boolean) => void;
+
+  // ── Dispatcher message (Fix 4) ───────────────────────────────────────────
+  dispatcherMessage: { from: string; message: string; sentAt: number } | null;
+  applyDispatcherMessage: (msg: { from: string; message: string; sentAt: number }) => void;
+  dismissDispatcherMessage: () => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -110,7 +115,13 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   nextStop:     null,
   wsConnected:  false,
 
+  // ── Dispatcher message ──────────────────────────────────────────────────
+  dispatcherMessage: null,
+
   setWsConnected: (connected) => set({ wsConnected: connected }),
+
+  applyDispatcherMessage: (msg) => set({ dispatcherMessage: msg }),
+  dismissDispatcherMessage: () => set({ dispatcherMessage: null }),
 
   // ── startShift ─────────────────────────────────────────────────────────────
   // Accepts pre-optimised stops from API or greedy fallback from shift-start.
@@ -154,6 +165,7 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   endShift: () => set({
     isActive: false, shift: null, stops: [],
     currentStop: null, nextStop: null, vehicleId: null, customHeightM: null,
+    dispatcherMessage: null,
   }),
 
   // ── setStops ───────────────────────────────────────────────────────────────
