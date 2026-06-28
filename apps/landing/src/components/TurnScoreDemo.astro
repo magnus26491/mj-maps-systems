@@ -55,6 +55,16 @@ const messages: Record<string, { heading: string; sub: string; badge: string }> 
 >
   <!-- SVG road scene -->
   <div class="turn-scene" aria-hidden="true">
+    <!-- Real cartographic background: baked junction-map SVG -->
+    <img
+      src="/img/junction-map.svg"
+      alt=""
+      class="turn-map-bg"
+      width="320"
+      height="180"
+      loading="lazy"
+    />
+    <!-- Turn score SVG overlay -->
     <svg
       class="turn-svg"
       viewBox="0 0 320 180"
@@ -235,12 +245,24 @@ const messages: Record<string, { heading: string; sub: string; badge: string }> 
   .turn-scene {
     background: #0A0C10;
     overflow: hidden;
+    position: relative;
+  }
+
+  .turn-map-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
   }
 
   .turn-svg {
+    position: relative;
     width: 100%;
     height: auto;
     display: block;
+    z-index: 1;
   }
 
   .turn-arrow {

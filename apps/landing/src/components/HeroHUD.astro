@@ -75,26 +75,27 @@
     <div class="hero-hud" aria-hidden="true">
       <div class="hud-glow"></div>
       <div class="hud-panel glass">
-        <!-- Map background -->
+        <!-- Map background: real baked hero-map + animated route SVG overlay -->
         <div class="hud-map">
-          <svg class="route-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Street grid (subtle) -->
-            <line x1="20" y1="0" x2="20" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="70" y1="0" x2="70" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="140" y1="0" x2="140" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="210" y1="0" x2="210" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="260" y1="0" x2="260" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="0" y1="50" x2="280" y2="50" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="0" y1="100" x2="280" y2="100" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="0" y1="150" x2="280" y2="150" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-
-            <!-- Route path (drawn via CSS animation) -->
+          <!-- Real map base (hero-map SVG or screen capture if present) -->
+          <img
+            src="/img/hero-map.svg"
+            alt=""
+            class="hud-map-bg"
+            width="280"
+            height="200"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <!-- Animated route overlay on top -->
+          <svg class="route-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <defs>
               <linearGradient id="route-grad" x1="0%" y1="100%" x2="100%" y2="0%">
                 <stop offset="0%" stop-color="#3B82F6"/>
                 <stop offset="100%" stop-color="#2EE6CE"/>
               </linearGradient>
             </defs>
+            <!-- Route path (drawn via CSS animation) -->
             <path
               id="route-path"
               d="M 40 170 L 40 120 L 80 120 L 80 80 L 140 80 L 140 50 L 200 50 L 240 90"
@@ -333,11 +334,24 @@
   .hud-map {
     padding: 16px;
     background: rgba(10, 14, 20, 0.6);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hud-map-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.7;
   }
 
   .route-svg {
-    width: 100%;
-    height: auto;
+    position: absolute;
+    inset: 16px;
+    width: calc(100% - 32px);
+    height: calc(100% - 32px);
   }
 
   /* Route-draw animation */

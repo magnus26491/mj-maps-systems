@@ -30,8 +30,8 @@ interface Props {
 }
 
 const {
-  beforeSrc = '/img/before-postcode-centroid.png',
-  afterSrc  = '/img/after-gate-pin.png',
+  beforeSrc = '/img/before-postcode-centroid.svg',
+  afterSrc  = '/img/after-gate-pin.svg',
   beforeLabel = 'Postcode centroid',
   afterLabel  = 'Gate pin + Plus Code',
   initialPosition = 50,
@@ -52,7 +52,7 @@ const sliderId = `slider-${Math.random().toString(36).slice(2, 8)}`;
         width="600"
         height="400"
         loading="lazy"
-        onerror={`this.src='/img/placeholder-gate-pin.svg'`}
+        onerror={`this.src='/img/after-gate-pin.svg'`}
       />
       <span class="ba-label ba-label-after mono">{afterLabel}</span>
     </div>
@@ -65,7 +65,7 @@ const sliderId = `slider-${Math.random().toString(36).slice(2, 8)}`;
         width="600"
         height="400"
         loading="lazy"
-        onerror={`this.src='/img/placeholder-postcode.svg'`}
+        onerror={`this.src='/img/before-postcode-centroid.svg'`}
       />
       <span class="ba-label ba-label-before mono">{beforeLabel}</span>
     </div>

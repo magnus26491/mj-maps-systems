@@ -1,14 +1,16 @@
 ---
 /**
- * MapBackground.astro — Subtle UK road network SVG background
+ * MapBackground.astro — Baked static map background with SVG fallback
  *
- * Renders a hand-crafted SVG map of UK roads at low contrast.
- * Optionally uses MapTiler static tiles if MAPTILER_KEY env var is set.
+ * Priority:
+ *  1. Baked static map image (public/img/hero-map.svg, etc.) — committed SVG/PNG renders
+ *  2. MapTiler static map API  — MAPTILER_KEY env var + static endpoint (not tile endpoint)
+ *  3. Hand-crafted SVG         — last-resort fallback, always works
  *
  * Props:
  *   variant: 'hero' | 'section' | 'divider'  (default: 'section')
  *   overlay: boolean — dark scrim gradient overlay (default: true)
- *   opacity: 0-1  (default: 0.5)
+ *   opacity: 0-1     — baked/SVG layer opacity (default: 0.5)
  *   class: additional CSS classes
  */
 
@@ -26,136 +28,127 @@ const {
   class: className = '',
 } = Astro.props;
 
-const mapTileUrl = import.meta.env.MAP_TILER_KEY
-  ? `https://api.maptiler.com/maps/dataviz-dark/256/{z}/{x}/{y}@2x.png?key=${import.meta.env.MAP_TILER_KEY}`
-  : null;
+// Baked static map: hero-variant uses hero-map.svg, section/divider use junction-map.svg
+// These are committed SVG renders — always available, never 404.
+const BAKED_MAPS: Record<string, string> = {
+  hero:    '/img/hero-map.svg',
+  section: '/img/junction-map.svg',
+  divider: '/img/junction-map.svg',
+};
+const bakedSrc = BAKED_MAPS[variant];
 
-const heightClass = variant === 'hero' ? 'map-hero' : variant === 'divider' ? 'map-divider' : 'map-section';
+// MapTiler STATIC MAPS API (single-image, NOT tile endpoint).
+// URL: https://api.maptiler.com/maps/{style}/static/{lon},{lat},{zoom}/{w}x{h}@2x.png?key=…
+// When MAPTILER_KEY is set AND a baked image doesn't exist, fetch from MapTiler.
+// For hero we use a real Worcestershire lane coordinate: -2.337, 52.130
+const MAPTILER_KEY = import.meta.env.MAPTILER_KEY ?? null;
+// Note: MAPTILER_KEY env var. MAP_TILER_KEY (old) is no longer read.
 ---
 
-<div class:list={['map-bg', `map-${variant}`, heightClass, className]} aria-hidden="true">
-  {mapTileUrl ? (
-    <div class="map-tiles" style={`opacity: ${opacity}; background-image: url('${mapTileUrl}');`}></div>
-  ) : (
-    <!-- Hand-crafted UK road network SVG -->
-    <svg
-      class="map-svg"
-      viewBox="0 0 1200 600"
-      preserveAspectRatio="xMidYMid slice"
-      xmlns="http://www.w3.org/2000/svg"
+<div class:list={['map-bg', `map-${variant}`, className]} aria-hidden="true">
+  <!-- Layer 1: Baked static map image (always present — committed SVGs) -->
+  {bakedSrc && (
+    <img
+      src={bakedSrc}
+      alt=""
+      class="map-baked"
       style={`opacity: ${opacity};`}
-    >
-      <defs>
-        <!-- UK outline clip -->
-        <clipPath id="uk-clip">
-          <path d="M460,40 L520,30 L580,45 L640,35 L700,50 L750,40 L800,55 L820,70 L850,65 L870,80 L890,75 L900,90 L910,85 L920,100 L915,120 L930,135 L920,150 L940,165 L935,180 L950,195 L945,215 L960,230 L955,250 L970,265 L965,285 L980,300 L975,320 L990,335 L985,355 L1000,370 L995,390 L1010,405 L1005,425 L1020,440 L1015,460 L1030,475 L1025,495 L1040,510 L1035,530 L1050,545 L1045,565 L1055,580 L1050,600 L400,600 L380,580 L360,565 L340,550 L320,535 L300,520 L280,505 L260,490 L240,475 L220,460 L200,445 L180,430 L160,415 L140,400 L120,385 L100,370 L80,355 L60,340 L50,320 L40,300 L50,280 L40,260 L50,240 L40,220 L50,200 L40,180 L50,160 L40,140 L50,120 L60,100 L80,85 L100,90 L120,75 L140,80 L160,65 L180,70 L200,55 L220,60 L240,45 L260,50 L280,35 L300,40 L320,25 L340,30 L360,15 L380,20 L400,5 L420,15 L440,25 Z"/>
-        </clipPath>
+      loading="eager"
+      fetchpriority={variant === 'hero' ? 'high' : 'auto'}
+      width="800"
+      height="500"
+    />
+  )}
 
-        <!-- Radial glow gradient for emphasis -->
-        <radialGradient id="uk-glow" cx="50%" cy="45%" r="50%">
-          <stop offset="0%" stop-color="#00C2A8" stop-opacity="0.06"/>
-          <stop offset="100%" stop-color="#00C2A8" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
+  <!-- Layer 2: MapTiler static map (only when MAPTILER_KEY is present AND baked exists) -->
+  {MAPTILER_KEY && (
+    <img
+      src={`https://api.maptiler.com/maps/dataviz-dark/static/-2.337,52.130,10/800x500@2x.png?key=${MAPTILER_KEY}`}
+      alt=""
+      class="map-tiler"
+      style={`opacity: ${Math.min(opacity + 0.1, 1)};`}
+      loading={variant === 'hero' ? 'eager' : 'lazy'}
+      fetchpriority={variant === 'hero' ? 'high' : 'auto'}
+      width="800"
+      height="500"
+    />
+  )}
 
-      <g clip-path="url(#uk-clip)">
-        <!-- Base fill -->
-        <rect width="1200" height="600" fill="#0A0C10"/>
+  <!-- Layer 3: Hand-crafted SVG UK road network — last resort fallback -->
+  <!-- Always rendered (hidden by baked/tiler images via stacking), always accessible -->
+  <svg
+    class="map-svg"
+    viewBox="0 0 1200 600"
+    preserveAspectRatio="xMidYMid slice"
+    xmlns="http://www.w3.org/2000/svg"
+    style={`opacity: ${bakedSrc ? '0.05' : opacity}; pointer-events: none;`}
+    aria-hidden="true"
+  >
+    <defs>
+      <clipPath id="uk-clip">
+        <path d="M460,40 L520,30 L580,45 L640,35 L700,50 L750,40 L800,55 L820,70 L850,65 L870,80 L890,75 L900,90 L910,85 L920,100 L915,120 L930,135 L920,150 L940,165 L935,180 L950,195 L945,215 L960,230 L955,250 L970,265 L965,285 L980,300 L975,320 L990,335 L985,355 L1000,370 L995,390 L1010,405 L1005,425 L1020,440 L1015,460 L1030,475 L1025,495 L1040,510 L1035,530 L1050,545 L1045,565 L1055,580 L1050,600 L400,600 L380,580 L360,565 L340,550 L320,535 L300,520 L280,505 L260,490 L240,475 L220,460 L200,445 L180,430 L160,415 L140,400 L120,385 L100,370 L80,355 L60,340 L50,320 L40,300 L50,280 L40,260 L50,240 L40,220 L50,200 L40,180 L50,160 L40,140 L50,120 L60,100 L80,85 L100,90 L120,75 L140,80 L160,65 L180,70 L200,55 L220,60 L240,45 L260,50 L280,35 L300,40 L320,25 L340,30 L360,15 L380,20 L400,5 L420,15 L440,25 Z"/>
+      </clipPath>
+      <radialGradient id="uk-glow" cx="50%" cy="45%" r="50%">
+        <stop offset="0%" stop-color="#00C2A8" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="#00C2A8" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
 
-        <!-- Glow at major route intersections -->
-        <ellipse cx="600" cy="270" rx="200" ry="150" fill="url(#uk-glow)"/>
+    <g clip-path="url(#uk-clip)">
+      <rect width="1200" height="600" fill="#0A0C10"/>
+      <ellipse cx="600" cy="270" rx="200" ry="150" fill="url(#uk-glow)"/>
 
-        <!-- Major trunk roads (thicker, brighter) -->
-        <g stroke="#00C2A8" fill="none" stroke-linecap="round">
-          <!-- M1/M6 corridor: London to Birmingham to Manchester/Liverpool -->
-          <path d="M820,90 L760,150 L700,220 L640,290 L580,340 L520,380 L460,420 L400,460" stroke-width="2.5" stroke-opacity="0.35"/>
-          <!-- M25 orbital London -->
-          <ellipse cx="820" cy="110" rx="90" ry="75" stroke-width="2" stroke-opacity="0.28"/>
-          <!-- M4: London to Bristol to Cardiff -->
-          <path d="M820,100 L760,130 L700,155 L640,175 L580,195 L520,220 L460,250 L400,280 L350,310" stroke-width="2" stroke-opacity="0.28"/>
-          <!-- M40: Oxford to Birmingham -->
-          <path d="M700,170 L640,250 L580,310" stroke-width="1.5" stroke-opacity="0.22"/>
-          <!-- M5: Birmingham to Bristol to Exeter -->
-          <path d="M580,310 L520,260 L460,230 L400,210 L340,200" stroke-width="1.5" stroke-opacity="0.22"/>
-          <!-- A1: London to Edinburgh (via Newcastle) -->
-          <path d="M820,80 L760,100 L700,120 L640,140 L580,160 L520,180 L460,200 L400,220 L340,240 L280,260 L220,280 L160,300 L100,320" stroke-width="2" stroke-opacity="0.25"/>
-          <!-- M62 corridor: Liverpool/Hull -->
-          <path d="M400,440 L460,400 L520,360 L580,330 L640,310" stroke-width="1.5" stroke-opacity="0.20"/>
-          <!-- M8: Glasgow to Edinburgh -->
-          <path d="M240,340 L200,320 L160,300" stroke-width="1.5" stroke-opacity="0.18"/>
-          <!-- A14/M11 Cambridge area -->
-          <path d="M700,180 L640,210 L580,230" stroke-width="1" stroke-opacity="0.18"/>
-        </g>
-
-        <!-- Secondary A-roads (medium weight) -->
-        <g stroke="#00C2A8" fill="none" stroke-linecap="round">
-          <path d="M640,290 L640,200 L700,150" stroke-width="1.2" stroke-opacity="0.14"/>
-          <path d="M520,380 L520,300 L580,250" stroke-width="1.2" stroke-opacity="0.14"/>
-          <path d="M700,220 L760,180 L820,130" stroke-width="1" stroke-opacity="0.12"/>
-          <path d="M460,420 L460,350 L520,280" stroke-width="1" stroke-opacity="0.12"/>
-          <path d="M640,290 L700,250 L760,200" stroke-width="1" stroke-opacity="0.12"/>
-          <path d="M580,340 L640,280 L700,220" stroke-width="1" stroke-opacity="0.12"/>
-          <!-- Scottish routes -->
-          <path d="M200,320 L240,290 L280,260" stroke-width="1" stroke-opacity="0.12"/>
-          <path d="M160,300 L200,270 L240,240" stroke-width="1" stroke-opacity="0.10"/>
-          <!-- Welsh routes -->
-          <path d="M350,310 L310,340 L280,370" stroke-width="1" stroke-opacity="0.10"/>
-          <path d="M400,280 L360,310 L330,350" stroke-width="1" stroke-opacity="0.10"/>
-          <!-- East Anglia routes -->
-          <path d="M760,130 L800,150 L840,130" stroke-width="1" stroke-opacity="0.10"/>
-          <path d="M700,150 L740,120 L780,100" stroke-width="1" stroke-opacity="0.10"/>
-          <!-- Cornish routes -->
-          <path d="M200,520 L240,490 L280,460" stroke-width="1" stroke-opacity="0.10"/>
-          <path d="M220,500 L260,470 L300,440" stroke-width="1" stroke-opacity="0.10"/>
-        </g>
-
-        <!-- Minor roads (thinner, faint) -->
-        <g stroke="#00C2A8" fill="none" stroke-linecap="round">
-          <path d="M700,220 L740,200 L780,180" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M640,290 L680,270 L720,250" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M580,340 L620,320 L660,300" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M520,380 L560,360 L600,340" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M460,420 L500,400 L540,380" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M400,460 L440,440 L480,420" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M820,100 L860,120 L900,100" stroke-width="0.8" stroke-opacity="0.08"/>
-          <path d="M780,90 L820,70 L860,80" stroke-width="0.8" stroke-opacity="0.08"/>
-        </g>
-
-        <!-- City/cluster markers (tiny dots) -->
-        <g fill="#00C2A8">
-          <!-- London -->
-          <circle cx="820" cy="105" r="4" opacity="0.5"/>
-          <!-- Birmingham -->
-          <circle cx="580" cy="310" r="3.5" opacity="0.45"/>
-          <!-- Manchester -->
-          <circle cx="460" cy="420" r="3" opacity="0.40"/>
-          <!-- Glasgow -->
-          <circle cx="240" cy="340" r="3" opacity="0.35"/>
-          <!-- Edinburgh -->
-          <circle cx="200" cy="320" r="2.5" opacity="0.35"/>
-          <!-- Leeds -->
-          <circle cx="460" cy="350" r="2.5" opacity="0.35"/>
-          <!-- Newcastle -->
-          <circle cx="340" cy="240" r="2.5" opacity="0.35"/>
-          <!-- Bristol -->
-          <circle cx="400" cy="280" r="2.5" opacity="0.35"/>
-          <!-- Cardiff -->
-          <circle cx="350" cy="310" r="2.5" opacity="0.30"/>
-          <!-- Liverpool -->
-          <circle cx="400" cy="440" r="2.5" opacity="0.30"/>
-          <!-- Sheffield -->
-          <circle cx="520" cy="340" r="2.5" opacity="0.30"/>
-          <!-- Cambridge -->
-          <circle cx="700" cy="170" r="2" opacity="0.30"/>
-        </g>
+      <!-- Major trunk roads -->
+      <g stroke="#00C2A8" fill="none" stroke-linecap="round">
+        <path d="M820,90 L760,150 L700,220 L640,290 L580,340 L520,380 L460,420 L400,460" stroke-width="2.5" stroke-opacity="0.35"/>
+        <ellipse cx="820" cy="110" rx="90" ry="75" stroke-width="2" stroke-opacity="0.28"/>
+        <path d="M820,100 L760,130 L700,155 L640,175 L580,195 L520,220 L460,250 L400,280 L350,310" stroke-width="2" stroke-opacity="0.28"/>
+        <path d="M700,170 L640,250 L580,310" stroke-width="1.5" stroke-opacity="0.22"/>
+        <path d="M580,310 L520,260 L460,230 L400,210 L340,200" stroke-width="1.5" stroke-opacity="0.22"/>
+        <path d="M820,80 L760,100 L700,120 L640,140 L580,160 L520,180 L460,200 L400,220 L340,240 L280,260 L220,280 L160,300 L100,320" stroke-width="2" stroke-opacity="0.25"/>
+        <path d="M400,440 L460,400 L520,360 L580,330 L640,310" stroke-width="1.5" stroke-opacity="0.20"/>
+        <path d="M240,340 L200,320 L160,300" stroke-width="1.5" stroke-opacity="0.18"/>
+        <path d="M700,180 L640,210 L580,230" stroke-width="1" stroke-opacity="0.18"/>
       </g>
-    </svg>
-  )}
 
-  <!-- Dark scrim gradient overlay -->
-  {overlay && (
-    <div class="map-overlay"></div>
-  )}
+      <!-- Secondary roads -->
+      <g stroke="#00C2A8" fill="none" stroke-linecap="round">
+        <path d="M640,290 L640,200 L700,150" stroke-width="1.2" stroke-opacity="0.14"/>
+        <path d="M520,380 L520,300 L580,250" stroke-width="1.2" stroke-opacity="0.14"/>
+        <path d="M700,220 L760,180 L820,130" stroke-width="1" stroke-opacity="0.12"/>
+        <path d="M460,420 L460,350 L520,280" stroke-width="1" stroke-opacity="0.12"/>
+        <path d="M200,320 L240,290 L280,260" stroke-width="1" stroke-opacity="0.12"/>
+        <path d="M160,300 L200,270 L240,240" stroke-width="1" stroke-opacity="0.10"/>
+        <path d="M350,310 L310,340 L280,370" stroke-width="1" stroke-opacity="0.10"/>
+        <path d="M200,520 L240,490 L280,460" stroke-width="1" stroke-opacity="0.10"/>
+      </g>
+
+      <!-- Minor roads -->
+      <g stroke="#00C2A8" fill="none" stroke-linecap="round">
+        <path d="M700,220 L740,200 L780,180" stroke-width="0.8" stroke-opacity="0.08"/>
+        <path d="M640,290 L680,270 L720,250" stroke-width="0.8" stroke-opacity="0.08"/>
+        <path d="M580,340 L620,320 L660,300" stroke-width="0.8" stroke-opacity="0.08"/>
+        <path d="M520,380 L560,360 L600,340" stroke-width="0.8" stroke-opacity="0.08"/>
+        <path d="M460,420 L500,400 L540,380" stroke-width="0.8" stroke-opacity="0.08"/>
+        <path d="M400,460 L440,440 L480,420" stroke-width="0.8" stroke-opacity="0.08"/>
+      </g>
+
+      <!-- City markers -->
+      <g fill="#00C2A8">
+        <circle cx="820" cy="105" r="4"   opacity="0.5"/>
+        <circle cx="580" cy="310" r="3.5" opacity="0.45"/>
+        <circle cx="460" cy="420" r="3"   opacity="0.40"/>
+        <circle cx="240" cy="340" r="3"   opacity="0.35"/>
+        <circle cx="200" cy="320" r="2.5" opacity="0.35"/>
+        <circle cx="460" cy="350" r="2.5" opacity="0.35"/>
+        <circle cx="340" cy="240" r="2.5" opacity="0.35"/>
+        <circle cx="400" cy="280" r="2.5" opacity="0.35"/>
+      </g>
+    </g>
+  </svg>
+
+  <!-- Dark scrim overlay (always on top) -->
+  {overlay && <div class="map-overlay"></div>}
 </div>
 
 <style>
@@ -166,10 +159,6 @@ const heightClass = variant === 'hero' ? 'map-hero' : variant === 'divider' ? 'm
     pointer-events: none;
   }
 
-  .map-hero { z-index: 0; }
-  .map-section { z-index: 0; }
-  .map-divider { z-index: 0; height: 120px; }
-
   .map-svg {
     position: absolute;
     inset: 0;
@@ -177,19 +166,24 @@ const heightClass = variant === 'hero' ? 'map-hero' : variant === 'divider' ? 'm
     height: 100%;
   }
 
-  .map-tiles {
+  .map-baked,
+  .map-tiler {
     position: absolute;
-    inset: -20%;
-    width: 140%;
-    height: 140%;
-    background-size: cover;
-    background-position: center;
-    filter: saturate(0.4) brightness(0.5);
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
+
+  /* Baked image always on top of SVG; MapTiler above baked if present */
+  .map-baked  { z-index: 1; }
+  .map-tiler  { z-index: 2; }
+  .map-svg    { z-index: 0; }
 
   .map-overlay {
     position: absolute;
     inset: 0;
+    z-index: 3;
     background: linear-gradient(
       to bottom,
       var(--color-base) 0%,
@@ -199,17 +193,31 @@ const heightClass = variant === 'hero' ? 'map-hero' : variant === 'divider' ? 'm
     );
   }
 
-  /* For hero variant: more bottom fade so text is readable */
+  /* Hero: fills the hero section height */
+  .map-hero {
+    position: absolute;
+    inset: 0;
+    min-height: 100dvh;
+  }
+
+  /* Divider: fixed thin strip */
+  .map-divider {
+    position: absolute;
+    inset: 0;
+    height: 120px;
+  }
+
+  /* Hero: lighter top fade so text is readable */
   .map-hero .map-overlay {
     background: linear-gradient(
       to bottom,
-      rgba(10, 12, 16, 0.4) 0%,
-      rgba(10, 12, 16, 0.3) 50%,
+      rgba(10, 12, 16, 0.35) 0%,
+      rgba(10, 12, 16, 0.25) 50%,
       var(--color-base) 100%
     );
   }
 
-  /* For divider: fade top and bottom equally */
+  /* Divider: fade top and bottom equally */
   .map-divider .map-overlay {
     background: linear-gradient(
       to bottom,
@@ -220,8 +228,9 @@ const heightClass = variant === 'hero' ? 'map-hero' : variant === 'divider' ? 'm
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .map-svg,
-    .map-tiles {
+    .map-baked,
+    .map-tiler,
+    .map-svg {
       animation: none;
     }
   }

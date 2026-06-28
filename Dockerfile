@@ -57,6 +57,18 @@ RUN npm install --legacy-peer-deps
 COPY apps/landing/ .
 # Make packages available at the resolved path
 COPY packages/ /packages/
+
+# ── Optional: bake real MapTiler static map images ──────────────────────────
+# If MAPTILER_KEY is set in the Docker build args, download real map images.
+# If absent, the committed SVG fallbacks in public/img/ are used instead.
+# Runs before build so Astro can reference the baked images in the output.
+RUN if [ -n "$MAPTILER_KEY" ]; then \
+      echo "MAPTILER_KEY present — baking real map images..."; \
+      npx ts-node scripts/fetch-maps.ts; \
+    else \
+      echo "MAPTILER_KEY not set — using committed SVG fallbacks"; \
+    fi
+
 RUN npm run build
 
 # ── Stage 5: Build Admin Portal (Vite SPA) ────────────────────
