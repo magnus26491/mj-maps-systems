@@ -5,7 +5,7 @@ import './styles/globals.css';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/dispatcher">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Dashboard />} />
