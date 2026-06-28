@@ -786,9 +786,10 @@ import { t } from '../i18n/index';
 
   .ba-supporting-photo {
     margin: 24px 0 0;
-    border-radius: var(--radius-md);
+    position: relative;
+    border-radius: var(--radius-xl);
     overflow: hidden;
-    border: 1px solid var(--border-base);
+    border: 1px solid rgba(0, 194, 168, 0.10);
   }
 
   .ba-supporting-photo img {
@@ -797,12 +798,35 @@ import { t } from '../i18n/index';
     display: block;
   }
 
+  /* Editorial overlay caption — text floats over the photo */
   .ba-supporting-photo figcaption {
-    background: var(--surface-1);
-    color: var(--ink-faint);
-    font-size: 0.75rem;
-    padding: 10px 14px;
-    text-align: center;
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 28px 24px 20px;
+    background: linear-gradient(
+      to top,
+      rgba(10, 12, 16, 0.92) 0%,
+      rgba(10, 12, 16, 0.55) 50%,
+      transparent 100%
+    );
+    color: var(--ink-muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Mono teal label before caption text */
+  .ba-supporting-photo figcaption::before {
+    content: 'GATE PIN';
+    color: var(--brand);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+    padding-top: 2px;
   }
 
   /* ═══════════════════════════════════════════════════════════════════ */
@@ -811,7 +835,17 @@ import { t } from '../i18n/index';
 
   .ts-section {
     padding-block: var(--section-py);
-    background: var(--color-surface-1);
+    /* Night junction atmospheric photo — reinforces the turn-score demo */
+    background-image:
+      linear-gradient(
+        to right,
+        rgba(10, 12, 16, 0.96) 0%,
+        rgba(10, 12, 16, 0.80) 50%,
+        rgba(10, 12, 16, 0.55) 100%
+      ),
+      url('/img/photos/turn-score-night.webp');
+    background-size: cover;
+    background-position: center center;
     position: relative;
     overflow: hidden;
   }

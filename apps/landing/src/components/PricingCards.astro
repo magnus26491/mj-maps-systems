@@ -199,6 +199,27 @@ const MAX_FEATURES = 6;
     .pricing-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
+  /* ── Section bg: subtle fleet atmosphere ───────────────────────── */
+  .pricing-section {
+    position: relative;
+    /* Subtle atmospheric overlay so cards float over the comparison section bg */
+    background-image:
+      linear-gradient(
+        to bottom,
+        rgba(10, 12, 16, 0.6) 0%,
+        rgba(10, 12, 16, 0.3) 50%,
+        rgba(10, 12, 16, 0.6) 100%
+      ),
+      url('/img/photos/fleet-routing.webp');
+    background-size: cover;
+    background-position: center center;
+  }
+
+  .pricing-section > .container {
+    position: relative;
+    z-index: 1;
+  }
+
   /* ── Card ──────────────────────────────────────────────────────── */
   .pricing-card {
     position: relative;
@@ -206,8 +227,9 @@ const MAX_FEATURES = 6;
     flex-direction: column;
     gap: 20px;
     border-radius: var(--r-card);
-    border: 1px solid var(--glass-brd);
-    background: var(--surface);
+    border: 1px solid rgba(0, 194, 168, 0.10);
+    background: rgba(10, 12, 16, 0.75);
+    backdrop-filter: blur(12px);
     padding: 28px 24px;
     transition:
       border-color var(--dur-std) ease,
@@ -217,18 +239,16 @@ const MAX_FEATURES = 6;
 
   @media (hover: hover) {
     .pricing-card:hover {
-      border-color: rgba(0, 194, 168, 0.2);
+      border-color: rgba(0, 194, 168, 0.25);
+      background: rgba(18, 21, 27, 0.85);
     }
   }
 
   .pricing-card--highlight {
-    border-color: rgba(0, 194, 168, 0.25);
-    background: linear-gradient(
-      160deg,
-      rgba(0, 194, 168, 0.05) 0%,
-      var(--surface) 60%
-    );
-    box-shadow: 0 0 0 1px rgba(0, 194, 168, 0.08), 0 8px 32px rgb(0 0 0 / 0.3);
+    border-color: rgba(0, 194, 168, 0.30);
+    background: rgba(10, 18, 16, 0.80);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 0 0 1px rgba(0, 194, 168, 0.12), 0 12px 48px rgb(0 0 0 / 0.5);
   }
 
   /* ── Badge ─────────────────────────────────────────────────────── */
@@ -362,6 +382,12 @@ const MAX_FEATURES = 6;
     flex-shrink: 0;
     margin-top: 1px;
     display: flex;
+  }
+
+  /* Larger, more prominent check icons in pricing cards */
+  .feature-check-icon svg {
+    width: 20px;
+    height: 20px;
   }
 
   /* ── See all link ────────────────────────────────────────────── */
