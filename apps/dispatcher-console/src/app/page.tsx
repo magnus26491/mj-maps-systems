@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Bell, LayoutList, RefreshCw, LogOut } from 'lucide-react';
+import { Bell, LayoutList, RefreshCw, LogOut, Map } from 'lucide-react';
 import { FleetOverview } from '@/components/FleetOverview';
 import { AlertFeed } from '@/components/AlertFeed';
 import { RoutePanel } from '@/components/RoutePanel';
@@ -18,10 +18,12 @@ const LiveMap = dynamic(
 );
 
 type RightPanel = 'alerts' | 'route';
+type MobileView = 'map' | 'panel';
 
 export default function DispatcherDashboard() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<RightPanel>('alerts');
+  const [mobileView, setMobileView] = useState<MobileView>('map');
   const [authChecked, setAuthChecked] = useState(false);
 
   // All hooks must be called unconditionally before any early return
@@ -49,6 +51,7 @@ export default function DispatcherDashboard() {
   const handleSelectRoute = useCallback((routeId: string) => {
     setSelectedRouteId(routeId);
     setRightPanel('route');
+    setMobileView('panel');
   }, []);
 
   const handleReplan = useCallback(async (routeId: string) => {
@@ -63,33 +66,64 @@ export default function DispatcherDashboard() {
   return (
     <div className="flex flex-col h-full bg-[#171614] overflow-hidden">
       {/* Top nav */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 bg-[#1c1b19] flex-shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-[#1c1b19] flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Logo mark */}
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="MJ Maps">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="MJ Maps" className="flex-shrink-0">
             <rect width="28" height="28" rx="7" fill="#01696f"/>
             <path d="M7 20L11.5 9L14 15L16.5 11L21 20" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <circle cx="21" cy="9" r="2.5" fill="#a0e0e0"/>
           </svg>
-          <div>
+          <div className="min-w-0">
             <div className="text-sm font-semibold text-zinc-100 leading-tight">MJ Maps</div>
-            <div className="text-xs text-zinc-500 leading-tight">Dispatcher Console</div>
+            <div className="text-xs text-zinc-500 leading-tight hidden sm:block">Dispatcher Console</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Mobile view toggle — map vs panel */}
+          <div className="flex md:hidden items-center rounded-lg border border-zinc-700 overflow-hidden">
+            <button
+              onClick={() => setMobileView('map')}
+              className={clsx(
+                'flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors',
+                mobileView === 'map' ? 'bg-brand-500 text-white' : 'text-zinc-400 hover:text-zinc-200'
+              )}
+              aria-label="Show map"
+            >
+              <Map size={13} />
+              <span className="hidden xs:inline">Map</span>
+            </button>
+            <button
+              onClick={() => setMobileView('panel')}
+              className={clsx(
+                'flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors relative',
+                mobileView === 'panel' ? 'bg-brand-500 text-white' : 'text-zinc-400 hover:text-zinc-200'
+              )}
+              aria-label="Show alerts panel"
+            >
+              <Bell size={13} />
+              <span className="hidden xs:inline">Panel</span>
+              {undismissedCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                  {undismissedCount > 9 ? '9+' : undismissedCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* Live indicator */}
           <div className="flex items-center gap-1.5 text-xs">
             <div className={clsx(
-              'w-2 h-2 rounded-full',
+              'w-2 h-2 rounded-full flex-shrink-0',
               connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'
             )} />
-            <span className="text-zinc-500">{connected ? 'Live' : 'Reconnecting'}</span>
+            <span className="text-zinc-500 hidden sm:inline">{connected ? 'Live' : 'Reconnecting'}</span>
           </div>
 
           <button
             onClick={() => refreshRoutes()}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
             aria-label="Refresh"
           >
             <RefreshCw size={15} />
@@ -97,7 +131,7 @@ export default function DispatcherDashboard() {
 
           <button
             onClick={() => logout()}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
             aria-label="Sign out"
             title="Sign out"
           >
@@ -112,9 +146,13 @@ export default function DispatcherDashboard() {
       </div>
 
       {/* Main content: map + right panel */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Map area */}
-        <div className="flex-1 min-w-0 p-3">
+      {/* Desktop: side-by-side | Mobile: stacked with view toggle */}
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+        {/* Map area — visible on mobile only when mobileView==='map' */}
+        <div className={clsx(
+          'flex-1 min-w-0 p-3',
+          mobileView === 'panel' ? 'hidden md:flex' : 'flex',
+        )}>
           <LiveMap
             routes={routes}
             selectedRouteId={selectedRouteId}
@@ -122,14 +160,18 @@ export default function DispatcherDashboard() {
           />
         </div>
 
-        {/* Right panel */}
-        <div className="w-80 xl:w-96 flex-shrink-0 border-l border-zinc-800 flex flex-col bg-[#1c1b19]">
+        {/* Right panel — visible on mobile only when mobileView==='panel' */}
+        <div className={clsx(
+          'md:w-80 xl:w-96 md:flex-shrink-0 md:border-l border-zinc-800 flex flex-col bg-[#1c1b19]',
+          'w-full flex-1',
+          mobileView === 'map' ? 'hidden md:flex' : 'flex',
+        )}>
           {/* Panel tabs */}
           <div className="flex border-b border-zinc-800 flex-shrink-0">
             <button
               onClick={() => setRightPanel('alerts')}
               className={clsx(
-                'flex items-center gap-1.5 flex-1 justify-center py-2.5 text-xs font-medium transition-colors relative',
+                'flex items-center gap-1.5 flex-1 justify-center py-3 text-xs font-medium transition-colors relative',
                 rightPanel === 'alerts'
                   ? 'text-brand-400 border-b-2 border-brand-500'
                   : 'text-zinc-500 hover:text-zinc-300'
@@ -146,7 +188,7 @@ export default function DispatcherDashboard() {
             <button
               onClick={() => setRightPanel('route')}
               className={clsx(
-                'flex items-center gap-1.5 flex-1 justify-center py-2.5 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 flex-1 justify-center py-3 text-xs font-medium transition-colors',
                 rightPanel === 'route'
                   ? 'text-brand-400 border-b-2 border-brand-500'
                   : 'text-zinc-500 hover:text-zinc-300'
@@ -170,7 +212,7 @@ export default function DispatcherDashboard() {
             {rightPanel === 'route' && (
               <RoutePanel
                 route={selectedRoute}
-                onClose={() => setRightPanel('alerts')}
+                onClose={() => { setRightPanel('alerts'); setMobileView('map'); }}
               />
             )}
           </div>

@@ -9,12 +9,14 @@ interface Props {
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  zIndex: 1000, padding: '1rem', overflowY: 'auto',
 };
 
 const modalStyle: React.CSSProperties = {
   background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12,
   padding: '1.5rem', width: '100%', maxWidth: 700, position: 'relative',
+  maxHeight: '90vh', overflowY: 'auto',
 };
 
 const closeBtn: React.CSSProperties = {
@@ -112,11 +114,8 @@ export default function DriverDetailModal({ driverId, onClose }: Props) {
 
         {driverData && (
           <div>
-            {/* Summary grid */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem',
-              marginBottom: '1rem', padding: '0.75rem', background: '#1e293b', borderRadius: 8,
-            }}>
+            {/* Summary grid — 2 cols on mobile, 4 cols on wider screens */}
+            <div className="driver-summary-grid">
               <div>
                 <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Email</div>
                 <div style={{ color: '#f1f5f9', fontSize: '0.875rem' }}>{driverData.driver.email}</div>
@@ -147,7 +146,7 @@ export default function DriverDetailModal({ driverId, onClose }: Props) {
             </div>
 
             {/* Route history */}
-            <div style={{ overflow: 'auto', maxHeight: '50vh' }}>
+            <div className="table-scroll" style={{ maxHeight: '50vh' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
                 <thead>
                   <tr style={{ background: '#1e293b' }}>

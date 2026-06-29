@@ -30,14 +30,8 @@ export default function AssignModal({ routeId, onClose }: Props) {
   const noAccess = !isLoading && drivers.length === 0;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }}>
-      <div style={{
-        background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12,
-        padding: '1.5rem', width: '100%', maxWidth: 450,
-      }}>
+    <div className="modal-overlay">
+      <div className="modal-box modal-box-sm">
         <h2 style={{ color: '#f1f5f9', fontSize: '1.125rem', fontWeight: 600, marginTop: 0 }}>Assign Route</h2>
 
         {noAccess ? (
@@ -101,9 +95,9 @@ const selectStyle: React.CSSProperties = {
 };
 const cancelBtn: React.CSSProperties = {
   background: 'transparent', border: '1px solid #334155', borderRadius: 6,
-  color: '#94a3b8', padding: '0.5rem 1rem', cursor: 'pointer',
+  color: '#94a3b8', padding: '0.5rem 1rem', cursor: 'pointer', minHeight: 44,
 };
 const submitBtn: React.CSSProperties = {
   background: '#3b82f6', border: 'none', borderRadius: 6,
-  color: '#fff', padding: '0.5rem 1rem', fontWeight: 600, cursor: 'pointer',
+  color: '#fff', padding: '0.5rem 1rem', fontWeight: 600, cursor: 'pointer', minHeight: 44,
 };

@@ -39,10 +39,10 @@ export default function Dashboard() {
       }}>
         <span style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.125rem' }}>MJ Maps Dispatcher</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dispatcher</span>
           <button onClick={handleSignOut} style={{
             background: 'transparent', border: '1px solid #334155', borderRadius: 6,
-            color: '#94a3b8', fontSize: '0.875rem', padding: '0.25rem 0.75rem', cursor: 'pointer',
+            color: '#94a3b8', fontSize: '0.875rem', padding: '0.5rem 0.75rem', cursor: 'pointer',
+            minHeight: 44,
           }}>
             Sign out
           </button>
@@ -52,8 +52,8 @@ export default function Dashboard() {
       {/* KPI bar */}
       <KpiBar stats={stats} isLoading={statsLoading} />
 
-      {/* 2-col grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1rem' }}>
+      {/* Responsive 2-col grid — stacks to 1-col on mobile */}
+      <div className="dashboard-grid">
         {/* Left: map + route list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <FleetMap routes={routes} />
@@ -70,7 +70,7 @@ export default function Dashboard() {
         {/* Right: tabbed panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {/* Tab bar */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => setRightTab('alerts')}
               style={{
