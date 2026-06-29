@@ -60,6 +60,8 @@ import { safetyRoutes } from './routes/safety.js';
 import { fleetStreamRoute } from './routes/fleet-stream.js';
 import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
 import { poisRoute } from './routes/pois.js';
+import { geocodingProvider } from '../geocoding/geocoding-provider.js';
+import { optimiseRoute } from '../route-engine/route-engine.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -194,6 +196,99 @@ const start = async () => {
   await server.register(fleetStreamRoute);
   await server.register(deliveryDifficultyRoutes);
   await server.register(poisRoute);
+
+  // ── PAF / postcode lookup ────────────────────────────────────────────────────
+  // Driver app calls GET /api/v1/paf/lookup?postcode=SO14+2AH
+  // Returns addresses with real lat/lng so the app can geocode stops correctly.
+  server.get('/api/v1/paf/lookup', { preHandler: [requireAuth] }, async (request, reply) => {
+    const { postcode } = request.query as { postcode?: string };
+    if (!postcode?.trim()) {
+      return reply.code(400).send({ ok: false, error: 'postcode query param required' });
+    }
+    try {
+      const candidates = await geocodingProvider.resolvePostcodeToCandidates(postcode.trim());
+      const addresses = candidates.map(c => {
+        const parts = c.address.split(',').map((p: string) => p.trim());
+        return {
+          line1:       parts[0] ?? c.address,
+          line2:       parts[1] ?? undefined,
+          postTown:    parts[parts.length - 3] ?? '',
+          postcode:    c.postcode || postcode.trim().toUpperCase(),
+          fullAddress: c.address,
+          lat:         c.lat,
+          lng:         c.lng,
+        };
+      });
+      return reply.send({ ok: true, addresses });
+    } catch (err) {
+      return reply.code(500).send({ ok: false, error: (err as Error).message });
+    }
+  });
+
+  // ── Driver optimise alias ────────────────────────────────────────────────────
+  // Driver app calls POST /api/v1/optimise with its own schema:
+  //   { depot, stops: [{id,address,lat,lng,parcelCount}], vehicleProfileKey, plannedDepartureTime }
+  // This endpoint geocodes any stops with lat=0 and runs the route engine.
+  server.post('/api/v1/optimise', { preHandler: [requireAuth] }, async (request, reply) => {
+    const body = request.body as {
+      depot?: { lat?: number; lng?: number };
+      stops?: Array<{ id: string; address: string; lat?: number; lng?: number; parcelCount?: number }>;
+      vehicleProfileKey?: string;
+      plannedDepartureTime?: string;
+    };
+    if (!Array.isArray(body.stops) || body.stops.length === 0) {
+      return reply.code(400).send({ ok: false, error: 'stops array required' });
+    }
+
+    // Geocode stops that have no coordinates (lat=0 or missing)
+    const resolved = await Promise.all(body.stops.map(async s => {
+      if (s.lat && s.lng && (s.lat !== 0 || s.lng !== 0)) return s;
+      try {
+        const candidates = await geocodingProvider.resolvePostcodeToCandidates(s.address);
+        if (candidates.length > 0) {
+          return { ...s, lat: candidates[0].lat, lng: candidates[0].lng };
+        }
+      } catch { /* non-fatal — leave at 0,0 */ }
+      return s;
+    }));
+
+    const depEpoch = body.plannedDepartureTime
+      ? Math.floor(new Date(body.plannedDepartureTime).getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+
+    const engineStops = resolved.map(s => ({
+      id:             s.id,
+      lat:            s.lat ?? 0,
+      lng:            s.lng ?? 0,
+      serviceMinutes: 3,
+      address:        s.address,
+      parcelCount:    s.parcelCount ?? 1,
+    }));
+
+    const config = {
+      depotLat:        body.depot?.lat ?? 0,
+      depotLng:        body.depot?.lng ?? 0,
+      vehicleId:       body.vehicleProfileKey ?? 'lwb_van',
+      shiftStartEpoch: depEpoch,
+      shiftEndEpoch:   depEpoch + 8 * 3600,
+      returnToDepot:   false,
+    };
+
+    const result = await optimiseRoute(engineStops as any, config);
+
+    return reply.send({
+      ok: true,
+      optimized: {
+        orderedStops: result.orderedStops.map(s => ({
+          id:          s.id,
+          address:     (s as any).address ?? '',
+          lat:         s.lat,
+          lng:         s.lng,
+          parcelCount: (s as any).parcelCount ?? 1,
+        })),
+      },
+    });
+  });
 
   server.get('/api/v1/health', handleHealth as any);
 

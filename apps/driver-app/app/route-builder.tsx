@@ -38,6 +38,8 @@ interface PafAddress {
   postTown:    string;
   postcode:    string;
   fullAddress: string;
+  lat?:        number;
+  lng?:        number;
 }
 
 const normalisePC  = (q: string) => q.toUpperCase().replace(/\s+/g, '');
@@ -100,7 +102,7 @@ export default function RouteBuilderScreen() {
   const handleAddPafStop = useCallback((addr: PafAddress) => {
     setStops(prev => [...prev, {
       id: `paf-${Date.now()}-${Math.random()}`,
-      address: addr.fullAddress, lat: 0, lng: 0, parcelCount: 1,
+      address: addr.fullAddress, lat: addr.lat ?? 0, lng: addr.lng ?? 0, parcelCount: 1,
     }]);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
@@ -110,7 +112,7 @@ export default function RouteBuilderScreen() {
       ...prev,
       ...pafResults.map((addr, i) => ({
         id: `paf-all-${Date.now()}-${i}`,
-        address: addr.fullAddress, lat: 0, lng: 0, parcelCount: 1,
+        address: addr.fullAddress, lat: addr.lat ?? 0, lng: addr.lng ?? 0, parcelCount: 1,
       })),
     ]);
     setPafResults([]);
