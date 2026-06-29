@@ -2,8 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+
+import RouteLine from '../components/RouteLine.astro';
+import DeviceFrame from '../components/DeviceFrame.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
+import TurnScoreDemo from '../components/TurnScoreDemo.astro';
 import { type FeatureKey } from '@plans';
+import { t } from '../i18n/index';
 
 const driverKeys: FeatureKey[] = [
   'NAVIGATION', 'HGV_ROUTING', 'BRIDGE_RESTRICTIONS', 'TURN_SCORE',
@@ -11,135 +16,239 @@ const driverKeys: FeatureKey[] = [
   'ROADWORKS_AVOIDANCE', 'TIME_AWARE_OPTIMIZER', 'PARKING_ADVISORY',
   'TIDAL_AVOIDANCE',
 ];
-
-const breadcrumb = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
-    { '@type': 'ListItem', position: 2, name: 'For Drivers', item: 'https://mjmapsystems.com/drivers' },
-  ],
-};
 ---
 
 <BaseLayout
-  title="For Drivers — MJ Maps: UK Delivery Navigation App"
-  description="MJ Maps for solo delivery drivers. HGV routing, bridge alerts, turn-score warnings, exact gate pins, full offline mode. Free trial, no card needed. iOS & Android."
-  schema={breadcrumb}
+  title="For Drivers — MJ Maps"
+  description="MJ Maps for solo delivery drivers. HGV routing, bridge alerts, turn-score warnings, offline navigation. Works without signal. Cancel anytime."
+  schema={{
+    '@type': 'SoftwareApplication',
+    name: 'MJ Maps Driver Pro',
+    applicationCategory: 'NavigationApplication',
+  }}
 >
   <Nav activePage="/drivers" />
   <main id="main-content">
-    <div class="page-hero">
-      <!-- Photo background — degrades to CSS gradient when absent -->
-      <div class="page-hero-photo-wrap">
-        <picture>
-          <source srcset="/img/photos/drivers-van-lane.avif" type="image/avif">
-          <source srcset="/img/photos/drivers-van-lane.webp" type="image/webp">
-          <img
-            class="page-hero-photo"
-            src="/img/photos/drivers-van-lane.jpg"
-            alt=""
-            aria-hidden="true"
-            loading="eager"
-            fetchpriority="high"
-            width="1920"
-            height="800"
-            onerror="this.parentElement.parentElement.classList.add('no-photo')"
-          />
-        </picture>
-        <div class="page-hero-scrim"></div>
-      </div>
-      <div class="container">
-        <div class="chip chip-green hero-chip reveal">For Drivers</div>
-        <h1 class="reveal">Navigate like you know every road — because now you will.</h1>
-        <p class="page-hero-sub reveal">Vehicle-aware routing, turn-score warnings, last-50m gate pins, and full offline mode. Built for UK delivery drivers who can't afford wrong turns.</p>
-        <div class="hero-ctas reveal">
-          <a href="/register?plan=navigation" class="btn btn-primary">Start free trial — no card needed</a>
-          <a href="/features" class="btn btn-secondary">See all features →</a>
-        </div>
-        <div class="hero-badges reveal">
-          <a href="/register?plan=navigation" aria-label="Download on the App Store" class="badge-link">
-            <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
-              <rect width="140" height="44" rx="9" fill="#111827" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-              <text x="40" y="16" fill="#9CA3AF" font-size="7.5" font-family="Inter,sans-serif">Download on the</text>
-              <text x="40" y="31" fill="#F9FAFB" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">App Store</text>
-              <path d="M20 22 C20 17 24 13 29 13 C31 13 33 14 34 15 C35 14 37 13 39 13 C44 13 48 17 48 22 C48 28 43 33 34 37 C25 33 20 28 20 22Z" fill="none" stroke="#00C2A8" stroke-width="1.5"/>
-            </svg>
-          </a>
-          <a href="/register?plan=navigation" aria-label="Get it on Google Play" class="badge-link">
-            <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
-              <rect width="140" height="44" rx="9" fill="#111827" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-              <text x="40" y="16" fill="#9CA3AF" font-size="7.5" font-family="Inter,sans-serif">Get it on</text>
-              <text x="40" y="31" fill="#F9FAFB" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">Google Play</text>
-              <polygon points="22,13 22,31 34,22" fill="none" stroke="#00C2A8" stroke-width="1.5" stroke-linejoin="round"/>
-            </svg>
-          </a>
-        </div>
-        <p class="hero-note reveal">Free 14-day trial · No credit card · Cancel anytime</p>
-      </div>
-    </div>
 
-    <!-- Trust strip -->
-    <section class="trust-strip" aria-label="Key facts">
-      <div class="container">
-        <div class="trust-bar glass reveal">
-          {[
-            { stat: 'UK GDPR', label: 'compliant — location data never sold' },
-            { stat: 'Full offline', label: 'mode — works with zero signal' },
-            { stat: '300m', label: 'bridge alert lead time' },
-            { stat: 'No auto-renew', label: '— cancel any month' },
-          ].map(t => (
-            <div class="trust-item">
-              <span class="trust-stat">{t.stat}</span>
-              <span class="trust-label text-muted">{t.label}</span>
-            </div>
-          ))}
+    <!-- HERO — editorial asymmetric -->
+    <section class="page-hero-section" aria-labelledby="drivers-heading">
+      <!-- Full-bleed drivers-van-lane photo -->
+      <picture>
+        <source srcset="/img/photos/drivers-van-lane.webp" type="image/webp" />
+        <img
+          src="/img/photos/drivers-van-lane.png"
+          alt="White delivery van on a sunny UK rural lane with stone walls — For Drivers"
+          class="hero-photo"
+          loading="eager"
+          fetchpriority="high"
+          width="1920"
+          height="1080"
+        />
+      </picture>
+      <div class="hero-scrim" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <!-- Left: text -->
+        <div class="hero-text">
+          <h1 id="drivers-heading" class="reveal" data-delay="80">
+            Your shift,<br/>
+            <span class="text-accent">simplified</span>
+          </h1>
+          <p class="hero-sub reveal" data-delay="160">
+            MJ Maps knows your van's height and weight. It warns you before every tight turn.
+            Pins the exact gate — not the postcode centroid. Keeps routing when you lose signal
+            in a farm track in Shropshire.
+          </p>
+          <div class="hero-ctas reveal" data-delay="240">
+            <a href="/register?plan=navigation" class="btn btn-primary">{t("hero.ctaPrimary")}</a>
+            <a href="/pricing" class="btn btn-secondary">View pricing</a>
+          </div>
+          <div class="hero-trust reveal" data-delay="300">
+            <span class="trust-item">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Cancel anytime
+            </span>
+            <span class="trust-sep" aria-hidden="true">·</span>
+            <span class="trust-item">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              No auto-renew
+            </span>
+          </div>
+        </div>
+
+        <!-- Right: device frame with HUD -->
+        <div class="hero-device-wrap reveal" data-delay="200" aria-hidden="true">
+          <div class="hero-device">
+            <DeviceFrame variant="iphone" orientation="portrait" size="lg" notch={true}>
+              <!-- Mock route sequence HUD -->
+              <svg viewBox="0 0 300 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;background:#0A0C10;">
+                <rect width="300" height="620" fill="#0A0C10"/>
+                <!-- Status bar -->
+                <rect width="300" height="44" fill="#0A0C10"/>
+                <text x="20" y="28" font-family="system-ui" font-size="12" fill="#94A3B8">9:41</text>
+                <circle cx="265" cy="22" r="6" fill="none" stroke="#64748B" stroke-width="1.5"/>
+                <rect x="272" y="19" width="14" height="6" rx="1.5" fill="#64748B"/>
+                <!-- Route list -->
+                <text x="16" y="68" font-family="system-ui" font-size="15" font-weight="700" fill="#F1F5F9">Today's route</text>
+                <text x="16" y="86" font-family="system-ui" font-size="12" fill="#94A3B8">18 stops · 47.2 mi · ~5h 20m</text>
+                <!-- Stop items (stop data) -->
+                {[
+                  { addr: 'Farm Lane, WR9 7QB', status: 'done',    score: 'green',  time: '08:14' },
+                  { addr: 'Church Rd, B98 3PL', status: 'done',    score: 'green',  time: '08:31' },
+                  { addr: 'Station Rd, B98 8LR', status: 'current', score: 'amber',  time: '08:52' },
+                  { addr: 'Orchard Way, B98 7SP', status: 'pending', score: 'green', time: '09:10' },
+                  { addr: 'Mill End, B98 9HJ', status: 'pending', score: 'red',    time: '09:28' },
+                  { addr: 'Holly Ln, B98 2QR', status: 'pending', score: 'green', time: '09:45' },
+                ].map((s, i) => {
+                  const y = 110 + i * 72;
+                  const isCurrent = s.status === 'current';
+                  const scoreColor = s.score === 'green' ? '#10B981' : s.score === 'amber' ? '#F59E0B' : '#EF4444';
+                  const statusColor = s.status === 'done' ? '#10B981' : s.status === 'current' ? '#00C2A8' : '#64748B';
+                  return (
+                    <g>
+                      {isCurrent && <rect x="4" y={y - 8} width="292" height="64" rx="8" fill="rgba(0,194,168,0.08)" stroke="rgba(0,194,168,0.3)" stroke-width="1"/>}
+                      <circle cx="28" cy={y + 14} r="8" fill={statusColor} fill-opacity={isCurrent ? 1 : 0.6}/>
+                      {s.status === 'done' && <path d={`M${24} ${y + 14} L27 ${y + 17} L32 ${y + 11}`} stroke="#0A0C10" stroke-width="2" stroke-linecap="round" fill="none"/>}
+                      <text x="48" y={y + 12} font-family="system-ui" font-size="13" font-weight={isCurrent ? 700 : 400} fill="#F1F5F9">{s.addr}</text>
+                      <text x="48" y={y + 26} font-family="IBM Plex Mono, monospace" font-size="11" fill={scoreColor}>{s.score.toUpperCase()} · ETA {s.time}</text>
+                    </g>
+                  );
+                })}
+                <!-- Bottom bar -->
+                <rect x="0" y="572" width="300" height="48" fill="#0D1117"/>
+                <text x="150" y="596" font-family="system-ui" font-size="13" fill="#94A3B8" text-anchor="middle">3 of 18 delivered</text>
+              </svg>
+            </DeviceFrame>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- Day-on-round narrative -->
+    <section class="narrative-section" aria-labelledby="narrative-heading">
+      <div class="container">
+        <div class="narrative-inner">
+          <div class="narrative-text reveal">
+            <div class="section-label">How it works</div>
+            <h2 id="narrative-heading">A shift in your pocket</h2>
+            <p>Load your stops. Select your vehicle. Drive.</p>
+            <p class="text-muted">That's the whole workflow. MJ Maps handles the rest — routing, scoring, re-routing if you take a wrong turn, and confirming every delivery with a photo.</p>
+          </div>
+          <div class="narrative-steps">
+            {[
+              { time: '6:00 AM',  title: 'Load your manifest',       desc: 'Paste a list or import from your depot system. MJ Maps geocodes each address and pins the gate.' },
+              { time: '6:05 AM',  title: 'Select your vehicle',      desc: 'Choose from preset van profiles or enter your own height, weight, and width. The route re-scores immediately.' },
+              { time: 'All day',  title: 'Drive with turn-score',    desc: 'Every junction shows a colour-coded chip. AMBER means reduce to under 15 mph. RED means re-routing around it.' },
+              { time: 'Each stop', title: 'Confirm delivery',        desc: 'Scan the barcode, take a photo, add a note. One tap marks delivered and the HUD advances to the next stop.' },
+            ].map((step, i) => (
+              <div class="narrative-step reveal" data-delay={String(i * 80)}>
+                <div class="narrative-step-time mono">{step.time}</div>
+                <div class="narrative-step-connector" aria-hidden="true"></div>
+                <div class="narrative-step-body">
+                  <h4 class="narrative-step-title">{step.title}</h4>
+                  <p class="text-muted">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Turn score demo -->
+    <section class="ts-demo-section" aria-labelledby="ts-demo-heading">
+      <div class="container">
+        <div class="ts-demo-header reveal">
+          <div class="section-label">Turn-score intelligence</div>
+          <h2 id="ts-demo-heading">See it before you commit</h2>
+          <p class="text-muted">Every junction is scored against your vehicle profile. AMBER means take care. RED means re-routing around it.</p>
+        </div>
+        <div class="ts-demo-widget reveal" data-delay="100">
+          <TurnScoreDemo autoCycle={true} initialState="green" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature grid -->
     <FeatureGrid
-      title="Driver features"
-      subtitle="Everything included in Driver Pro — all in one app, offline-capable."
+      title="Everything in Driver Pro"
+      subtitle="One app. Offline-capable. No per-stop charges."
       featureKeys={driverKeys}
     />
 
-    <!-- Driver workflow -->
-    <section class="driver-workflow below-fold">
+    <!-- Honest pricing snapshot -->
+    <section class="pricing-snapshot below-fold" aria-labelledby="driver-price-heading">
       <div class="container">
-        <h2 class="reveal">A shift in your pocket</h2>
-        <div class="workflow-grid">
-          <div class="workflow-item reveal">
-            <div class="workflow-step mono">6:00</div>
-            <h3>Load your stops</h3>
-            <p class="text-muted">Paste your manifest or import from your depot system. MJ Maps pins each stop to the exact gate — not the postcode centre.</p>
+        <div class="pricing-snap-inner reveal">
+          <div class="pricing-snap-left">
+            <div class="section-label">Pricing</div>
+            <h2 id="driver-price-heading">£9.97 per month, VAT included</h2>
+            <p class="text-muted">No per-stop fees. No setup costs. No auto-renew surprises.</p>
+            <p class="text-muted">14-day free trial. Cancel from the app — no contact required.</p>
+            <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
           </div>
-          <div class="workflow-item reveal">
-            <div class="workflow-step mono">6:05</div>
-            <h3>Route optimises for your van</h3>
-            <p class="text-muted">Select your vehicle profile. The engine scores every turn for your specific weight and height, then optimises the stop sequence.</p>
-          </div>
-          <div class="workflow-item reveal">
-            <div class="workflow-step mono">All day</div>
-            <h3>Drive with confidence</h3>
-            <p class="text-muted">Turn-score chips tell you what to expect at every junction. Bridge alerts fire 300m early. Rerouting kicks in automatically if you deviate.</p>
-          </div>
-          <div class="workflow-item reveal">
-            <div class="workflow-step mono">Each stop</div>
-            <h3>Confirm delivery</h3>
-            <p class="text-muted">Scan the barcode, take a photo, capture a signature. One tap marks delivered and advances to the next stop.</p>
+          <div class="pricing-snap-right">
+            <div class="pricing-snap-card card">
+              <div class="pricing-snap-plan-name">Driver Pro</div>
+              <div class="pricing-snap-price">
+                <span class="pricing-currency-sm">£</span>
+                <span class="pricing-amount-sm font-display">9.97</span>
+                <span class="text-muted">/mo</span>
+              </div>
+              <p class="mono pricing-snap-note">£97/yr if billed yearly — saving £22.64</p>
+              <ul class="pricing-snap-features">
+                {['Vehicle-aware routing', 'Turn-score on every turn', 'Gate-pin delivery + Plus Codes', 'Fully offline maps', 'Route optimisation', 'Cancel anytime'].map(f => (
+                  <li>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M11.5 3.5L5.5 9.5 2.5 6.5" stroke="#00C2A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Driver CTA -->
-    <section class="driver-cta below-fold">
+    <!-- FAQ -->
+    <section class="driver-faq below-fold" aria-labelledby="faq-heading">
       <div class="container">
-        <div class="driver-cta-inner glass reveal">
-          <h2>Try it on your next shift</h2>
-          <p class="text-muted">Free trial, no card required. Install the app, set up your profile, and route your first shift in under 5 minutes.</p>
-          <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+        <div class="section-label reveal">Common questions</div>
+        <h2 id="faq-heading" class="reveal" data-delay="60">Questions from drivers</h2>
+        <div class="faq-list">
+          {[
+            { q: 'Does it work offline?', a: 'Core navigation — turn-by-turn routing, the map, and your route — works without signal. The turn-score engine uses cached OSM data. You need signal for live traffic and re-optimisation.' },
+            { q: 'What vehicles are supported?', a: 'Any van or light commercial vehicle. You can select from preset profiles (Transit, Sprinter, Berlingo, etc.) or enter your exact height, width, and weight.' },
+            { q: 'How accurate are gate pins?', a: 'Pins are placed using a combination of Geoapify geocoding and OSM address data, then verified by community driver corrections. After three driver confirmations a pin is locked as community-verified ground truth.' },
+            { q: 'Can I import stops from my existing system?', a: 'Yes. Paste a text list of addresses, import a CSV, or connect to supported depot management systems. Full import guide at mjmaps.app/docs/import.' },
+          ].map((item, i) => (
+            <details class="faq-item reveal" data-delay={String(i * 60)}>
+              <summary class="faq-question">{item.q}</summary>
+              <p class="faq-answer text-muted">{item.a}</p>
+            </details>
+          ))}
+        </div>
+        <p class="faq-more-link reveal">
+          <a href="/contact">Can't find your question? Talk to us →</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="driver-cta-section below-fold" aria-labelledby="driver-cta-heading">
+      <div class="container">
+        <div class="driver-cta-inner">
+          <div class="driver-cta-routeline" aria-hidden="true">
+            <RouteLine score="teal" animated={false} viewBox="0 0 400 60" />
+          </div>
+          <h2 id="driver-cta-heading" class="reveal">Try it on your next shift</h2>
+          <p class="driver-cta-sub reveal" data-delay="80">
+            Free trial, no card required. Set up your vehicle profile
+            and route your first shift in under 5 minutes.
+          </p>
+          <div class="driver-cta-btns reveal" data-delay="160">
+            <a href="/register?plan=navigation" class="btn btn-primary">Start free trial</a>
+            <a href="/contact" class="btn btn-secondary">Talk to us first</a>
+          </div>
         </div>
       </div>
     </section>
@@ -148,112 +257,454 @@ const breadcrumb = {
 </BaseLayout>
 
 <style>
-  .page-hero {
+  /* ─── Page hero ──────────────────────────────────────────────────── */
+
+  .page-hero-section {
     position: relative;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    padding-block: 120px 80px;
     overflow: hidden;
-    padding-block: 120px 48px;
-    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
-    text-align: center;
   }
 
-  .page-hero-photo-wrap {
+  .hero-photo {
     position: absolute;
     inset: 0;
-    z-index: 0;
-  }
-  .page-hero-photo-wrap.no-photo { display: none; }
-
-  .page-hero-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center 30%;
-    display: block;
+    z-index: 0;
   }
 
-  .page-hero-scrim {
+  .hero-scrim {
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(to bottom, rgba(10,14,20,0.75) 0%, rgba(10,14,20,0.55) 60%, rgba(10,14,20,0.85) 100%);
-  }
-
-  .page-hero .container {
-    position: relative;
     z-index: 1;
+    background: linear-gradient(
+      to right,
+      rgba(10, 12, 16, 0.97) 0%,
+      rgba(10, 12, 16, 0.78) 30%,
+      rgba(10, 12, 16, 0.38) 52%,
+      transparent 72%
+    );
   }
 
-  .hero-chip { margin-bottom: 16px; display: inline-flex; }
-  .page-hero-sub {
-    color: var(--ink-muted);
-    font-size: 1.125rem;
-    margin-top: 12px;
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+    align-items: center;
+    width: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-inner {
+      flex-direction: row;
+      gap: 64px;
+      align-items: flex-start;
+    }
+  }
+
+  .hero-text {
+    flex: 1;
+    text-align: center;
     max-width: 560px;
     margin-inline: auto;
-    margin-bottom: 24px;
   }
+
+  @media (min-width: 1024px) {
+    .hero-text {
+      text-align: left;
+      margin-inline: 0;
+      padding-top: 24px;
+    }
+  }
+
+  .section-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--ink-muted);
+    margin-bottom: 10px;
+    padding-left: 10px;
+    border-left: 2px solid var(--brand);
+  }
+
+  h1 { margin-bottom: 16px; text-align: center; }
+
+  @media (min-width: 1024px) {
+    h1 { text-align: left; }
+  }
+
+  .text-accent { color: var(--brand-bright); display: block; }
+
+  .hero-sub {
+    color: var(--ink-muted);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    max-width: 480px;
+    margin-inline: auto;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-sub { margin-inline: 0; text-align: left; }
+  }
+
   .hero-ctas {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+    margin-bottom: 24px;
     justify-content: center;
   }
-  .hero-badges {
+
+  @media (min-width: 1024px) {
+    .hero-ctas { justify-content: flex-start; }
+  }
+
+  .hero-trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-trust { justify-content: flex-start; }
+  }
+
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-muted);
+    font-size: 0.875rem;
+  }
+
+  .trust-sep { color: var(--ink-faint); }
+
+  .hero-device-wrap {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 300px;
+    margin-inline: auto;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-device-wrap {
+      max-width: 280px;
+      margin-inline: 0;
+    }
+  }
+
+  .hero-device {
+    filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.5));
+  }
+
+  /* ─── Narrative section ──────────────────────────────────────────── */
+
+  .narrative-section {
+    padding-block: var(--section-py);
+    /* Subtle drivers-van-lane atmospheric overlay — breaks flat surface */
+    background-image:
+      linear-gradient(
+        135deg,
+        rgba(10, 12, 16, 0.85) 0%,
+        rgba(10, 12, 16, 0.70) 50%,
+        rgba(10, 12, 16, 0.85) 100%
+      ),
+      url('/img/photos/drivers-van-lane.webp');
+    background-size: cover;
+    background-position: center 40%;
+  }
+
+  .narrative-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  @media (min-width: 900px) {
+    .narrative-inner {
+      grid-template-columns: 300px 1fr;
+      gap: 64px;
+    }
+  }
+
+  .narrative-text .section-label { margin-bottom: 12px; }
+  .narrative-text h2 { margin-bottom: 16px; }
+  .narrative-text p { margin-bottom: 12px; max-width: none; }
+
+  .narrative-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .narrative-step {
+    display: grid;
+    grid-template-columns: 80px 2px 1fr;
+    gap: 0 20px;
+    align-items: start;
+    padding-bottom: 32px;
+    position: relative;
+  }
+
+  .narrative-step:last-child { padding-bottom: 0; }
+
+  .narrative-step-time {
+    font-size: 0.8125rem;
+    color: var(--brand);
+    padding-top: 4px;
+    text-align: right;
+  }
+
+  .narrative-step-connector {
+    width: 2px;
+    background: var(--glass-brd);
+    min-height: 100%;
+    align-self: stretch;
+    position: relative;
+  }
+
+  .narrative-step-connector::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand);
+  }
+
+  .narrative-step:last-child .narrative-step-connector {
+    background: transparent;
+  }
+
+  .narrative-step-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+
+  /* ─── Turn-score demo section ────────────────────────────────────── */
+
+  .ts-demo-section {
+    padding-block: var(--section-py);
+    /* Night junction atmospheric photo — reinforces the turn-score night HUD theme */
+    background-image:
+      linear-gradient(
+        to bottom,
+        rgba(10, 12, 16, 0.98) 0%,
+        rgba(10, 12, 16, 0.88) 20%,
+        rgba(10, 12, 16, 0.60) 60%,
+        rgba(10, 12, 16, 0.80) 100%
+      ),
+      url('/img/photos/turn-score-night.webp');
+    background-size: cover;
+    background-position: center center;
+  }
+
+  .ts-demo-header {
+    text-align: center;
+    max-width: 520px;
+    margin-inline: auto;
+    margin-bottom: 40px;
+    /* Opaque bg ensures text readability over the night-junction photo */
+    background: rgba(10, 12, 16, 0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-xl);
+    padding: 28px 32px;
+  }
+
+  .ts-demo-header .section-label { margin-bottom: 12px; }
+  .ts-demo-header h2 { margin-bottom: 12px; }
+
+  .ts-demo-widget {
+    max-width: 640px;
+    margin-inline: auto;
+  }
+
+  /* ─── Pricing snapshot ───────────────────────────────────────────── */
+
+  .pricing-snapshot {
+    padding-block: var(--section-py);
+  }
+
+  .pricing-snap-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: center;
+  }
+
+  @media (min-width: 900px) {
+    .pricing-snap-inner {
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+    }
+  }
+
+  .pricing-snap-left .section-label { margin-bottom: 12px; }
+  .pricing-snap-left h2 { margin-bottom: 12px; }
+  .pricing-snap-left p { margin-bottom: 12px; max-width: none; }
+  .pricing-snap-left .btn { margin-top: 8px; }
+
+  .pricing-snap-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .pricing-snap-plan-name {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .pricing-snap-price {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .pricing-currency-sm { font-size: 1.25rem; font-weight: 700; color: var(--ink-muted); }
+  .pricing-amount-sm { font-size: 2.5rem; font-weight: 700; color: var(--ink); line-height: 1; }
+
+  .pricing-snap-note { font-size: 0.75rem; color: var(--ink-faint); max-width: none; margin: 0; }
+
+  .pricing-snap-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pricing-snap-features li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+  }
+
+  /* ─── FAQ ────────────────────────────────────────────────────────── */
+
+  .driver-faq {
+    padding-block: var(--section-py);
+    background: var(--color-surface-1);
+  }
+
+  .driver-faq .section-label { margin-bottom: 12px; }
+  .driver-faq h2 { margin-bottom: 32px; }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .faq-item {
+    background: var(--color-surface-1);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    transition: border-color var(--dur-micro) ease-out;
+  }
+
+  .faq-item[open] {
+    border-color: rgba(0, 194, 168, 0.25);
+  }
+
+  .faq-question {
+    padding: 18px 20px;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .faq-question::after {
+    content: '+';
+    font-size: 1.25rem;
+    color: var(--ink-faint);
+    transition: transform var(--dur-micro) ease-out;
+    flex-shrink: 0;
+  }
+
+  .faq-item[open] .faq-question::after {
+    transform: rotate(45deg);
+  }
+
+  .faq-question::-webkit-details-marker { display: none; }
+
+  .faq-answer {
+    padding: 0 20px 18px;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    max-width: none;
+    margin: 0;
+  }
+
+  .faq-more-link {
+    text-align: center;
+    font-size: 0.9375rem;
+    max-width: none;
+  }
+
+  /* ─── Driver CTA ─────────────────────────────────────────────────── */
+
+  .driver-cta-section {
+    padding-block: var(--section-py);
+  }
+
+  .driver-cta-inner {
+    text-align: center;
+    position: relative;
+  }
+
+  .driver-cta-routeline {
+    width: 280px;
+    margin-inline: auto;
+    margin-bottom: 32px;
+    opacity: 0.5;
+  }
+
+  .driver-cta-inner h2 { margin-bottom: 16px; }
+
+  .driver-cta-sub {
+    color: var(--ink-muted);
+    font-size: 1rem;
+    line-height: 1.65;
+    max-width: 48ch;
+    margin-inline: auto;
+    margin-bottom: 32px;
+  }
+
+  .driver-cta-btns {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     justify-content: center;
-    margin-top: 16px;
   }
-  .badge-link { opacity: 0.85; transition: opacity var(--dur-micro) ease-out; text-decoration: none; }
-  @media (hover: hover) { .badge-link:hover { opacity: 1; } }
-  .hero-note { font-size: 0.8125rem; color: var(--ink-faint); margin-top: 16px; }
-
-  /* Trust strip */
-  .trust-strip { padding-block: 32px; }
-  .trust-bar {
-    border-radius: var(--r-card);
-    padding: 24px 32px;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px 32px;
-  }
-  @media (min-width: 768px) { .trust-bar { grid-template-columns: repeat(4, 1fr); } }
-  .trust-item { display: flex; flex-direction: column; gap: 4px; }
-  .trust-stat { font-size: 1rem; font-weight: 700; color: var(--brand-bright); }
-  .trust-label { font-size: 0.8125rem; line-height: 1.4; }
-
-  .workflow-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 40px;
-  }
-  @media (min-width: 640px) { .workflow-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (min-width: 1024px) { .workflow-grid { grid-template-columns: repeat(4, 1fr); } }
-
-  .workflow-item {
-    background: var(--surface);
-    border: 1px solid var(--glass-brd);
-    border-radius: var(--r-card);
-    padding: 24px;
-  }
-  .workflow-step {
-    font-size: 0.875rem;
-    color: var(--brand-bright);
-    margin-bottom: 12px;
-  }
-  .workflow-item h3 { margin-bottom: 8px; }
-
-  .driver-cta { padding-block: var(--section-py); }
-  .driver-cta-inner {
-    border-radius: var(--r-panel);
-    padding: 48px 32px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-  }
-  .driver-cta-inner p { max-width: 480px; }
 </style>

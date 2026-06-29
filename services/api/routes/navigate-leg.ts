@@ -17,7 +17,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireTier } from '../middleware/auth.js';
 import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index.js';
 import { getRoadContext } from '../../osm/overpass-client.js';
 import { pool } from '../../db/index.js';
@@ -250,7 +250,7 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: z.infer<typeof BodySchema> }>(
     '/api/v1/navigate/leg',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireTier('courier', 'fleet', 'enterprise')],
       schema: {
         body: {
           type: 'object',

@@ -1,0 +1,253 @@
+---
+/**
+ * GatePinIllustration.astro
+ *
+ * Dark cinematic SVG illustration for the gate-pin / precision delivery section.
+ * Shows a driver standing at a rural UK farm gate, holding a phone showing
+ * the exact pin, Plus Code, and approach arrow.
+ *
+ * All SVG — no external image dependency.
+ * ViewBox: 0 0 600 400 (landscape).
+ */
+---
+
+<svg
+  viewBox="0 0 600 400"
+  xmlns="http://www.w3.org/2000/svg"
+  aria-label="Driver at a rural farm gate using MJ Maps to confirm the exact delivery pin"
+  class="gate-pin-illustration"
+  role="img"
+>
+  <defs>
+    <!-- Sky gradient -->
+    <linearGradient id="gpSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#07090D"/>
+      <stop offset="100%" stop-color="#0A0C10"/>
+    </linearGradient>
+
+    <!-- Ground -->
+    <linearGradient id="gpGround" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1A2030"/>
+      <stop offset="100%" stop-color="#0D1117"/>
+    </linearGradient>
+
+    <!-- Hedge/tree dark green -->
+    <linearGradient id="gpHedge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0F1A14"/>
+      <stop offset="100%" stop-color="#1A2A20"/>
+    </linearGradient>
+
+    <!-- Phone screen glow -->
+    <radialGradient id="phoneScreenGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00C2A8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00C2A8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Pin glow -->
+    <filter id="pinGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Phone frame shadow -->
+    <filter id="phoneShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="600" height="400" fill="url(#gpSky)"/>
+
+  <!-- Stars -->
+  <g fill="#FFFFFF" opacity="0.35">
+    <circle cx="50"  cy="30"  r="1"/>
+    <circle cx="120" cy="18"  r="0.8"/>
+    <circle cx="220" cy="40"  r="1"/>
+    <circle cx="340" cy="15"  r="0.7"/>
+    <circle cx="420" cy="35"  r="0.9"/>
+    <circle cx="510" cy="22"  r="1.1"/>
+    <circle cx="560" cy="45"  r="0.8"/>
+    <circle cx="90"  cy="55"  r="0.6"/>
+  </g>
+
+  <!-- Moon (subtle) -->
+  <circle cx="480" cy="60" r="24" fill="#0A0C10" stroke="#1A2030" stroke-width="1"/>
+  <circle cx="468" cy="54" r="24" fill="#0A0C10"/>
+
+  <!-- Distant trees / hedge (left) -->
+  <g fill="url(#gpHedge)" opacity="0.8">
+    <ellipse cx="40"  cy="280" rx="60" ry="100"/>
+    <ellipse cx="100" cy="270" rx="50" ry="90"/>
+    <ellipse cx="160" cy="275" rx="55" ry="95"/>
+  </g>
+
+  <!-- Distant trees / hedge (right) -->
+  <g fill="url(#gpHedge)" opacity="0.8">
+    <ellipse cx="560" cy="280" rx="60" ry="100"/>
+    <ellipse cx="500" cy="270" rx="50" ry="90"/>
+    <ellipse cx="440" cy="275" rx="55" ry="95"/>
+  </g>
+
+  <!-- Ground / grass -->
+  <rect x="0" y="280" width="600" height="120" fill="url(#gpGround)"/>
+  <!-- Grass tufts -->
+  <g stroke="#1A3020" stroke-width="1.5" stroke-linecap="round" opacity="0.6">
+    <line x1="50"  y1="280" x2="48"  y2="268"/>
+    <line x1="55"  y1="280" x2="57"  y2="265"/>
+    <line x1="60"  y1="280" x2="59"  y2="270"/>
+    <line x1="500" y1="280" x2="498" y2="268"/>
+    <line x1="505" y1="280" x2="507" y2="265"/>
+    <line x1="510" y1="280" x2="509" y2="270"/>
+    <line x1="300" y1="280" x2="298" y2="270"/>
+    <line x1="305" y1="280" x2="307" y2="266"/>
+  </g>
+
+  <!-- Farm gate (right side, open) -->
+  <g>
+    <!-- Gate post left -->
+    <rect x="430" y="200" width="10" height="82" rx="2" fill="#2A3040" stroke="#334155" stroke-width="1"/>
+    <!-- Gate post right -->
+    <rect x="575" y="200" width="10" height="82" rx="2" fill="#2A3040" stroke="#334155" stroke-width="1"/>
+    <!-- Horizontal gate bars (open, swung back) -->
+    <line x1="440" y1="215" x2="380" y2="210" stroke="#3B4555" stroke-width="3" stroke-linecap="round"/>
+    <line x1="440" y1="240" x2="375" y2="235" stroke="#3B4555" stroke-width="3" stroke-linecap="round"/>
+    <line x1="440" y1="265" x2="378" y2="262" stroke="#3B4555" stroke-width="3" stroke-linecap="round"/>
+    <!-- Diagonal gate braces -->
+    <line x1="440" y1="215" x2="430" y2="268" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+    <line x1="385" y1="210" x2="378" y2="262" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+    <!-- Gate latch -->
+    <rect x="428" y="232" width="8" height="14" rx="2" fill="#3B4555"/>
+  </g>
+
+  <!-- Farm track (gravel/dirt path through gate) -->
+  <path d="M 435 282 L 385 400 L 480 400 L 440 282 Z" fill="#1A1F26"/>
+  <!-- Track texture -->
+  <g stroke="#2A3040" stroke-width="1" opacity="0.4">
+    <line x1="400" y1="320" x2="410" y2="320"/>
+    <line x1="420" y1="340" x2="435" y2="340"/>
+    <line x1="400" y1="360" x2="418" y2="360"/>
+    <line x1="415" y1="380" x2="430" y2="380"/>
+  </g>
+
+  <!-- Pin marker on track (the actual delivery point) -->
+  <g transform="translate(425, 310)" filter="url(#pinGlow)">
+    <!-- Pin shadow -->
+    <ellipse cx="0" cy="8" rx="10" ry="3" fill="#000000" fill-opacity="0.5"/>
+    <!-- Pin stem -->
+    <rect x="-2.5" y="0" width="5" height="14" rx="2.5" fill="#EF4444"/>
+    <!-- Pin head -->
+    <circle cx="0" cy="-4" r="9" fill="#EF4444"/>
+    <circle cx="-3" cy="-7" r="3" fill="#FF6B6B" fill-opacity="0.6"/>
+  </g>
+
+  <!-- ── DRIVER (simplified, dark silhouette) ── -->
+  <g transform="translate(220, 170)">
+    <!-- Shadow on ground -->
+    <ellipse cx="70" cy="205" rx="45" ry="10" fill="#000000" fill-opacity="0.3"/>
+
+    <!-- Legs -->
+    <rect x="50"  y="120" width="18" height="82" rx="6" fill="#1A2030"/>
+    <rect x="72"  y="120" width="18" height="82" rx="6" fill="#1A2030"/>
+
+    <!-- Boots -->
+    <ellipse cx="59"  cy="202" rx="14" ry="7" fill="#111820"/>
+    <ellipse cx="81"  cy="202" rx="14" ry="7" fill="#111820"/>
+
+    <!-- Body / jacket -->
+    <path d="M 45 55 Q 70 48 95 55 L 100 120 L 40 120 Z" fill="#2A3040" stroke="#334155" stroke-width="1"/>
+    <!-- Reflective strips on jacket -->
+    <line x1="48" y1="80"  x2="92" y2="80"  stroke="#00C2A8" stroke-width="2" stroke-opacity="0.4"/>
+    <line x1="48" y1="95"  x2="92" y2="95"  stroke="#00C2A8" stroke-width="1.5" stroke-opacity="0.25"/>
+
+    <!-- Arms (one reaching forward with phone) -->
+    <!-- Left arm (by side) -->
+    <path d="M 45 60 Q 30 90 40 110" stroke="#2A3040" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <!-- Right arm (holding phone forward) -->
+    <path d="M 95 60 Q 130 80 140 95" stroke="#2A3040" stroke-width="16" stroke-linecap="round" fill="none"/>
+
+    <!-- Head -->
+    <circle cx="70" cy="38" r="22" fill="#2A3040" stroke="#334155" stroke-width="1"/>
+    <!-- Safety helmet / cap -->
+    <path d="M 48 32 Q 70 18 92 32 Q 92 22 70 16 Q 48 22 48 32" fill="#1A2030" stroke="#334155" stroke-width="1"/>
+    <ellipse cx="70" cy="32" rx="24" ry="8" fill="#1A2030"/>
+
+    <!-- Hand holding phone -->
+    <circle cx="145" cy="100" r="10" fill="#2A3040"/>
+
+    <!-- PHONE in hand -->
+    <g transform="translate(130, 55)" filter="url(#phoneShadow)">
+      <!-- Phone body -->
+      <rect x="0" y="0" width="42" height="72" rx="6" fill="#0A0C10" stroke="#334155" stroke-width="1.5"/>
+      <!-- Screen -->
+      <rect x="2" y="2" width="38" height="68" rx="4" fill="#0A0C10"/>
+
+      <!-- Screen glow -->
+      <ellipse cx="21" cy="36" rx="25" ry="35" fill="url(#phoneScreenGlow)"/>
+
+      <!-- Status bar -->
+      <rect x="2" y="2" width="38" height="8" rx="4" fill="#0D1117"/>
+      <text x="6" y="8.5" font-family="system-ui" font-size="4" fill="#64748B">9:41</text>
+
+      <!-- Map area on screen -->
+      <rect x="2" y="10" width="38" height="34" fill="#0D1117"/>
+      <!-- Mini map road -->
+      <line x1="2" y1="27" x2="40" y2="27" stroke="#1A2030" stroke-width="1"/>
+      <line x1="21" y1="10" x2="21" y2="44" stroke="#1A2030" stroke-width="1"/>
+      <!-- Mini route -->
+      <path d="M 5 36 L 15 30 L 28 25 L 38 18" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      <!-- Pin on map -->
+      <circle cx="38" cy="18" r="3.5" fill="#EF4444"/>
+      <circle cx="38" cy="18" r="6" fill="#EF4444" fill-opacity="0.2"/>
+      <!-- Vehicle on map -->
+      <circle cx="5" cy="36" r="3" fill="#00C2A8"/>
+
+      <!-- Pin info card on screen -->
+      <rect x="2" y="44" width="38" height="26" rx="0" fill="#12151B" stroke="#334155" stroke-width="0.5"/>
+      <!-- Pin label -->
+      <text x="5" y="52" font-family="system-ui" font-size="4" fill="#00C2A8" font-weight="700">GATE PIN</text>
+      <!-- Plus Code -->
+      <text x="5" y="59" font-family="'IBM Plex Mono', monospace" font-size="4.5" fill="#F1F5F9" font-weight="600">7PQ7+23</text>
+      <!-- City -->
+      <text x="5" y="65" font-family="system-ui" font-size="3.5" fill="#94A3B8">Birmingham</text>
+
+      <!-- Approach arrow -->
+      <text x="35" y="60" font-family="system-ui" font-size="8" fill="#10B981" text-anchor="middle">↑</text>
+
+      <!-- Home indicator -->
+      <rect x="14" y="67" width="14" height="2" rx="1" fill="#334155"/>
+    </g>
+  </g>
+
+  <!-- Gate fence posts (foreground) -->
+  <rect x="0"   y="290" width="6" height="110" rx="1" fill="#2A3040" stroke="#334155" stroke-width="1"/>
+  <rect x="130" y="295" width="6" height="105" rx="1" fill="#2A3040" stroke="#334155" stroke-width="1"/>
+  <!-- Horizontal fence rails -->
+  <line x1="0"   y1="310" x2="136" y2="315" stroke="#2A3040" stroke-width="4" stroke-linecap="round"/>
+  <line x1="0"   y1="345" x2="136" y2="350" stroke="#2A3040" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- MJ Maps logo (small, corner) -->
+  <g transform="translate(520, 10)">
+    <rect width="28" height="28" rx="6" fill="#00C2A8" fill-opacity="0.15"/>
+    <path d="M 6 20 L 14 6 L 22 20" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="14" cy="6" r="2" fill="#00E8D4"/>
+    <circle cx="6"  cy="20" r="1.5" fill="#3B82F6"/>
+    <circle cx="22" cy="20" r="1.5" fill="#3B82F6"/>
+  </g>
+
+  <!-- Plus Code label (mono, bottom) -->
+  <text x="16" y="388" font-family="'IBM Plex Mono', monospace" font-size="11" fill="#00C2A8" fill-opacity="0.7">
+    7PQ7+23 Birmingham, UK
+  </text>
+</svg>
+
+<style>
+  .gate-pin-illustration {
+    width: 100%;
+    height: auto;
+    max-height: 380px;
+    display: block;
+  }
+</style>

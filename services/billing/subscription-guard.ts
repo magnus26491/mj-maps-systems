@@ -17,6 +17,9 @@
 
 export type PlanId = 'navigation' | 'custom';
 
+/** Valid plan_status values (users.plan_status column) */
+export type PlanStatus = 'free' | 'active' | 'vip' | 'enterprise_active' | 'trial';
+
 export const FEATURES = {
   // ── Available on BOTH plans ───────────────────────────────────────────────
   NAVIGATION:           { plans: ['navigation', 'custom'] as PlanId[] },
@@ -54,7 +57,12 @@ export const FEATURES = {
 
 export type FeatureKey = keyof typeof FEATURES;
 
-export function planHasFeature(planId: PlanId, feature: FeatureKey): boolean {
+/**
+ * Check if a plan has a given feature.
+ * VIP users (plan_status='vip') get ALL features — equivalent to 'custom' plan.
+ */
+export function planHasFeature(planId: PlanId, feature: FeatureKey, planStatus?: PlanStatus): boolean {
+  if (planStatus === 'vip') return true;
   return (FEATURES[feature].plans as string[]).includes(planId);
 }
 

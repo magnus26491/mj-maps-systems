@@ -97,12 +97,13 @@ function fail(error: string, t0: number): ApiResponse<never> {
  * A future enhancement will push enrichment-complete via WebSocket.
  */
 export async function handleOptimiseRoute(
-  request: FastifyRequest,
+  request: FastifyRequest & { driver?: { id?: string } },
   reply: FastifyReply,
 ): Promise<void> {
   const t0 = Date.now();
   try {
     const { stops, config } = request.body as { stops: Stop[]; config: RouteConfig };
+    const driverId: string = (request as any).driver?.id ?? 'unknown';
 
     if (!Array.isArray(stops) || stops.length === 0 || !config) {
       reply.code(400).send(fail('Missing or empty stops, or missing config', t0));
@@ -243,35 +244,27 @@ export async function handleOptimiseRoute(
     );
 
     // 7. Bridge restriction pre-departure check (fire-and-forget)
-    //    Alerts dispatcher via Telegram if any stop has RED bridge alerts.
+    //    Broadcasts VEHICLE_MISMATCH to driver's HUD via WebSocket if any stop has RED alerts.
     (async () => {
       try {
         const { fetchRestrictionsForSegment } = await import('../bridge-engine/src/osm-restrictions.js');
-        const { sendAlert } = await import('../notifications/telegram-alerts.js');
         const { VEHICLE_PROFILES: VP } = await import('../../packages/vehicle-profiles/index.js');
         const profile = VP[config.vehicleId];
         if (!profile) return;
-
-        const telegramConfig = {
-          botToken:        process.env.TELEGRAM_BOT_TOKEN ?? '',
-          driverChatIds:   {},
-          dispatcherChatId: process.env.TELEGRAM_DISPATCHER_CHAT_ID ?? '',
-        };
-        if (!telegramConfig.botToken || !telegramConfig.dispatcherChatId) return;
 
         for (const stop of result.orderedStops) {
           const bridges = await fetchRestrictionsForSegment(stop.lat, stop.lng, profile);
           const redAlerts = bridges.filter(b => b.alert.level === 'red');
           if (redAlerts.length > 0) {
-            await sendAlert(telegramConfig, {
-              type:       'VEHICLE_MISMATCH',
-              driverId:   'system',
+            broadcastToDriver(driverId, {
+              type:      'VEHICLE_MISMATCH_ALERT',
               routeId,
-              stopId:     stop.id,
-              stopAddress: (stop as any).notes ?? stop.id,
-              vehicleId:  config.vehicleId,
-              message:    redAlerts.map(b => b.alert.message).join('; '),
-            }).catch(() => {});
+              stopId:    stop.id,
+              stopAddr:  (stop as any).notes ?? stop.id,
+              vehicleId: config.vehicleId,
+              message:   redAlerts.map(b => b.alert.message).join('; '),
+              ts:        Date.now(),
+            });
           }
         }
       } catch {
@@ -531,11 +524,13 @@ export async function handleRouteAlertsRed(
 // ─── HEALTH ──────────────────────────────────────────────────────────────────
 
 export function handleHealth(_request: FastifyRequest, reply: FastifyReply): void {
+  const BUILD_ID = process.env.BUILD_ID ?? process.env.HEROKU_SLUG_COMMIT ?? 'dev';
   reply.send({
     ok:        true,
     status:    'ok',
     service:   'mj-maps-systems',
     version:   '0.1.0',
+    build:     BUILD_ID,
     timestamp: new Date().toISOString(),
   });
 }
@@ -618,6 +613,24 @@ export function handleDriverWebSocket(
         // Register only after auth is confirmed — prevents unauthenticated push
         driverSockets.set(driverId, socket);
         socket.send(JSON.stringify({ type: 'CONNECTED', driverId, routeId }));
+
+        // ── Queue drain: deliver any queued dispatcher messages (Fix 3) ──
+        (async () => {
+          try {
+            const { redis } = await import('../cache/index.js');
+            const queueKey = `dispatcher:queue:${driverId}`;
+            const queued = await redis.lrange(queueKey, 0, -1);
+            if (queued.length > 0) {
+              for (const msg of queued) {
+                socket.send(msg);
+                await new Promise(r => setTimeout(r, 50));
+              }
+              await redis.del(queueKey);
+            }
+          } catch {
+            // Non-fatal — continue normally if Redis unavailable
+          }
+        })();
       } catch (err: any) {
         const code = err?.name === 'TokenExpiredError' ? WS_CODE_TOKEN_EXPIRED : WS_CODE_UNAUTHORIZED;
         socket.close(code, err?.name ?? 'Auth failed');

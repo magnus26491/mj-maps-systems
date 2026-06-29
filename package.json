@@ -1,6 +1,6 @@
 {
   "name": "mj-maps-systems",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MJ Maps Systems — AI-powered delivery route intelligence platform",
   "main": "dist/services/api/server.js",
   "scripts": {
@@ -59,6 +59,8 @@
     "eslint": "^9.3.0",
     "jest": "^29.7.0",
     "pino-pretty": "^11.2.1",
+    "playwright": "^1.61.1",
+    "sharp": "^0.35.2",
     "ts-jest": "^29.1.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

@@ -2,25 +2,30 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
-
-const breadcrumb = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
-    { '@type': 'ListItem', position: 2, name: 'About', item: 'https://mjmapsystems.com/about' },
-  ],
-};
+import { t } from '../i18n/index';
 ---
 
 <BaseLayout
-  title="About MJ Maps — UK-Founded Delivery Navigation"
-  description="MJ Maps Systems was founded to solve the routing problems that UK delivery drivers face every day. Vehicle-aware navigation, turn-score, gate pins, built from scratch."
-  schema={breadcrumb}
+  title="About — MJ Maps"
+  description="MJ Maps Systems — UK-founded navigation technology for professional delivery drivers and fleet operations teams."
 >
   <Nav activePage="/about" />
   <main id="main-content">
     <div class="page-hero">
+      <!-- Atmospheric misty dawn van — emotionally resonant opener -->
+      <picture>
+        <source srcset="/img/photos/hero-van-dawn.webp" type="image/webp" />
+        <img
+          src="/img/photos/hero-van-dawn.png"
+          alt="White transit van at dawn on a misty UK country road — built by drivers who know these lanes"
+          class="hero-photo"
+          loading="eager"
+          fetchpriority="high"
+          width="1920"
+          height="1080"
+        />
+      </picture>
+      <div class="hero-scrim" aria-hidden="true"></div>
       <div class="container">
         <h1 class="reveal">Built by people who've done the round</h1>
         <p class="page-hero-sub reveal">MJ Maps Systems was founded to solve the routing problems that delivery drivers face every day — problems that consumer maps have never been designed to handle.</p>
@@ -29,6 +34,19 @@ const breadcrumb = {
 
     <section class="about-body below-fold">
       <div class="container about-inner">
+        <!-- Warm paper founder quote — breaks the dark monotony -->
+        <div class="about-founder-quote reveal">
+          <div class="about-founder-card">
+            <svg class="about-quote-mark" viewBox="0 0 40 30" fill="none" aria-hidden="true">
+              <path d="M0 30V18C0 10.3 4.2 4.3 12.6 0L16 4.2C10.8 6.8 8.2 10.8 8.2 16H16V30H0ZM24 30V18C24 10.3 28.2 4.3 36.6 0L40 4.2C34.8 6.8 32.2 10.8 32.2 16H40V30H24Z" fill="currentColor"/>
+            </svg>
+            <blockquote class="about-pullquote">
+              The worst moment was reversing a Sprinter 400 metres down a farm track because the sat-nav said the destination was on the left. It wasn't.
+            </blockquote>
+            <p class="about-pullquote-attr">— MJ Maps founder, on what drove the creation of gate-pin routing</p>
+          </div>
+        </div>
+
         <div class="about-block reveal">
           <h2>The problem we're solving</h2>
           <p>UK delivery drivers face routing challenges that Google Maps and Waze were never built to handle. Postcode centroids that are 50 metres from the gate. Low bridges that appear without warning at the end of a narrow lane. Dead-ends that can't be reversed out of with a laden lorry. Unpaved farm tracks that destroy van suspensions.</p>
@@ -47,26 +65,28 @@ const breadcrumb = {
           </ul>
         </div>
 
-        <!-- Founder voice — warm tonal break -->
-        <div class="about-founder reveal">
-          <picture>
-            <source srcset="/img/photos/founder-portrait.avif" type="image/avif">
-            <source srcset="/img/photos/founder-portrait.webp" type="image/webp">
-            <img
-              class="about-founder-photo"
-              src="/img/photos/founder-portrait.jpg"
-              alt="MJ Maps founder"
-              loading="lazy"
-              width="96"
-              height="96"
-              onerror="this.parentElement.classList.add('no-photo')"
-            />
-          </picture>
-          <blockquote class="about-quote">
-            <p>"Every driver we've spoken to has the same story — they know the route, they know the tight turns, they know the gates that don't match the postcode. We built MJ Maps to capture that knowledge and give it to every driver, on every shift, from their first day."</p>
-            <footer class="about-quote-attr">Marcus J &mdash; Founder, MJ Maps Systems</footer>
-          </blockquote>
-        </div>
+        <!-- POD Visual Break: driver taking timestamped proof photo -->
+        <figure class="about-pod-figure reveal" aria-label="Proof of delivery — driver captures a timestamped photo at the gate">
+          <div class="about-pod-wrap">
+            <picture>
+              <source srcset="/img/photos/pod-signature.webp" type="image/webp" />
+              <img
+                src="/img/photos/pod-signature.png"
+                alt="Driver capturing a timestamped proof-of-delivery photo at a UK property gate"
+                width="900"
+                height="506"
+                loading="lazy"
+                class="about-pod-img"
+              />
+            </picture>
+            <!-- Dark scrim overlay so caption is readable -->
+            <div class="about-pod-scrim" aria-hidden="true"></div>
+            <figcaption class="about-pod-caption">
+              <span class="mono">POD</span>
+              Every delivery confirmed with a timestamped photo — timestamp, GPS, and driver ID embedded in the file metadata. Dispatcher sees it in real time.
+            </figcaption>
+          </div>
+        </figure>
 
         <div class="about-block reveal">
           <h2>Our principles</h2>
@@ -101,7 +121,10 @@ const breadcrumb = {
             { label: 'Data portability', detail: 'Export your routes, stops, and POD records at any time. Your data leaves when you do.' },
           ].map(t => (
             <div class="trust-card glass reveal">
-              <span class="trust-checkmark" aria-hidden="true">✓</span>
+              <svg class="trust-checkmark" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <circle cx="9" cy="9" r="8.5" stroke="#10B981" stroke-width="1" fill="rgba(16,185,129,0.12)"/>
+                <path d="M5.5 9L8 11.5L12.5 6.5" stroke="#10B981" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
               <div class="trust-text">
                 <strong class="trust-label">{t.label}</strong>
                 <p class="trust-detail text-muted">{t.detail}</p>
@@ -117,9 +140,26 @@ const breadcrumb = {
 
 <style>
   .page-hero {
+    position: relative;
     padding-block: 120px 64px;
-    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
     text-align: center;
+    overflow: hidden;
+  }
+  .page-hero .container { position: relative; z-index: 2; }
+  .hero-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+    z-index: 0;
+  }
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(to bottom, rgba(10,12,16,0.97) 0%, rgba(10,12,16,0.78) 30%, rgba(10,12,16,0.38) 52%, transparent 72%);
   }
   .page-hero-sub {
     color: var(--ink-muted);
@@ -134,6 +174,46 @@ const breadcrumb = {
     display: flex;
     flex-direction: column;
     gap: 48px;
+  }
+
+  /* Warm paper founder quote — editorial pull-quote, no fake avatar */
+  .about-founder-quote {
+    margin-bottom: -8px; /* tighten against next block */
+  }
+
+  .about-founder-card {
+    background: var(--color-surface-1);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-xl);
+    padding: 40px;
+    box-shadow: var(--shadow-1);
+  }
+
+  .about-quote-mark {
+    width: 32px;
+    height: 24px;
+    color: var(--brand, #00C2A8);
+    opacity: 0.7;
+    margin-bottom: 20px;
+    display: block;
+  }
+
+  .about-pullquote {
+    font-family: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--ink);
+    font-style: normal;
+    border: none;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  .about-pullquote-attr {
+    color: var(--ink-muted);
+    font-size: 0.875rem;
+    margin: 0;
   }
 
   .about-block h2 { margin-bottom: 16px; }
@@ -153,52 +233,15 @@ const breadcrumb = {
     position: relative;
   }
   .about-list li::before {
-    content: '→';
+    content: '';
     position: absolute;
     left: 0;
-    color: var(--brand-bright);
-  }
-
-  /* Founder quote — warm tonal break */
-  .about-founder {
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
-    background: rgba(245, 158, 11, 0.05);
-    border: 1px solid rgba(245, 158, 11, 0.12);
-    border-left: 3px solid rgba(245, 158, 11, 0.5);
-    border-radius: var(--r-card);
-    padding: 28px 24px;
-  }
-
-  .about-founder-photo {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 2px solid rgba(245, 158, 11, 0.2);
-  }
-
-  /* When portrait photo fails, hide it — quote still reads fine */
-  .about-founder picture.no-photo { display: none; }
-
-  .about-quote {
-    margin: 0;
-  }
-
-  .about-quote p {
-    color: var(--ink);
-    font-size: 1.0625rem;
-    line-height: 1.65;
-    margin-bottom: 12px !important;
-    font-style: italic;
-  }
-
-  .about-quote-attr {
-    font-size: 0.875rem;
-    color: var(--ink-muted);
-    font-style: normal;
+    top: 8px;
+    width: 12px;
+    height: 12px;
+    background: var(--brand);
+    border-radius: 2px;
+    opacity: 0.7;
   }
   .about-list strong { color: var(--ink); }
 
@@ -226,14 +269,68 @@ const breadcrumb = {
     border-radius: var(--r-card);
     padding: 20px;
   }
+
+  /* SVG checkmark — no plain text characters */
   .trust-checkmark {
-    color: var(--green);
-    font-size: 1.125rem;
-    font-weight: 700;
     flex-shrink: 0;
     margin-top: 2px;
+    width: 18px;
+    height: 18px;
   }
+
   .trust-text { display: flex; flex-direction: column; gap: 4px; }
   .trust-label { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
   .trust-detail { font-size: 0.875rem; line-height: 1.55; margin: 0; }
+
+  /* ── POD figure: full-bleed atmospheric break ─────────────────────────── */
+  .about-pod-figure {
+    margin: 0;
+  }
+
+  .about-pod-wrap {
+    position: relative;
+    border-radius: var(--r-xl);
+    overflow: hidden;
+  }
+
+  .about-pod-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: var(--r-xl);
+  }
+
+  .about-pod-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(10, 12, 16, 0.92) 0%,
+      rgba(10, 12, 16, 0.50) 40%,
+      rgba(10, 12, 16, 0.20) 70%,
+      transparent 100%
+    );
+    border-radius: inherit;
+  }
+
+  .about-pod-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 28px 32px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    color: var(--ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+
+  .about-pod-caption .mono {
+    flex-shrink: 0;
+    color: var(--brand);
+    font-size: 0.75rem;
+    padding-top: 3px;
+  }
 </style>

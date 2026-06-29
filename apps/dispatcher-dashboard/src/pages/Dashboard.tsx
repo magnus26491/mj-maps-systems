@@ -7,22 +7,40 @@ import RouteList from '../components/RouteList';
 import AlertPanel from '../components/AlertPanel';
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import DriversPanel from '../components/DriversPanel';
+import SavingsPanel from '../components/SavingsPanel';
+import CoachingPanel from '../components/CoachingPanel';
 import AssignModal from '../components/AssignModal';
+import AdminPage from './Admin';
 import { useStats } from '../hooks/useStats';
 import { useRoutes } from '../hooks/useRoutes';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { stats, isLoading: statsLoading } = useStats();
-  const { routes, isLoading: routesLoading } = useRoutes();
-  const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers'>('alerts');
+  // Auth check state — guard all data hooks behind it
+  const [authChecked, setAuthChecked] = useState(false);
 
+  // Auth guard: run FIRST, before any hooks fire their API requests.
+  // The `authChecked` flag gates the entire render so no unauthenticated
+  // API calls are made while the token check is in-flight.
   useEffect(() => {
     if (!localStorage.getItem('mj_dispatcher_token')) {
       navigate('/login');
+      return;
     }
+    setAuthChecked(true);
   }, [navigate]);
+
+  // While auth is being checked, render nothing to prevent API flood.
+  if (!authChecked) return null;
+
+  const { stats, isLoading: statsLoading } = useStats();
+  const { routes, isLoading: routesLoading } = useRoutes();
+  const [assignModalRouteId, setAssignModalRouteId] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<'alerts' | 'analytics' | 'drivers' | 'savings' | 'coaching' | 'admin'>('alerts');
+  const [mainTab, setMainTab] = useState<'fleet' | 'admin'>('fleet');
+
+  // Determine if current user is an admin (from persisted login role)
+  const isAdmin = localStorage.getItem('mj_user_role') === 'admin';
 
   function handleSignOut() {
     logout();
@@ -30,18 +48,66 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#030712', padding: '1rem' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-base)', padding: '1rem' }}>
       {/* Nav bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: '1rem', padding: '0.75rem 1rem', background: '#0f172a',
-        border: '1px solid #1e293b', borderRadius: 8,
+        marginBottom: '1rem', padding: '0.75rem 1rem',
+        background: 'var(--color-surface-1)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--r-lg)',
+        boxShadow: 'var(--elevation-md)',
       }}>
-        <span style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.125rem' }}>MJ Maps Dispatcher</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{
+            color: 'var(--color-text-primary)',
+            fontWeight: 700,
+            fontSize: '1.125rem',
+            fontFamily: 'var(--font-display)',
+          }}>
+            MJ Maps
+          </span>
+          {isAdmin && (
+            <div className="tab-bar" style={{ padding: '2px' }}>
+              <button
+                onClick={() => setMainTab('fleet')}
+                className={`tab-btn ${mainTab === 'fleet' ? 'tab-btn--active' : ''}`}
+                style={{ padding: '4px 12px', fontSize: '0.8125rem' }}
+              >
+                Fleet
+              </button>
+              <button
+                onClick={() => setMainTab('admin')}
+                className={`tab-btn ${mainTab === 'admin' ? 'tab-btn--active' : ''}`}
+                style={{ padding: '4px 12px', fontSize: '0.8125rem', color: mainTab === 'admin' ? 'var(--color-amber)' : undefined }}
+              >
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" style={{ verticalAlign: 'middle', marginRight: 4 }}>
+                  <rect x="2" y="4" width="16" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 4V3a3 3 0 016 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="10" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+                Admin
+              </button>
+            </div>
+          )}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{
+            color: mainTab === 'admin' ? 'var(--color-amber)' : 'var(--color-text-muted)',
+            fontSize: '0.875rem',
+            fontFamily: 'var(--font-body)',
+          }}>
+            {isAdmin ? 'Administrator' : 'Dispatcher'}
+          </span>
           <button onClick={handleSignOut} style={{
-            background: 'transparent', border: '1px solid #334155', borderRadius: 6,
-            color: '#94a3b8', fontSize: '0.875rem', padding: '0.5rem 0.75rem', cursor: 'pointer',
+            background: 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--r-md)',
+            color: 'var(--color-text-secondary)',
+            fontSize: '0.875rem',
+            padding: '0.25rem 0.75rem',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
             minHeight: 44,
           }}>
             Sign out
@@ -49,6 +115,16 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Admin Portal */}
+      {mainTab === 'admin' ? (
+        <AdminPage />
+      ) : (
+        <></>
+      )}
+
+      {/* Fleet view */}
+      {mainTab === 'fleet' && (
+      <>
       {/* KPI bar */}
       <KpiBar stats={stats} isLoading={statsLoading} />
 
@@ -58,7 +134,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <FleetMap routes={routes} />
           <div>
-            <h3 style={{ color: '#f1f5f9', fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Active Routes</h3>
+            <h3 style={{ color: 'var(--color-text-primary)', fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', fontFamily: 'var(--font-display)' }}>Active Routes</h3>
             <RouteList
               routes={routes}
               isLoading={routesLoading}
@@ -69,43 +145,30 @@ export default function Dashboard() {
         </div>
         {/* Right: tabbed panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {/* Tab bar */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setRightTab('alerts')}
-              style={{
-                ...tabStyle,
-                background: rightTab === 'alerts' ? '#1e3a5f' : 'transparent',
-                color: rightTab === 'alerts' ? '#3b82f6' : '#64748b',
-                border: `1px solid ${rightTab === 'alerts' ? '#3b82f6' : '#1e293b'}`,
-              }}
-            >
-              Alerts
-            </button>
-            <button
-              onClick={() => setRightTab('analytics')}
-              style={{
-                ...tabStyle,
-                background: rightTab === 'analytics' ? '#1e3a5f' : 'transparent',
-                color: rightTab === 'analytics' ? '#3b82f6' : '#64748b',
-                border: `1px solid ${rightTab === 'analytics' ? '#3b82f6' : '#1e293b'}`,
-              }}
-            >
-              Analytics
-            </button>
-            <button
-              onClick={() => setRightTab('drivers')}
-              style={{
-                ...tabStyle,
-                background: rightTab === 'drivers' ? '#1e3a5f' : 'transparent',
-                color: rightTab === 'drivers' ? '#3b82f6' : '#64748b',
-                border: `1px solid ${rightTab === 'drivers' ? '#3b82f6' : '#1e293b'}`,
-              }}
-            >
-              Drivers
-            </button>
+          {/* Tab bar — using .tab-bar and .tab-btn CSS classes */}
+          <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
+            {([
+              ['alerts',    'Alerts'],
+              ['analytics',  'Analytics'],
+              ['savings',    'Savings'],
+              ['coaching',   'Coaching'],
+              ['drivers',    'Drivers'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setRightTab(key)}
+                className={`tab-btn ${rightTab === key ? 'tab-btn--active' : ''}`}
+                aria-pressed={rightTab === key}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          {rightTab === 'alerts' ? <AlertPanel /> : rightTab === 'analytics' ? <AnalyticsPanel /> : <DriversPanel />}
+          {rightTab === 'alerts'    ? <AlertPanel />    :
+           rightTab === 'analytics'  ? <AnalyticsPanel /> :
+           rightTab === 'savings'   ? <SavingsPanel />  :
+           rightTab === 'coaching'  ? <CoachingPanel driverId="" /> :
+           <DriversPanel />}
         </div>
       </div>
 
@@ -113,15 +176,8 @@ export default function Dashboard() {
       {assignModalRouteId && (
         <AssignModal routeId={assignModalRouteId} onClose={() => setAssignModalRouteId(null)} />
       )}
+      </>
+      )}
     </div>
   );
 }
-
-const tabStyle: React.CSSProperties = {
-  borderRadius: 6,
-  padding: '0.625rem 0.75rem',
-  fontSize: '0.875rem',
-  cursor: 'pointer',
-  fontWeight: 600,
-  minHeight: 44,
-};

@@ -2,37 +2,29 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
-
-const faqSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: [
-    { '@type': 'Question', name: 'How long does the demo take?', acceptedAnswer: { '@type': 'Answer', text: "About 30 minutes. We cover the driver app, dispatcher console, and exception alert flow. If you share your routes in advance, we can show it with your own data." } },
-    { '@type': 'Question', name: 'Do I need to sign up to get a demo?', acceptedAnswer: { '@type': 'Answer', text: "No. Fill in the form and we'll book a time. No account, no credit card, no commitment." } },
-    { '@type': 'Question', name: 'What if I\'m a solo driver, not a fleet?', acceptedAnswer: { '@type': 'Answer', text: "You don't need a demo — just start a free trial directly. You'll be navigating your first shift in under 5 minutes." } },
-    { '@type': 'Question', name: 'Is my fleet data kept private?', acceptedAnswer: { '@type': 'Answer', text: "Yes. Location data is used for navigation and shift reporting only. We never sell it, share it with third parties, or use it for advertising. Full details in our Privacy Policy." } },
-    { '@type': 'Question', name: 'Can I import our existing routes?', acceptedAnswer: { '@type': 'Answer', text: "Yes. We support CSV stop lists and can integrate with standard dispatch exports. Let us know your format in the message and we'll confirm compatibility before the demo." } },
-  ],
-};
-
-const breadcrumb = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
-    { '@type': 'ListItem', position: 2, name: 'Contact', item: 'https://mjmapsystems.com/contact' },
-  ],
-};
+import { t } from '../i18n/index';
 ---
 
 <BaseLayout
-  title="Book a Fleet Demo — MJ Maps"
-  description="Book a 30-minute demo of MJ Maps for your fleet. We'll walk you through the dispatcher console and driver app — with your own routes if you share them."
-  schema={[faqSchema, breadcrumb]}
+  title="Contact & Book a Demo — MJ Maps"
+  description="Book a demo of MJ Maps for your fleet, or contact us with any questions. We're happy to walk you through the dispatcher console and driver app."
 >
   <Nav activePage="/contact" />
   <main id="main-content">
     <div class="page-hero">
+      <picture>
+        <source srcset="/img/photos/fleet-routing.webp" type="image/webp" />
+        <img
+          src="/img/photos/fleet-routing.png"
+          alt="MJ Maps dispatcher console — book a fleet demo"
+          class="hero-photo"
+          loading="eager"
+          fetchpriority="high"
+          width="1600"
+          height="900"
+        />
+      </picture>
+      <div class="hero-scrim" aria-hidden="true"></div>
       <div class="container">
         <h1 class="reveal">Book a demo</h1>
         <p class="page-hero-sub reveal">We'll walk your operations team through the dispatcher console, driver app, and fleet alerts — using your own routes if you'd like.</p>
@@ -119,7 +111,7 @@ const breadcrumb = {
               </p>
             </form>
             <div id="form-success" class="form-success" hidden>
-              <div class="success-icon" aria-hidden="true">✓</div>
+              <div class="success-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="rgba(16,185,129,0.15)"/><path d="M7 12L10.5 15.5L17 8.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <h3>Message sent</h3>
               <p class="text-muted">We'll get back to you within one business day.</p>
             </div>
@@ -144,24 +136,6 @@ const breadcrumb = {
               <h3>Solo driver?</h3>
               <p class="text-muted">No demo needed — just install the app and start a free trial. You'll be routing in under 5 minutes.</p>
               <a href="/register?plan=navigation" class="btn btn-secondary">Start free trial</a>
-            </div>
-
-            <!-- POD supporting image -->
-            <div class="contact-pod-wrap">
-              <picture>
-                <source srcset="/img/photos/pod-signature.avif" type="image/avif">
-                <source srcset="/img/photos/pod-signature.webp" type="image/webp">
-                <img
-                  class="contact-pod-img"
-                  src="/img/photos/pod-signature.jpg"
-                  alt="Driver capturing proof-of-delivery signature on device"
-                  loading="lazy"
-                  width="480"
-                  height="320"
-                  onerror="this.parentElement.parentElement.classList.add('no-photo')"
-                />
-              </picture>
-              <p class="contact-pod-caption text-muted">Photo POD and digital signatures captured in one tap — stored and exportable.</p>
             </div>
           </div>
         </div>
@@ -210,9 +184,26 @@ const breadcrumb = {
 
 <style>
   .page-hero {
+    position: relative;
     padding-block: 120px 64px;
-    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,194,168,0.06) 0%, transparent 60%), var(--void);
     text-align: center;
+    overflow: hidden;
+  }
+  .page-hero .container { position: relative; z-index: 2; }
+  .hero-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+    z-index: 0;
+  }
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(to bottom, rgba(10,12,16,0.97) 0%, rgba(10,12,16,0.78) 30%, rgba(10,12,16,0.38) 52%, transparent 72%);
   }
   .page-hero-sub {
     color: var(--ink-muted);
@@ -338,28 +329,6 @@ const breadcrumb = {
     left: 0;
     color: var(--green);
     font-weight: 700;
-  }
-
-  .contact-pod-wrap {
-    border-radius: var(--r-card);
-    overflow: hidden;
-    border: 1px solid var(--glass-brd);
-  }
-  .contact-pod-wrap.no-photo { display: none; }
-
-  .contact-pod-img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-  }
-
-  .contact-pod-caption {
-    font-size: 0.8125rem;
-    padding: 10px 14px;
-    margin: 0;
-    background: var(--surface);
   }
 
   /* FAQ */

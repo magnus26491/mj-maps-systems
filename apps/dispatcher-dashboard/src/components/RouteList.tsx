@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Route } from '../types';
 import PodModal from './PodModal';
+import MessageDriverModal from './MessageDriverModal';
 import { forceCompleteRoute } from '../api';
 
 interface Props {
@@ -14,6 +15,7 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
   const [completingRouteId, setCompletingRouteId] = useState<string | null>(null);
+  const [messageModalRoute, setMessageModalRoute] = useState<Route | null>(null);
 
   if (isLoading) return <div style={{ color: '#64748b' }}>Loading routes...</div>;
   if (routes.length === 0) return <div style={{ color: '#64748b' }}>No active routes.</div>;
@@ -95,6 +97,19 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
                   {completingRouteId === route.routeId ? 'Completing...' : '✓ Complete'}
                 </button>
               )}
+              {route.status === 'active' && (
+                <button
+                  onClick={() => setMessageModalRoute(route)}
+                  style={{
+                    background: '#0f1e30', border: '1px solid #00C2A840',
+                    color: '#00C2A8', borderRadius: 6,
+                    padding: '0.25rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
+                    marginLeft: '0.25rem',
+                  }}
+                >
+                  Message
+                </button>
+              )}
               <button
                 onClick={() => onAssign(route.routeId)}
                 style={{
@@ -141,6 +156,17 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
       })}
 
       <PodModal stopId={selectedStopId} onClose={() => setSelectedStopId(null)} />
+      {messageModalRoute && (
+        <MessageDriverModal
+          prefillDriver={{
+            driverId:   messageModalRoute.driverId,
+            driverName: messageModalRoute.driverName ?? 'Driver',
+            vehicleLabel: messageModalRoute.vehicleLabel,
+            status:     'active',
+          }}
+          onClose={() => setMessageModalRoute(null)}
+        />
+      )}
     </div>
   );
 }

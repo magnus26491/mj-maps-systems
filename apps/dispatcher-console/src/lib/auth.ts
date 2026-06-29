@@ -21,6 +21,7 @@ export function clearTokens(): void {
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const part = token.split('.')[1]!;
+  // JWTs use base64url (- and _ instead of + and /); atob needs standard base64
   const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
   const padded  = base64 + '=='.slice(0, (4 - base64.length % 4) % 4);
   return JSON.parse(atob(padded));

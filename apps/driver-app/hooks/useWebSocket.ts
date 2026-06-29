@@ -9,6 +9,9 @@
  *      - STOP_UPDATE: a stop's intel/turn score has been refreshed
  *      - ETA_UPDATE: ETAs adjusted due to traffic
  *      - PING: keep-alive — reply with PONG
+ *      - OFF_ROUTE_ALERT: driver deviated from route (Fix 1 redirect)
+ *      - VEHICLE_MISMATCH_ALERT: bridge restriction for vehicle (Fix 1 redirect)
+ *      - DISPATCHER_MESSAGE: plain-text message from dispatcher (Fix 4)
  *  · Flush offline queue when connection is restored
  *  · Tear down cleanly on unmount
  *
@@ -18,10 +21,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useShiftStore } from '../store/shift';
-import { useAuthStore } from '../lib/auth';
 import { useOfflineQueue } from './useOfflineQueue';
 
-const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk')
+const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app')
   .replace(/^https/, 'wss')
   .replace(/^http/, 'ws');
 
@@ -33,11 +35,12 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
   const mountedRef   = useRef(true);
   const retryTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const token              = useAuthStore(s => s.token);
-  const applyReorder       = useShiftStore(s => s.applyReorder);
-  const applyStopUpdate    = useShiftStore(s => s.applyStopUpdate);
-  const applyEtaUpdate     = useShiftStore(s => s.applyEtaUpdate);
-  const setWsConnected     = useShiftStore(s => s.setWsConnected);
+  const token                   = useShiftStore(s => s.token);
+  const applyReorder            = useShiftStore(s => s.applyReorder);
+  const applyStopUpdate         = useShiftStore(s => s.applyStopUpdate);
+  const applyEtaUpdate          = useShiftStore(s => s.applyEtaUpdate);
+  const setWsConnected          = useShiftStore(s => s.setWsConnected);
+  const applyDispatcherMessage  = useShiftStore(s => s.applyDispatcherMessage);
 
   const { flush } = useOfflineQueue();
 
@@ -51,7 +54,6 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
     ws.onopen = () => {
       retryIdx.current = 0;
       setWsConnected(true);
-      // Flush any events that queued while offline
       flush();
     };
 
@@ -71,6 +73,32 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
           case 'ETA_UPDATE':
             applyEtaUpdate(msg.payload.etas);
             break;
+
+          // ── Layer 1: operational alerts — all delivered via WebSocket ────────
+          case 'OFF_ROUTE_ALERT':
+            // msg.message: string, msg.routeId: string, msg.ts: number
+            applyDispatcherMessage({
+              from:    'System',
+              message: msg.message ?? 'You have deviated from the planned route. Recalculating\u2026',
+              sentAt:  msg.ts ?? Date.now(),
+            });
+            break;
+          case 'VEHICLE_MISMATCH_ALERT':
+            // msg.message: string, msg.vehicleId: string, msg.ts: number
+            applyDispatcherMessage({
+              from:    'System',
+              message: `Vehicle mismatch: ${msg.message ?? 'check vehicle profile'}`,
+              sentAt:  msg.ts ?? Date.now(),
+            });
+            break;
+          case 'DISPATCHER_MESSAGE':
+            applyDispatcherMessage({
+              from:    msg.from ?? 'Dispatcher',
+              message: msg.message ?? '',
+              sentAt:  msg.sentAt ?? Date.now(),
+            });
+            break;
+
           default:
             // Unknown message type — ignore gracefully
             break;
@@ -88,16 +116,13 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
       setWsConnected(false);
       wsRef.current = null;
       if (!mountedRef.current) return;
-      // Don't retry on clean close (code 1000) or auth failure (4001)
       if (evt.code === 1000 || evt.code === 4001) return;
-      // Exponential back-off reconnect
       const delay = RECONNECT_DELAYS[Math.min(retryIdx.current, RECONNECT_DELAYS.length - 1)];
       retryIdx.current += 1;
       retryTimer.current = setTimeout(connect, delay);
     };
   }, [driverId, routeId, token]);
 
-  // Reconnect when app comes back to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active' && !wsRef.current) {
@@ -107,7 +132,6 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
     return () => sub.remove();
   }, [connect]);
 
-  // Initial connect + cleanup
   useEffect(() => {
     mountedRef.current = true;
     connect();

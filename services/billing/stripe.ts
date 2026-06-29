@@ -9,7 +9,7 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
 if (process.env.NODE_ENV === 'production' && !STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY must be set in production.');
+  console.warn('[billing] STRIPE_SECRET_KEY not set — billing endpoints will return 503');
 }
 
 export const stripe = STRIPE_SECRET_KEY

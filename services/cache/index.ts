@@ -3,7 +3,7 @@
  * -----------------
  * Wraps ioredis with typed helpers for:
  *   - Road segment geometry (TTL 24h) — avoids hammering Overpass API
- *   - Stop pin resolution (TTL 7d) — entrance pins rarely change
+ *   - Stop pin resolution (TTL 90d) — entrance pins rarely change
  *   - Community turn scores (TTL 1h) — aggregated from driver_reports table
  *   - Route results (TTL 30min) — for dispatcher dashboard reads
  */
@@ -76,7 +76,7 @@ export async function invalidateRoadCache(lat: number, lon: number): Promise<voi
 
 // ── Stop pin cache ────────────────────────────────────────────────────────────
 
-const PIN_TTL = 60 * 60 * 24 * 7; // 7 days
+const PIN_TTL = 60 * 60 * 24 * 90; // 90 days — 7,776,000 seconds
 
 export async function getCachedPin(address: string): Promise<StopPin | null> {
   const raw = await redis.get(PIN_KEY(address));

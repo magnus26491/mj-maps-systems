@@ -18,7 +18,6 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Linking, Platform,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -52,7 +51,6 @@ export default function NavigationScreen() {
 
   const {
     route, currentStep, stepIndex, distanceToNext,
-    isNearDestination,
     isLoading, error, userLat, userLng, bearing,
     guardWarnings,
     startNav, stopNav, speakStep,
@@ -89,32 +87,6 @@ export default function NavigationScreen() {
   const stop = stops.find(s => s.id === stopId);
   const destLat = stop?.lat ?? 0;
   const destLng = stop?.lng ?? 0;
-
-  // FIX 3: Arrival auto-detection — fires once when isNearDestination becomes true
-  const arrivalAlertShownRef = useRef(false);
-  useEffect(() => {
-    if (!isNearDestination || arrivalAlertShownRef.current) return;
-    arrivalAlertShownRef.current = true;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const addressLabel = stop?.address ?? 'your destination';
-    Alert.alert(
-      "You've arrived!",
-      `You've arrived at ${addressLabel}. Mark delivery as complete?`,
-      [
-        {
-          text: 'Mark Complete',
-          onPress: () => {
-            stopNav();
-            router.replace(`/stop-delivery?stopId=${stopId}`);
-          },
-        },
-        {
-          text: 'Dismiss',
-          style: 'cancel',
-        },
-      ],
-    );
-  }, [isNearDestination, stop, stopId, stopNav]);
 
   const handleBack = () => {
     Alert.alert('Stop navigation?', 'Your progress will be lost.', [
@@ -196,7 +168,7 @@ export default function NavigationScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.app.background }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.app.border }]}>
-        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={12}>
           <Text style={[styles.backBtn, { color: colors.app.primary }]}>Back</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.app.text }]}>Navigate</Text>

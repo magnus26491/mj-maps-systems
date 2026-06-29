@@ -9,6 +9,7 @@
  *  · TurnWarningOverlay portal — renders above all navigation
  *    so RED alerts appear regardless of which screen is active
  *  · WebSocket connection lifecycle tied to active shift
+ *  · ThemeProvider — drives app chrome AND MapLibre map colours
  */
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -31,6 +32,7 @@ import { usePodDrain } from '../hooks/usePodDrain';
 import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { PermissionGate } from '../components/PermissionGate';
+import { ThemeProvider, useTheme } from '../lib/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -137,8 +139,16 @@ function ShiftAwareProviders({ children }: { children: React.ReactNode }) {
   );
 }
 
+// —— ThemedStatusBar ———————————————————————————————————
+// Renders the correct status-bar style matching the resolved theme.
+// Must live inside <ThemeProvider> so useTheme() is valid.
+function ThemedStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
+
 // —— Root layout ———————————————————————————————
-export default function RootLayout() {
+function RootLayoutInner() {
   useEffect(() => {
     if (Platform.OS !== 'web') {
       KeepAwake.activateKeepAwakeAsync();
@@ -150,9 +160,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
+        <ThemedStatusBar />
         <QueryClientProvider client={queryClient}>
           <LocaleProvider>
-            <StatusBar style="light" />
             <AuthGuard>
               <FcmRegistrar>
                 <ShiftAwareProviders>
@@ -171,6 +181,14 @@ export default function RootLayout() {
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
   );
 }
 

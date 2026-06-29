@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAlertStreamUrl, getAlerts, dismissAlert } from '../api';
+import { getAlertStreamUrl, getAlerts, dismissAlert, hasToken } from '../api';
 import type { Alert } from '../types';
 
 export function useAlerts(): { alerts: Alert[]; dismiss: (id: string) => void } {
@@ -20,8 +20,17 @@ export function useAlerts(): { alerts: Alert[]; dismiss: (id: string) => void } 
       }, 10_000);
     }
 
+    // Only open SSE when a valid token is confirmed present
+    if (!hasToken()) {
+      return;
+    }
+    const streamUrl = getAlertStreamUrl();
+    if (!streamUrl) {
+      return;
+    }
+
     try {
-      es = new EventSource(getAlertStreamUrl());
+      es = new EventSource(streamUrl);
       es.addEventListener('alert', (e: MessageEvent) => {
         const alert = JSON.parse(e.data) as Alert;
         setAlerts(prev => [alert, ...prev].slice(0, 50));

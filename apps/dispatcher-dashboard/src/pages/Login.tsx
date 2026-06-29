@@ -1,19 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api';
 
 export default function Login() {
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Run once on mount only — check for existing valid session.
+  // Using a ref so the effect never re-runs when navigate identity changes.
   useEffect(() => {
     if (localStorage.getItem('mj_dispatcher_token')) {
-      navigate('/');
+      navigateRef.current('/');
     }
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

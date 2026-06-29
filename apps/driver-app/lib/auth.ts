@@ -54,22 +54,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     await ssSet(REFRESH_KEY, refreshToken);
     await ssSet(USER_KEY,     JSON.stringify(user));
     set({ token, user, isReady: true });
-
-    // Discover today's routeId and cache it in SecureStore for fast startup.
-    // Uses fetch directly instead of api.ts to avoid a circular dep (api → auth → api).
-    try {
-      const res = await fetch(`${BASE}/api/v1/driver/me/today-route`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const json = await res.json() as { ok: boolean; data: { routeId: string } | null };
-        if (json.ok && json.data?.routeId) {
-          await ssSet(ROUTE_KEY, json.data.routeId);
-        }
-      }
-    } catch {
-      // Non-fatal — driver can manually refresh on home screen
-    }
   },
 
   loadStored: async () => {
@@ -83,6 +67,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    const refreshToken = await ssGet(REFRESH_KEY);
+    // Revoke server-side so the refresh token can't be replayed after logout.
+    // Fire-and-forget — local state clears immediately regardless of network.
+    if (refreshToken) {
+      fetch(`${BASE}/api/v1/auth/logout`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
     await Promise.all([
       ssDel(TOKEN_KEY),
       ssDel(REFRESH_KEY),

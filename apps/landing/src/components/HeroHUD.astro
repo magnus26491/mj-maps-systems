@@ -1,556 +1,203 @@
 ---
-// HUD hero: animated route-draw, 1100ms on load, runs once
+/**
+ * HeroHUD — live turn-score HUD card shown on the hero right column.
+ *
+ * Props:
+ *   photo:  key from photos.ts (used as background on the card)
+ *   score:  'green' | 'amber' | 'red'
+ */
+import { photos } from '../assets/photos';
+
+interface Props {
+  photo?: string;
+  score?: 'green' | 'amber' | 'red';
+}
+
+const { score = 'green' } = Astro.props;
+
+const scoreLabel: Record<string, string> = {
+  green: 'GREEN',
+  amber: 'AMBER',
+  red:   'RED',
+};
+
+const scoreColor: Record<string, string> = {
+  green: '#10B981',
+  amber: '#F59E0B',
+  red:   '#EF4444',
+};
+
+const bgPhoto = photos.heroHudNight;
 ---
 
-<section id="hero" aria-labelledby="hero-heading">
-  <!-- Full-bleed dawn photo — degrades to CSS gradient when image absent -->
-  <div class="hero-photo-wrap">
-    <picture>
-      <source srcset="/img/photos/hero-van-dawn.avif" type="image/avif">
-      <source srcset="/img/photos/hero-van-dawn.webp" type="image/webp">
-      <img
-        class="hero-photo"
-        src="/img/photos/hero-van-dawn.jpg"
-        alt=""
-        aria-hidden="true"
-        loading="eager"
-        fetchpriority="high"
-        width="1920"
-        height="1080"
-        onerror="this.parentElement.parentElement.classList.add('no-photo')"
-      />
-    </picture>
-    <div class="hero-scrim"></div>
-  </div>
+<div class="hud-shell">
+  <!-- Real road photo as card background -->
+  <div
+    class="hud-photo-bg"
+    style={`background-image: url('${bgPhoto}')`}
+    aria-hidden="true"
+  ></div>
+  <!-- Dark overlay so HUD text stays readable -->
+  <div class="hud-overlay" aria-hidden="true"></div>
 
-  <div class="container hero-inner">
-    <!-- Text content -->
-    <div class="hero-text">
-      <div class="hero-eyebrow">
-        <span class="chip chip-green">
-          <span aria-hidden="true">●</span> Live
-        </span>
-      </div>
-
-      <h1 id="hero-heading">
-        UK delivery navigation that gets you to the exact door — and warns you before the tight turn.
-      </h1>
-
-      <p class="hero-sub">
-        Vehicle-aware routing that knows your van's height and weight. Turn-score chips that grade every junction before you reach it. Exact gate-pin delivery down to the last 50 metres — all offline.
-      </p>
-
-      <!-- App store badges as primary CTAs -->
-      <div class="hero-ctas">
-        <a href="/register?plan=navigation" class="store-badge" aria-label="Download on the App Store">
-          <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
-            <rect width="140" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="44" y="16" fill="#8AA0B2" font-size="8" font-family="Inter,sans-serif">Download on the</text>
-            <text x="44" y="31" fill="#EAF2FA" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">App Store</text>
-            <path d="M20 10 Q16 10 14 14 L14 30 Q14 34 18 34 L22 34 Q22 30 20 28 L20 16 Q20 14 22 14 L26 14 Q26 10 22 10 Z" fill="white" fill-opacity="0.8"/>
-          </svg>
-        </a>
-        <a href="/register?plan=navigation" class="store-badge" aria-label="Get it on Google Play">
-          <svg width="140" height="44" viewBox="0 0 140 44" fill="none" aria-hidden="true">
-            <rect width="140" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="44" y="16" fill="#8AA0B2" font-size="8" font-family="Inter,sans-serif">Get it on</text>
-            <text x="44" y="31" fill="#EAF2FA" font-size="14" font-family="Space Grotesk,sans-serif" font-weight="700">Google Play</text>
-            <path d="M17 12 L28 22 L17 32 L15 30 L15 14 Z M29 21 L31 22 L29 23 L23 27 L21 24 L17 22 L21 20 L23 17 Z" fill="white" fill-opacity="0.8"/>
-          </svg>
-        </a>
-        <a href="/features" class="btn btn-secondary hero-see-more">See how it works →</a>
-      </div>
-
-      <!-- Trust signals -->
-      <div class="hero-trust">
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Cancel anytime
-        </span>
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          No auto-renew
-        </span>
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Works offline
-        </span>
-        <span class="trust-item">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M13 4L6.5 10.5 3 7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          UK GDPR compliant
-        </span>
-      </div>
+  <!-- Top chip: next manoeuvre -->
+  <div class="hud-row hud-top">
+    <div class="hud-arrow-chip">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     </div>
-
-    <!-- HUD display -->
-    <div class="hero-hud" aria-hidden="true">
-      <div class="hud-glow"></div>
-      <div class="hud-panel glass">
-        <!-- Map background -->
-        <div class="hud-map">
-          <svg class="route-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Street grid (subtle) -->
-            <line x1="20" y1="0" x2="20" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="70" y1="0" x2="70" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="140" y1="0" x2="140" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="210" y1="0" x2="210" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="260" y1="0" x2="260" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="0" y1="50" x2="280" y2="50" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="0" y1="100" x2="280" y2="100" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-            <line x1="0" y1="150" x2="280" y2="150" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-
-            <!-- Route path (drawn via CSS animation) -->
-            <defs>
-              <linearGradient id="route-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#3B82F6"/>
-                <stop offset="100%" stop-color="#2EE6CE"/>
-              </linearGradient>
-            </defs>
-            <path
-              id="route-path"
-              d="M 40 170 L 40 120 L 80 120 L 80 80 L 140 80 L 140 50 L 200 50 L 240 90"
-              stroke="url(#route-grad)"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              fill="none"
-              class="route-line"
-            />
-
-            <!-- Stop markers -->
-            <circle cx="40" cy="170" r="5" fill="#3B82F6" class="stop-pip"/>
-            <circle cx="80" cy="120" r="4" fill="rgba(59,130,246,0.6)"/>
-            <circle cx="140" cy="80"  r="4" fill="rgba(59,130,246,0.6)"/>
-            <circle cx="200" cy="50"  r="4" fill="rgba(59,130,246,0.6)"/>
-
-            <!-- End pip (animated colour) -->
-            <circle id="end-pip" cx="240" cy="90" r="6" fill="#22C55E" class="end-pip"/>
-            <circle cx="240" cy="90" r="10" fill="#22C55E" fill-opacity="0.2" class="end-pulse"/>
-          </svg>
-        </div>
-
-        <!-- Turn instruction card -->
-        <div class="hud-card glass">
-          <div class="hud-turn-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 12h14M13 6l6 6-6 6" stroke="#2EE6CE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="hud-turn-info">
-            <div class="hud-turn-dist mono">0.3 mi</div>
-            <div class="hud-turn-road">Long Lane</div>
-          </div>
-          <div class="chip chip-amber hud-turn-score">⚠ Tight</div>
-        </div>
-
-        <!-- ETA strip -->
-        <div class="hud-eta">
-          <span class="mono">ETA <strong>14:32</strong></span>
-          <span class="hud-sep"></span>
-          <span class="mono"><strong class="chip chip-green">4</strong> stops left</span>
-          <span class="hud-sep"></span>
-          <span class="mono text-muted">12.4 mi</span>
-        </div>
-      </div>
+    <div class="hud-manoeuvre">
+      <span class="hud-dist">0.3 mi</span>
+      <span class="hud-road">Long Lane, B4132</span>
+    </div>
+    <div class="hud-score-chip" style={`color: ${scoreColor[score]}`}>
+      {scoreLabel[score]}
     </div>
   </div>
-</section>
 
-<!-- Sticky bottom CTA (mobile only, slides up after hero leaves viewport) -->
-<div id="sticky-cta" class="sticky-cta glass" aria-label="Get started" aria-hidden="true">
-  <div class="sticky-cta-inner">
-    <a href="/register?plan=navigation" class="btn btn-primary btn-full">Start free trial — no card needed</a>
+  <!-- Divider -->
+  <div class="hud-divider" aria-hidden="true"></div>
+
+  <!-- Bottom row: ETA + stops + total distance -->
+  <div class="hud-row hud-bottom">
+    <div class="hud-stat">
+      <span class="hud-stat-label">ETA</span>
+      <span class="hud-stat-val hud-stat-bold">14:32</span>
+    </div>
+    <div class="hud-dot" aria-hidden="true"></div>
+    <div class="hud-stat">
+      <span class="hud-stat-val hud-stat-bold">4</span>
+      <span class="hud-stat-label">stops left</span>
+    </div>
+    <div class="hud-dot" aria-hidden="true"></div>
+    <div class="hud-stat">
+      <span class="hud-stat-val hud-stat-bold">12.4 mi</span>
+    </div>
   </div>
 </div>
 
 <style>
-  #hero {
+  .hud-shell {
     position: relative;
-    min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    padding-block: 96px 64px;
-    background: radial-gradient(ellipse 80% 60% at 30% 50%, rgba(0,194,168,0.10) 0%, transparent 60%),
-                var(--void);
+    border-radius: 16px;
     overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4);
+    background: #0f1117;
+    padding: 20px 24px;
+    min-width: 280px;
+    max-width: 420px;
   }
 
-  /* Photo layer */
-  .hero-photo-wrap {
+  .hud-photo-bg {
     position: absolute;
     inset: 0;
+    background-size: cover;
+    background-position: center;
     z-index: 0;
   }
 
-  .hero-photo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center right;
-    display: block;
-  }
-
-  /* Left-to-dark scrim keeps text readable; bottom fade anchors the page */
-  .hero-scrim {
+  .hud-overlay {
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(to right,  rgba(10,14,20,0.92) 0%, rgba(10,14,20,0.70) 40%, rgba(10,14,20,0.35) 100%),
-      linear-gradient(to top,    rgba(10,14,20,0.55) 0%, transparent 55%);
-  }
-
-  /* When photo errors out, hide the wrap (CSS gradient bg shows through) */
-  #hero.no-photo .hero-photo-wrap,
-  .hero-photo-wrap.no-photo { display: none; }
-
-  /* Subtle grain over everything */
-  #hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
+    background: rgba(10, 12, 20, 0.72);
     z-index: 1;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    background-size: 200px 200px;
-    pointer-events: none;
-    opacity: 0.5;
   }
 
-  .hero-inner {
+  .hud-row {
     position: relative;
     z-index: 2;
     display: flex;
-    flex-direction: column;
-    gap: 48px;
     align-items: center;
-    width: 100%;
+    gap: 14px;
   }
 
-  @media (min-width: 900px) {
-    .hero-inner {
-      flex-direction: row;
-      gap: 64px;
-      align-items: center;
-    }
+  .hud-top {
+    margin-bottom: 0;
   }
 
-  .hero-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    text-align: center;
-    max-width: 600px;
-    margin-inline: auto;
-  }
-
-  @media (min-width: 900px) {
-    .hero-text {
-      text-align: left;
-      margin-inline: 0;
-    }
-  }
-
-  .hero-eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    justify-content: center;
-  }
-
-  @media (min-width: 900px) {
-    .hero-eyebrow { justify-content: flex-start; }
-  }
-
-  #hero-heading {
-    margin-bottom: 12px;
-  }
-
-  .hero-sub {
-    color: var(--ink-muted);
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    max-width: 480px;
-    margin-inline: auto;
-    margin-bottom: 24px;
-  }
-
-  @media (min-width: 900px) {
-    .hero-sub { margin-inline: 0; }
-  }
-
-  .hero-ctas {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 24px;
-    justify-content: center;
-  }
-
-  @media (min-width: 900px) {
-    .hero-ctas { justify-content: flex-start; }
-  }
-
-  .store-badge {
-    display: inline-flex;
-    text-decoration: none;
-    border-radius: 10px;
-    transition: opacity var(--dur-micro) ease-out, transform var(--dur-micro) ease-out;
-  }
-
-  @media (hover: hover) {
-    .store-badge:hover { opacity: 0.85; transform: translateY(-1px); }
-  }
-
-  .store-badge:active { transform: scale(0.97); }
-
-  .hero-see-more {
-    height: 44px;
-    padding: 0 20px;
-    font-size: 0.9375rem;
-    align-self: center;
-  }
-
-  .hero-trust {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: center;
-    align-items: center;
-  }
-
-  @media (min-width: 900px) {
-    .hero-trust { justify-content: flex-start; }
-  }
-
-  .trust-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--ink-muted);
-    font-size: 0.875rem;
-  }
-
-  /* HUD */
-  .hero-hud {
+  .hud-divider {
     position: relative;
-    flex-shrink: 0;
-    width: 100%;
-    max-width: 360px;
-    margin-inline: auto;
+    z-index: 2;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin-block: 16px;
   }
 
-  @media (min-width: 900px) {
-    .hero-hud {
-      max-width: 340px;
-      margin-inline: 0;
-    }
-  }
-
-  .hud-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(0,194,168,0.20) 0%, transparent 70%);
-    pointer-events: none;
-    border-radius: 50%;
-  }
-
-  .hud-panel {
-    border-radius: var(--r-panel);
-    padding: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .hud-map {
-    padding: 16px;
-    background: rgba(10, 14, 20, 0.6);
-  }
-
-  .route-svg {
-    width: 100%;
-    height: auto;
-  }
-
-  /* Route-draw animation */
-  .route-line {
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: route-draw var(--dur-route) ease-in-out forwards;
-    animation-delay: 200ms;
-  }
-
-  @keyframes route-draw {
-    to { stroke-dashoffset: 0; }
-  }
-
-  .end-pip {
-    opacity: 0;
-    animation: pip-appear 300ms ease-out forwards;
-    animation-delay: 1200ms;
-  }
-
-  .end-pulse {
-    opacity: 0;
-    animation: pip-appear 300ms ease-out forwards, pulse-ring 2s ease-out infinite;
-    animation-delay: 1200ms, 1500ms;
-  }
-
-  @keyframes pip-appear {
-    from { opacity: 0; transform: scale(0.5); transform-box: fill-box; transform-origin: center; }
-    to   { opacity: 1; transform: scale(1); }
-  }
-
-  @keyframes pulse-ring {
-    0%   { transform: scale(1);   opacity: 0.4; transform-box: fill-box; transform-origin: center; }
-    100% { transform: scale(2.5); opacity: 0; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .route-line,
-    .end-pip,
-    .end-pulse {
-      animation: none;
-      stroke-dashoffset: 0;
-      opacity: 1;
-    }
-  }
-
-  .hud-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border-radius: 0;
-    border: none;
-    border-top: 1px solid var(--glass-brd);
-    border-bottom: 1px solid var(--glass-brd);
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .hud-turn-icon {
+  .hud-arrow-chip {
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(46, 230, 206, 0.1);
+    background: rgba(0, 194, 168, 0.15);
+    border: 1px solid rgba(0, 194, 168, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #00C2A8;
     flex-shrink: 0;
   }
 
-  .hud-turn-info { flex: 1; }
-
-  .hud-turn-dist {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--ink);
-    font-family: 'Geist Mono', monospace;
-  }
-
-  .hud-turn-road {
-    font-size: 0.875rem;
-    color: var(--ink-muted);
-  }
-
-  .hud-turn-score { flex-shrink: 0; }
-
-  .hud-eta {
+  .hud-manoeuvre {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    font-size: 0.875rem;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
   }
 
-  .hud-sep {
-    width: 1px;
-    height: 16px;
-    background: var(--glass-brd);
+  .hud-dist {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1;
+  }
+
+  .hud-road {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .hud-score-chip {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     flex-shrink: 0;
   }
 
-  /* Sticky bottom CTA */
-  .sticky-cta {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 90;
-    padding-bottom: env(safe-area-inset-bottom);
-    transform: translateY(100%);
-    opacity: 0;
-    transition: transform var(--dur-std) var(--ease),
-                opacity var(--dur-std) var(--ease);
-    pointer-events: none;
+  .hud-bottom {
+    gap: 10px;
   }
 
-  .sticky-cta.visible {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
+  .hud-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
   }
 
-  .sticky-cta-inner {
-    padding: 12px var(--gutter);
+  .hud-stat-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
 
-  @media (min-width: 768px) {
-    .sticky-cta { display: none; }
+  .hud-stat-val {
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  .hud-stat-bold {
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .hud-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
   }
 </style>
-
-<script>
-  // Sticky CTA: show after hero leaves viewport
-  const hero = document.getElementById('hero');
-  const cta  = document.getElementById('sticky-cta');
-  if (hero && cta) {
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        const visible = !entry.isIntersecting;
-        cta.classList.toggle('visible', visible);
-        cta.setAttribute('aria-hidden', String(!visible));
-      },
-      { threshold: 0 }
-    );
-    obs.observe(hero);
-  }
-
-  // Scroll-reveal observer
-  const reveals = document.querySelectorAll('.reveal');
-  if (reveals.length > 0) {
-    const revealObs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry, i) => {
-          if (!entry.isIntersecting) return;
-          const delay = (entry.target as HTMLElement).dataset.delay ?? '0';
-          setTimeout(() => {
-            entry.target.classList.add('revealed');
-            revealObs.unobserve(entry.target);
-          }, parseInt(delay));
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -10% 0px' }
-    );
-    reveals.forEach((el, i) => {
-      if (!(el as HTMLElement).dataset.delay) {
-        (el as HTMLElement).dataset.delay = String(i * 60);
-      }
-      revealObs.observe(el);
-    });
-  }
-</script>

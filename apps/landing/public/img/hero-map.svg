@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" role="img" aria-label="MJ Maps hero — UK delivery route through rural Worcestershire lanes">
+  <title>UK rural lane route — MJ Maps hero background</title>
+  <desc>Dark satellite-style map showing a rural UK delivery route through Worcestershire lanes, with teal MJ Maps route polyline overlay connecting multiple stop markers along narrow country roads.</desc>
+  <defs>
+    <linearGradient id="route-grad-hm" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#3B82F6"/>
+      <stop offset="50%"  stop-color="#00C2A8"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <radialGradient id="pin-pulse-hm" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#00C2A8" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#00C2A8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base: dark earth/satellite -->
+  <rect width="800" height="500" fill="#0a0e0a"/>
+
+  <!-- Field boundaries (irregular polygons) -->
+  <path d="M 0 0 L 800 0 L 800 160 Q 650 155 500 160 Q 350 158 200 162 Q 100 158 0 155 Z"
+        fill="#0c1a0e" opacity="0.9"/>
+  <path d="M 0 160 Q 100 155 200 160 Q 350 155 500 158 Q 650 155 800 158 L 800 160 L 0 160 Z"
+        fill="#0a1408" opacity="0.7"/>
+  <path d="M 0 320 Q 100 315 200 318 Q 350 322 500 320 Q 650 318 800 322 L 800 500 L 0 500 Z"
+        fill="#0c1a0e" opacity="0.9"/>
+  <path d="M 0 320 Q 100 325 200 322 Q 350 318 500 320 Q 650 322 800 318 L 800 320 L 0 320 Z"
+        fill="#0a1408" opacity="0.7"/>
+
+  <!-- Hedgerows / field boundaries -->
+  <g stroke="#152015" stroke-width="8" stroke-linecap="round" opacity="0.85">
+    <path d="M 0 160 Q 200 154 400 158 Q 600 156 800 158"/>
+    <path d="M 0 320 Q 200 315 400 318 Q 600 320 800 318"/>
+    <path d="M 200 0 Q 202 80 198 160 Q 200 240 202 320 Q 198 400 200 500"/>
+    <path d="M 500 0 Q 498 80 502 160 Q 498 240 500 320 Q 502 400 500 500"/>
+  </g>
+  <!-- Thinner hedgerow accents -->
+  <g stroke="#1a2a1a" stroke-width="2" stroke-linecap="round" opacity="0.5">
+    <path d="M 0 162 Q 200 158 400 160 Q 600 158 800 162"/>
+    <path d="M 0 318 Q 200 315 400 318 Q 600 316 800 318"/>
+  </g>
+
+  <!-- Main lane: primary country road (wider, lighter) -->
+  <g stroke="#2a3018" stroke-width="7" stroke-linecap="round">
+    <path d="M 80 0 Q 100 80 140 140 Q 180 200 240 220 Q 320 245 400 240 Q 480 235 540 200 Q 600 165 640 120 Q 680 75 720 0"/>
+  </g>
+  <!-- Lane dashes -->
+  <g stroke="#3a4020" stroke-width="0.8" stroke-dasharray="5,10" stroke-linecap="round" opacity="0.5">
+    <path d="M 80 0 Q 100 80 140 140 Q 180 200 240 220 Q 320 245 400 240 Q 480 235 540 200 Q 600 165 640 120 Q 680 75 720 0"/>
+  </g>
+
+  <!-- Secondary lane -->
+  <g stroke="#1e2410" stroke-width="5" stroke-linecap="round">
+    <path d="M 500 500 Q 480 420 440 380 Q 400 340 360 320"/>
+    <path d="M 200 500 Q 220 420 260 380 Q 300 340 340 310 Q 380 280 400 240"/>
+  </g>
+
+  <!-- Tertiary tracks -->
+  <g stroke="#141810" stroke-width="3" stroke-linecap="round" opacity="0.8">
+    <path d="M 240 220 Q 280 250 320 280 Q 360 310 440 320"/>
+    <path d="M 540 200 Q 500 220 480 250 Q 460 280 440 320"/>
+    <path d="M 80 160 Q 120 180 140 220"/>
+    <path d="M 400 240 Q 430 260 460 280 Q 490 300 500 320"/>
+  </g>
+
+  <!-- Property markers (small buildings) -->
+  <g fill="#141e1e" stroke="#1e2e2e" stroke-width="0.5" opacity="0.9">
+    <!-- Farm cluster near top-left -->
+    <rect x="88"  y="120" width="32" height="22" rx="2"/>
+    <rect x="124" y="118" width="22" height="20" rx="2"/>
+    <rect x="90"  y="144" width="28" height="16" rx="2"/>
+    <!-- Houses along lane -->
+    <rect x="148" y="175" width="24" height="18" rx="2"/>
+    <rect x="178" y="185" width="22" height="16" rx="2"/>
+    <rect x="250" y="200" width="28" height="20" rx="2"/>
+    <rect x="284" y="208" width="20" height="16" rx="2"/>
+    <!-- Scattered farms -->
+    <rect x="360" y="285" width="36" height="24" rx="2"/>
+    <rect x="400" y="292" width="26" height="18" rx="2"/>
+    <rect x="450" y="280" width="30" height="22" rx="2"/>
+    <rect x="484" y="288" width="22" height="18" rx="2"/>
+    <rect x="600" y="150" width="28" height="20" rx="2"/>
+    <rect x="634" y="155" width="20" height="16" rx="2"/>
+    <rect x="680" y="140" width="30" height="22" rx="2"/>
+    <rect x="560" y="200" width="24" height="18" rx="2"/>
+  </g>
+
+  <!-- Trees along hedgerows -->
+  <g fill="#080e08" opacity="0.6">
+    <circle cx="80"  cy="158" r="8"/><circle cx="120" cy="162" r="6"/><circle cx="160" cy="158" r="7"/>
+    <circle cx="200" cy="162" r="8"/><circle cx="240" cy="158" r="6"/><circle cx="280" cy="162" r="7"/>
+    <circle cx="320" cy="158" r="8"/><circle cx="360" cy="162" r="6"/><circle cx="400" cy="158" r="7"/>
+    <circle cx="440" cy="162" r="8"/><circle cx="480" cy="158" r="6"/><circle cx="520" cy="162" r="7"/>
+    <circle cx="560" cy="158" r="8"/><circle cx="600" cy="162" r="6"/><circle cx="640" cy="158" r="7"/>
+    <circle cx="680" cy="162" r="8"/><circle cx="720" cy="158" r="6"/><circle cx="760" cy="162" r="7"/>
+    <circle cx="80"  cy="318" r="8"/><circle cx="120" cy="322" r="6"/><circle cx="160" cy="318" r="7"/>
+    <circle cx="200" cy="322" r="8"/><circle cx="240" cy="318" r="6"/><circle cx="280" cy="322" r="7"/>
+    <circle cx="320" cy="318" r="8"/><circle cx="360" cy="322" r="6"/><circle cx="400" cy="318" r="7"/>
+    <circle cx="440" cy="322" r="8"/><circle cx="480" cy="318" r="6"/><circle cx="520" cy="322" r="7"/>
+    <circle cx="560" cy="318" r="8"/><circle cx="600" cy="322" r="6"/><circle cx="640" cy="318" r="7"/>
+    <circle cx="680" cy="322" r="8"/><circle cx="720" cy="318" r="6"/><circle cx="760" cy="322" r="7"/>
+  </g>
+
+  <!-- ROUTE LINE: teal polyline — the MJ Maps signature -->
+  <g filter="url(#soft-glow)">
+    <path
+      d="M 100 460 Q 120 380 140 300 Q 160 240 200 220 Q 260 195 320 210 Q 380 225 400 240 Q 440 265 480 240 Q 520 215 560 190 Q 600 165 640 130 Q 680 95 720 40"
+      stroke="#00C2A8"
+      stroke-width="4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+      opacity="0.9"
+    />
+  </g>
+
+  <!-- Route stop markers -->
+  <!-- Stop 1: depot (start) -->
+  <circle cx="100" cy="460" r="8"  fill="#3B82F6" opacity="0.8"/>
+  <circle cx="100" cy="460" r="14" fill="#3B82F6" fill-opacity="0.2"/>
+
+  <!-- Stop 2 -->
+  <circle cx="200" cy="220" r="6" fill="#00C2A8" opacity="0.8"/>
+  <circle cx="200" cy="220" r="11" fill="#00C2A8" fill-opacity="0.15"/>
+
+  <!-- Stop 3 -->
+  <circle cx="400" cy="240" r="6" fill="#00C2A8" opacity="0.8"/>
+  <circle cx="400" cy="240" r="11" fill="#00C2A8" fill-opacity="0.15"/>
+
+  <!-- Stop 4: next delivery -->
+  <circle cx="560" cy="190" r="7" fill="#00C2A8" opacity="0.9"/>
+  <circle cx="560" cy="190" r="13" fill="#00C2A8" fill-opacity="0.2"/>
+
+  <!-- Destination (final stop) -->
+  <circle cx="720" cy="40"  r="9"  fill="#10B981" opacity="0.9"/>
+  <circle cx="720" cy="40"  r="18" fill="#10B981" fill-opacity="0.2"/>
+  <circle cx="720" cy="40"  r="26" fill="url(#pin-pulse-hm)"/>
+
+  <!-- Route waypoint dots -->
+  <g fill="#00C2A8" opacity="0.5">
+    <circle cx="140" cy="300" r="2.5"/>
+    <circle cx="260" cy="195" r="2.5"/>
+    <circle cx="380" cy="225" r="2.5"/>
+    <circle cx="480" cy="240" r="2.5"/>
+    <circle cx="600" cy="165" r="2.5"/>
+    <circle cx="660" cy="95"  r="2.5"/>
+  </g>
+
+  <!-- Map scale bar (bottom-left) -->
+  <g transform="translate(20, 470)">
+    <line x1="0" y1="0" x2="80" y2="0" stroke="#3a4a3a" stroke-width="2"/>
+    <line x1="0" y1="-4" x2="0"  y2="4"  stroke="#3a4a3a" stroke-width="2"/>
+    <line x1="80" y1="-4" x2="80" y2="4" stroke="#3a4a3a" stroke-width="2"/>
+    <text x="40" y="-8" text-anchor="middle" fill="#3a5a4a" font-family="'IBM Plex Mono', monospace" font-size="9">1 mile</text>
+  </g>
+
+  <!-- Compass rose (top-right) -->
+  <g transform="translate(740, 50)" opacity="0.5">
+    <circle cx="0" cy="0" r="20" fill="none" stroke="#2a3a2a" stroke-width="1"/>
+    <path d="M 0 -18 L 4 -4 L 0 -8 L -4 -4 Z" fill="#4a6a4a"/>
+    <text x="0" y="-22" text-anchor="middle" fill="#4a6a4a" font-family="'IBM Plex Mono', monospace" font-size="9">N</text>
+  </g>
+</svg>

@@ -69,8 +69,10 @@ export function TurnWarningOverlay({ visible, reason, score, address, onDismiss 
         accessibilityLabel="Dismiss turn warning"
       >
         <Animated.View style={[styles.sheet, { opacity, transform: [{ translateY }] }]}>
-          {/* Icon */}
-          <Text style={styles.icon}>🚨</Text>
+          {/* Icon — styled red circle with '!' (no emoji) */}
+          <View style={styles.iconWrap}>
+            <Text style={styles.iconText}>!</Text>
+          </View>
 
           {/* Main warning */}
           <Text style={styles.heading}>DO NOT ENTER</Text>
@@ -117,7 +119,13 @@ const styles = StyleSheet.create({
     minHeight: H * 0.55,
     justifyContent: 'center',
   },
-  icon:       { fontSize: 64, marginBottom: 4 },
+  iconWrap:   {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
+  },
+  iconText:   { fontSize: 48, fontWeight: '900', color: '#fff' },
   heading: {
     fontSize: 38, fontWeight: '900',
     color: '#ffffff', letterSpacing: 1.2,

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Blurred abstract background — only used as distant layer for For Fleets page when no real dispatcher screenshot is available">
+  <title>Abstract blurred background — For Fleets distant layer</title>
+  <defs>
+    <linearGradient id="bg8" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#0a1020"/>
+      <stop offset="50%"  stop-color="#0d1828"/>
+      <stop offset="100%" stop-color="#0a0e18"/>
+    </linearGradient>
+    <filter id="blur8" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="grain8" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="4" stitchTiles="stitch" result="n"/>
+      <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+      <feBlend in="SourceGraphic" in2="g" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Abstract map/network grid blurred beyond recognition -->
+  <rect width="1600" height="900" fill="url(#bg8)"/>
+
+  <!-- Blurred grid: shows this is a map/digital world without revealing detail -->
+  <g filter="url(#blur8)" opacity="0.4">
+    <g stroke="#00C2A8" fill="none" stroke-linecap="round">
+      <path d="M 0 200 Q 400 180 800 200 Q 1200 220 1600 200" stroke-width="2"/>
+      <path d="M 0 400 Q 400 380 800 400 Q 1200 420 1600 400" stroke-width="2"/>
+      <path d="M 0 600 Q 400 580 800 600 Q 1200 620 1600 600" stroke-width="2"/>
+      <path d="M 200 0 Q 180 300 200 600 Q 220 800 200 900" stroke-width="2"/>
+      <path d="M 600 0 Q 580 300 600 600 Q 620 800 600 900" stroke-width="2"/>
+      <path d="M 1000 0 Q 980 300 1000 600 Q 1020 800 1000 900" stroke-width="2"/>
+      <path d="M 1400 0 Q 1380 300 1400 600 Q 1420 800 1400 900" stroke-width="2"/>
+    </g>
+    <!-- Blurred route lines -->
+    <g stroke="#00C2A8" fill="none" opacity="0.3">
+      <path d="M 100 900 Q 300 600 500 400 Q 700 200 900 100 Q 1100 50 1300 100" stroke-width="3"/>
+      <path d="M 1500 900 Q 1300 700 1100 500 Q 900 300 700 200 Q 500 100 300 50" stroke-width="3"/>
+      <path d="M 800 900 Q 800 700 900 500 Q 1000 300 1100 200 Q 1200 150 1300 100" stroke-width="3"/>
+    </g>
+    <!-- Blurred dots (vans) -->
+    <g fill="#00C2A8" opacity="0.4">
+      <circle cx="300"  cy="600" r="8"/>
+      <circle cx="800"  cy="400" r="8"/>
+      <circle cx="1200" cy="300" r="8"/>
+      <circle cx="500"  cy="200" r="6"/>
+      <circle cx="1100" cy="500" r="6"/>
+    </g>
+  </g>
+
+  <!-- Grain overlay -->
+  <rect width="1600" height="900" fill="#808080" fill-opacity="0.015" filter="url(#grain8)"/>
+</svg>

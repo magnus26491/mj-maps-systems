@@ -181,12 +181,6 @@ export const removeAdmin = (id: string, reason: string) =>
     body: JSON.stringify({ reason }),
   });
 
-export const createDispatcher = (email: string, password: string, name?: string) =>
-  apiFetch<{ ok: boolean; user: { id: string; email: string; name: string | null; role: string } }>('/admin/dispatchers', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, name }),
-  });
-
 // ── Tickets ─────────────────────────────────────────────────────────────────────
 
 export const getTickets = (params: { status?: string; priority?: string; page?: string } = {}) => {

@@ -7,7 +7,14 @@ import { useAuthStore } from '../../lib/auth';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { useLocale } from '../../components/LocaleProvider';
 import { SUPPORTED_LOCALES } from '../../lib/i18n';
+import { useTheme, type ThemeMode } from '../../lib/theme';
 import type { Vehicle } from '../../lib/types';
+
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light',  label: 'Light' },
+  { value: 'dark',   label: 'Dark'  },
+];
 
 export default function SettingsScreen() {
   const user    = useAuthStore(s => s.user);
@@ -16,6 +23,9 @@ export default function SettingsScreen() {
   const { locale } = useLocale();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const currentLang = SUPPORTED_LOCALES.find(l => l.code === locale);
+
+  // Theme controls
+  const { mode, setMode, isDark, colors } = useTheme();
 
   const { data } = useQuery({
     queryKey: ['vehicles'],
@@ -41,92 +51,134 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.app.background }]}>
       <DeleteAccountModal
         visible={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
       />
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <Text style={styles.infoRow}>
-          Name: <Text style={styles.value}>{user?.name ?? '—'}</Text>
+      {/* ── Theme control ─────────────────────────────────────── */}
+      <View style={[styles.section, { backgroundColor: colors.app.surface, borderColor: colors.app.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.app.textFaint }]}>Appearance</Text>
+        <View style={styles.themeRow}>
+          {THEME_OPTIONS.map(opt => (
+            <TouchableOpacity
+              key={opt.value}
+              style={[
+                styles.themeBtn,
+                mode === opt.value
+                  ? { backgroundColor: colors.app.primary }
+                  : { backgroundColor: colors.app.surfaceAlt, borderColor: colors.app.border, borderWidth: 1 },
+              ]}
+              onPress={() => setMode(opt.value)}
+            >
+              <Text
+                style={[
+                  styles.themeBtnText,
+                  { color: mode === opt.value ? colors.app.white : colors.app.textFaint },
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={[styles.section, { backgroundColor: colors.app.surface, borderColor: colors.app.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.app.textFaint }]}>Account</Text>
+        <Text style={[styles.infoRow, { color: colors.app.textFaint }]}>
+          Name: <Text style={[styles.value, { color: colors.app.text }]}>{user?.name ?? '—'}</Text>
         </Text>
-        <Text style={styles.infoRow}>
-          Email: <Text style={styles.value}>{user?.email ?? '—'}</Text>
+        <Text style={[styles.infoRow, { color: colors.app.textFaint }]}>
+          Email: <Text style={[styles.value, { color: colors.app.text }]}>{user?.email ?? '—'}</Text>
         </Text>
-        <Text style={styles.infoRow}>
-          Plan: <Text style={styles.value}>{user?.planId?.toUpperCase() ?? '—'}</Text>
+        <Text style={[styles.infoRow, { color: colors.app.textFaint }]}>
+          Plan: <Text style={[styles.value, { color: colors.app.text }]}>{user?.planId?.toUpperCase() ?? '—'}</Text>
         </Text>
 
         <TouchableOpacity
-          style={styles.linkRow}
+          style={[styles.linkRow, { borderTopColor: colors.app.border }]}
           onPress={() => router.push('/language-select' as any)}
         >
           <View style={styles.linkRowLeft}>
-            <Text style={styles.linkText}>Language</Text>
-            <Text style={styles.linkSub}>
+            <Text style={[styles.linkText, { color: colors.app.primary }]}>Language</Text>
+            <Text style={[styles.linkSub, { color: colors.app.gray }]}>
               {currentLang ? `${currentLang.flag} ${currentLang.nativeLabel}` : 'English'}
             </Text>
           </View>
-          <Text style={styles.linkArrow}>›</Text>
+          <Text style={[styles.linkArrow, { color: colors.app.primary }]}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.linkRow}
+          style={[styles.linkRow, { borderTopColor: colors.app.border }]}
           onPress={() => router.push('/(app)/privacy')}
         >
-          <Text style={styles.linkText}>Privacy Policy</Text>
-          <Text style={styles.linkArrow}>›</Text>
+          <Text style={[styles.linkText, { color: colors.app.primary }]}>Privacy Policy</Text>
+          <Text style={[styles.linkArrow, { color: colors.app.primary }]}>›</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sectionTitle}>Select Vehicle</Text>
+      <Text style={[styles.sectionTitle, { color: colors.app.textFaint }]}>Select Vehicle</Text>
       <FlatList
         data={vehicles}
         keyExtractor={v => v.id}
+        style={{ flex: 0 }}
         renderItem={({ item: v }) => (
-          <TouchableOpacity style={styles.vehicleRow} onPress={() => selectVehicle(v)}>
+          <TouchableOpacity
+            style={[styles.vehicleRow, { backgroundColor: colors.app.surface, borderBottomColor: colors.app.border }]}
+            onPress={() => selectVehicle(v)}
+          >
             <View style={styles.vehicleInfo}>
-              <Text style={styles.vehicleName}>{v.make} {v.model} ({v.year})</Text>
-              <Text style={styles.vehicleSpec}>
+              <Text style={[styles.vehicleName, { color: colors.app.text }]}>{v.make} {v.model} ({v.year})</Text>
+              <Text style={[styles.vehicleSpec, { color: colors.app.textFaint }]}>
                 H: {v.heightM}m · GVW: {(v.gvwKg / 1000).toFixed(1)}t · Payload: {(v.payloadKg / 1000).toFixed(1)}t
               </Text>
             </View>
-            <Text style={styles.vehicleId}>{v.id}</Text>
+            <Text style={[styles.vehicleId, { color: colors.app.grayDark }]}>{v.id}</Text>
           </TouchableOpacity>
         )}
       />
 
-      <TouchableOpacity style={styles.deleteBtn} onPress={() => setShowDeleteModal(true)}>
-        <Text style={styles.deleteText}>Delete Account</Text>
+      <TouchableOpacity
+        style={[styles.deleteBtn, { backgroundColor: colors.app.surface, borderColor: colors.app.danger, borderWidth: 1 }]}
+        onPress={() => setShowDeleteModal(true)}
+      >
+        <Text style={[styles.deleteText, { color: colors.app.danger }]}>Delete Account</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Sign Out</Text>
+      <TouchableOpacity
+        style={[styles.logoutBtn, { backgroundColor: colors.app.surface, borderColor: colors.app.border, borderWidth: 1 }]}
+        onPress={handleLogout}
+      >
+        <Text style={[styles.logoutText, { color: colors.app.textFaint }]}>Sign Out</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: '#030712', padding: 16 },
-  section:      { backgroundColor: '#111827', borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#1f2937' },
-  sectionTitle: { color: '#9ca3af', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 10 },
-  infoRow:      { color: '#9ca3af', fontSize: 14, marginBottom: 4 },
-  value:        { color: '#f9fafb', fontWeight: '500' },
-  linkRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 1, borderColor: '#1f2937', marginTop: 8 },
+  container:    { flex: 1, padding: 16 },
+  section:      { borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1 },
+  sectionTitle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 10 },
+  infoRow:      { fontSize: 14, marginBottom: 4 },
+  value:        { fontWeight: '500' },
+  linkRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 1, marginTop: 8 },
   linkRowLeft:  { flex: 1 },
-  linkText:     { color: '#3b82f6', fontSize: 14, fontWeight: '500' },
-  linkSub:      { color: '#6b7280', fontSize: 12, marginTop: 2 },
-  linkArrow:    { color: '#3b82f6', fontSize: 18 },
-  vehicleRow:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderBottomWidth: 1, borderColor: '#1f2937', padding: 14, justifyContent: 'space-between' },
+  linkText:     { fontSize: 14, fontWeight: '500' },
+  linkSub:      { fontSize: 12, marginTop: 2 },
+  linkArrow:    { fontSize: 18 },
+  vehicleRow:   { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, padding: 14, justifyContent: 'space-between' },
   vehicleInfo:  { flex: 1 },
-  vehicleName:  { color: '#f9fafb', fontWeight: '600', fontSize: 14 },
-  vehicleSpec:  { color: '#9ca3af', fontSize: 12, marginTop: 2 },
-  vehicleId:    { color: '#374151', fontSize: 11 },
-  deleteBtn:    { backgroundColor: '#1f2937', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, borderWidth: 1, borderColor: '#374151' },
-  deleteText:   { color: '#ef4444', fontWeight: '700', fontSize: 15 },
-  logoutBtn:    { backgroundColor: '#1f2937', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: '#374151' },
-  logoutText:   { color: '#9ca3af', fontWeight: '700', fontSize: 15 },
+  vehicleName:  { fontWeight: '600', fontSize: 14 },
+  vehicleSpec:  { fontSize: 12, marginTop: 2 },
+  vehicleId:    { fontSize: 11 },
+  deleteBtn:    { borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  deleteText:   { fontWeight: '700', fontSize: 15 },
+  logoutBtn:    { borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 12 },
+  logoutText:   { fontWeight: '700', fontSize: 15 },
+  // Theme segmented control
+  themeRow:     { flexDirection: 'row', gap: 8, marginTop: 4 },
+  themeBtn:     { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  themeBtnText: { fontSize: 14, fontWeight: '600' },
 });

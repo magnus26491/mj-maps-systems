@@ -1,5 +1,6 @@
 ---
 import { HOME_FEATURE_KEYS, FEATURE_META, hasFeature, type FeatureKey } from '@plans';
+import { t } from '../i18n/index';
 
 interface Props {
   title?: string;
@@ -13,45 +14,99 @@ const {
   featureKeys = HOME_FEATURE_KEYS,
 } = Astro.props;
 
+// Lucide-style icon paths per feature — thin stroke, no fill, no colour blobs
+const FEATURE_ICONS: Record<FeatureKey, string> = {
+  HGV_ROUTING:        `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-3"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+  BRIDGE_RESTRICTIONS:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16M4 19V9a8 8 0 0 1 16 0v10"/><path d="M10 19v-4a2 2 0 0 1 4 0v4"/></svg>`,
+  TURN_SCORE:         `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`,
+  UNPAVED_SCORING:    `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`,
+  OFFLINE_CACHE:      `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3-8.59A2 2 0 0 1 3.67 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.64a16 16 0 0 0 6 6l1-1c.584-.585 1.46-.79 2.25-.54.908.34 1.85.574 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  W3W_PIN:            `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  POD_PHOTO:          `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+  SIGNATURE_CAPTURE:  `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`,
+  DISPATCHER:         `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>`,
+  LIVE_TRACKING_WS:   `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6c0 6.9 4.1 12.9 10 15.4C17 18.9 21 12.9 21 6"/><path d="M9 6V2"/><path d="M15 6V2"/><path d="M6 6V2"/><path d="M18 6V2"/></svg>`,
+  NAVIGATION:         `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+  LIVE_TRAFFIC:       `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`,
+  ROADWORKS_AVOIDANCE:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  TIME_AWARE_OPTIMIZER:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  PARKING_ADVISORY:   `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>`,
+  TIDAL_AVOIDANCE:    `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h20M2 6h20M2 18h20"/></svg>`,
+};
+
 const features = featureKeys.map(key => ({
   key,
   ...FEATURE_META[key],
   inPro: hasFeature('navigation', key),
   inEnterprise: hasFeature('custom', key),
+  icon: FEATURE_ICONS[key] ?? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>`,
 }));
 ---
 
 <section class="fg-section below-fold" aria-labelledby="fg-heading">
   <div class="container">
-    <div class="section-label reveal">Features</div>
     <h2 id="fg-heading" class="reveal">{title}</h2>
     <p class="section-sub reveal">{subtitle}</p>
 
-    <div class="fg-grid">
-      {features.map((f, i) => (
-        <div class="fg-card card reveal" data-delay={String(i * 60)}>
-          <div class="fg-card-top">
+    <div class="fg-editorial">
+
+      <!-- Featured: HGV Routing — real photo background -->
+      {(() => {
+        const featured = features[0];
+        return (
+          <a href="/drivers" class="fg-featured card reveal" aria-label={featured.label}>
+            <div class="fg-featured-bar" aria-hidden="true"></div>
+            <div class="fg-featured-body">
+              <div class="fg-featured-icon" aria-hidden="true" set:html={featured.icon} />
+              <div class="fg-featured-text">
+                <h3 class="fg-featured-title">{featured.label}</h3>
+                <p class="fg-featured-desc">{featured.description}</p>
+              </div>
+            </div>
+          </a>
+        );
+      })()}
+
+      <!-- Two-column pair -->
+      <div class="fg-pair">
+        {features.slice(1, 3).map((f, i) => (
+          <a href="/features" class="fg-card card reveal" data-delay={String((i + 1) * 60)} data-feature={f.key} aria-label={f.label}>
+            <div class="fg-card-icon-row">
+              <div class="fg-card-icon" aria-hidden="true" set:html={f.icon} />
+              <div class="fg-card-chips">
+                {f.signal && (
+                  <span class={`chip chip-${f.signal} chip-sm`}>{f.signal === 'green' ? 'Safe' : f.signal === 'amber' ? 'Caution' : 'Alert'}</span>
+                )}
+              </div>
+            </div>
             <h3 class="fg-card-title">{f.label}</h3>
-            {f.signal && (
-              <span class={`chip chip-${f.signal}`} aria-label={`Turn-score: ${f.signal}`}>
-                {f.signal === 'green' ? '● Safe' : f.signal === 'amber' ? '⚠ Caution' : '✕ Alert'}
-              </span>
-            )}
-            {f.comingSoon && (
-              <span class="chip chip-brand">Soon</span>
-            )}
-          </div>
-          <p class="fg-card-desc text-muted">{f.description}</p>
-          <div class="fg-plan-dots" aria-label={`Available in: ${f.inPro ? 'Driver Pro' : ''}${f.inPro && f.inEnterprise ? ', ' : ''}${f.inEnterprise ? 'Enterprise' : ''}`}>
-            {f.inPro && <span class="plan-dot plan-dot-pro" title="Driver Pro">Pro</span>}
-            {f.inEnterprise && !f.inPro && <span class="plan-dot plan-dot-ent" title="Enterprise">Enterprise</span>}
-          </div>
-        </div>
-      ))}
+            <p class="fg-card-desc text-muted">{f.description}</p>
+          </a>
+        ))}
+      </div>
+
+      <!-- Standard 3-column grid -->
+      <div class="fg-grid">
+        {features.slice(3).map((f, i) => (
+          <a href="/features" class="fg-card card reveal" data-delay={String((i + 3) * 60)} data-feature={f.key} aria-label={f.label}>
+            <div class="fg-card-icon-row">
+              <div class="fg-card-icon" aria-hidden="true" set:html={f.icon} />
+              <div class="fg-card-chips">
+                {f.comingSoon && <span class="chip chip-brand chip-sm">Soon</span>}
+                {f.signal && (
+                  <span class={`chip chip-${f.signal} chip-sm`}>{f.signal === 'green' ? 'Safe' : f.signal === 'amber' ? 'Caution' : 'Alert'}</span>
+                )}
+              </div>
+            </div>
+            <h3 class="fg-card-title">{f.label}</h3>
+            <p class="fg-card-desc text-muted">{f.description}</p>
+          </a>
+        ))}
+      </div>
     </div>
 
     <div class="fg-cta reveal">
-      <a href="/features" class="btn btn-secondary">View all features</a>
+      <a href="/features" class="btn btn-secondary">{t("featuresPage.cta")}</a>
     </div>
   </div>
 </section>
@@ -62,11 +117,112 @@ const features = featureKeys.map(key => ({
     margin-bottom: 12px;
   }
 
+  .fg-editorial {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  /* ── Featured card: real photo bg via CSS, left teal accent bar ── */
+  .fg-featured {
+    display: block;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid transparent;
+    /* Real photo — HGV truck approaching a low bridge */
+    background-image:
+      linear-gradient(
+        to right,
+        rgba(10, 12, 16, 0.97) 0%,
+        rgba(10, 12, 16, 0.82) 45%,
+        rgba(10, 12, 16, 0.55) 75%,
+        rgba(10, 12, 16, 0.30) 100%
+      ),
+      url('/img/photos/bridge-hgv.webp');
+    background-size: cover;
+    background-position: center 60%;
+    transition:
+      border-color var(--dur-micro) ease-out,
+      box-shadow var(--dur-micro) ease-out;
+  }
+
+  @media (hover: hover) {
+    .fg-featured:hover {
+      border-color: rgba(0, 194, 168, 0.22);
+      box-shadow: 0 4px 24px rgb(0 0 0 / 0.35), 0 0 0 1px rgba(0, 194, 168, 0.12);
+    }
+  }
+
+  .fg-featured-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, var(--brand-bright), var(--brand));
+    border-radius: 4px 0 0 4px;
+    z-index: 2;
+  }
+
+  .fg-featured-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 32px 36px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .fg-featured-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--r-md);
+    background: rgba(0, 194, 168, 0.10);
+    border: 1px solid rgba(0, 194, 168, 0.20);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brand-bright);
+    flex-shrink: 0;
+  }
+
+  .fg-featured-text { flex: 1; }
+
+  .fg-featured-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .fg-featured-desc {
+    color: var(--ink-muted);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  /* ── Two-column pair ── */
+  .fg-pair {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .fg-pair { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Standard 3-column grid ── */
   .fg-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 16px;
-    margin-bottom: 40px;
   }
 
   @media (min-width: 640px) {
@@ -77,56 +233,67 @@ const features = featureKeys.map(key => ({
     .fg-grid { grid-template-columns: repeat(3, 1fr); }
   }
 
+  /* ── Feature cards ── */
   .fg-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    transition: background var(--dur-micro) ease-out,
-                box-shadow var(--dur-micro) ease-out;
+    gap: 10px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    padding: 24px;
+    transition:
+      background var(--dur-micro) ease-out,
+      border-color var(--dur-micro) ease-out,
+      box-shadow var(--dur-micro) ease-out;
   }
 
   @media (hover: hover) {
     .fg-card:hover {
       background: var(--surface-2);
-      box-shadow: var(--sh-md);
+      border-color: rgba(0, 194, 168, 0.15);
+      box-shadow: 0 2px 16px rgb(0 0 0 / 0.2);
     }
   }
 
-  .fg-card-top {
+  .fg-card-icon-row {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
     justify-content: space-between;
+    margin-bottom: 4px;
   }
 
+  /* Icon box — no background circle, just a subtle teal-tinted frame */
+  .fg-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-sm);
+    background: rgba(0, 194, 168, 0.07);
+    border: 1px solid rgba(0, 194, 168, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brand-bright);
+  }
+
+  .fg-card-chips { display: flex; gap: 6px; }
+
   .fg-card-title {
-    font-size: 1rem;
-    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 650;
+    color: var(--ink);
+    line-height: 1.3;
   }
 
   .fg-card-desc {
-    flex: 1;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    margin: 0;
   }
 
-  .fg-plan-dots {
-    display: flex;
-    gap: 6px;
-    margin-top: 4px;
-  }
-
-  .plan-dot {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: var(--r-pill);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .plan-dot-pro  { background: rgba(0,194,168,0.12); color: var(--brand-bright); }
-  .plan-dot-ent  { background: rgba(59,130,246,0.12); color: #93C5FD; }
-
+  /* ── CTA row ── */
   .fg-cta {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
   }
 </style>

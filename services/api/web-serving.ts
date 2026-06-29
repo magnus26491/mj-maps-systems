@@ -14,6 +14,7 @@ const ALLOWED_ROOTS = [
   'dist/landing',
   'dist/apps/driver-app/dist',
   'dist/dispatcher',
+  'dist/admin',
 ];
 
 // MIME types
@@ -163,6 +164,68 @@ export async function safeServeSpa(
 }
 
 /**
+ * Serve a real static asset if the path maps to a file; else SPA-fallback to index.html.
+ * Standard SPA pattern: try the file first, fall back to index.html only for non-file routes.
+ * Reuses existing resolveSafePath for directory-traversal protection.
+ */
+export async function serveSpaWithAssets(
+  request: any,
+  reply: FastifyReply,
+  rootDir: string,
+  mountPrefix: string
+): Promise<void> {
+  const urlPath = request.url.split('?')[0];                       // e.g. /admin/assets/index-Dk2lAgfX.css
+  const sub = urlPath.slice(mountPrefix.length).replace(/^\//, ''); // e.g. assets/index-Dk2lAgfX.css
+
+  if (sub) {
+    // 1. Exact file (assets, images, etc.)
+    const safePath = resolveSafePath(sub, rootDir);
+    if (safePath && fileExists(safePath)) {
+      const content = readFileSafe(safePath);
+      if (content) {
+        reply
+          .header('Content-Type', getMimeType(safePath))
+          .header('X-Content-Type-Options', 'nosniff')
+          .header('Cache-Control', 'public, max-age=31536000, immutable')
+          .code(200).send(content);
+        return;
+      }
+    }
+
+    // 2. Flat HTML — Next.js static export without trailingSlash writes /login → login.html
+    const flatHtml = resolveSafePath(`${sub}.html`, rootDir);
+    if (flatHtml && fileExists(flatHtml)) {
+      const content = readFileSafe(flatHtml);
+      if (content) {
+        reply
+          .header('Content-Type', 'text/html; charset=utf-8')
+          .header('Cache-Control', 'public, max-age=60')
+          .header('X-Content-Type-Options', 'nosniff')
+          .code(200).send(content);
+        return;
+      }
+    }
+
+    // 3. Directory index — Next.js static export with trailingSlash writes /login → login/index.html
+    const dirIndex = resolveSafePath(`${sub}/index.html`, rootDir);
+    if (dirIndex && fileExists(dirIndex)) {
+      const content = readFileSafe(dirIndex);
+      if (content) {
+        reply
+          .header('Content-Type', 'text/html; charset=utf-8')
+          .header('Cache-Control', 'public, max-age=60')
+          .header('X-Content-Type-Options', 'nosniff')
+          .code(200).send(content);
+        return;
+      }
+    }
+  }
+
+  // 3. SPA fallback — client-side route (e.g. /admin/users, /driver/shift-start) → index.html
+  await safeServeSpa(reply, rootDir);
+}
+
+/**
  * Get web health status for all frontends
  */
 export async function getWebHealth(): Promise<{
@@ -245,6 +308,24 @@ export async function registerWebRoutes(server: any): Promise<void> {
     });
   }
 
+  // Landing public assets (Astro public/img/*, etc.)
+  server.get('/img/*', async (request: any, reply: FastifyReply) => {
+    const subPath = request.url.split('?')[0].replace(/^\/img\//, '');
+    const filePath = `img/${subPath}`;
+    const safePath = resolveSafePath(filePath, LANDING_ROOT);
+    if (!safePath || !fileExists(safePath)) {
+      reply.code(404).send('Not Found');
+      return;
+    }
+    const content = readFileSafe(safePath);
+    if (!content) { reply.code(500).send('Internal Server Error'); return; }
+    reply
+      .header('Content-Type', getMimeType(safePath))
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('X-Content-Type-Options', 'nosniff')
+      .code(200).send(content);
+  });
+
   // Landing sub-pages (Astro directory routing)
   for (const page of ['/pricing', '/features', '/drivers', '/fleet', '/about', '/contact', '/register', '/login']) {
     const p = page;
@@ -272,49 +353,10 @@ export async function registerWebRoutes(server: any): Promise<void> {
       reply.code(503).send('Driver app not built');
     }
   });
-
-  // Driver app static assets — Expo exports with --public-url /driver so all
-  // chunk/asset paths start with /driver/_expo/... or /driver/assets/...
-  server.get('/driver/_expo/*', async (request: any, reply: FastifyReply) => {
-    const sub = (request.url as string).split('?')[0].replace(/^\/driver\//, '');
-    const safePath = resolveSafePath(sub, DRIVER_ROOT);
-    if (!safePath || !fileExists(safePath)) { reply.code(404).send('Not Found'); return; }
-    const content = readFileSafe(safePath);
-    if (!content) { reply.code(500).send('Internal Server Error'); return; }
-    reply
-      .header('Content-Type', getMimeType(safePath))
-      .header('Cache-Control', 'public, max-age=31536000, immutable')
-      .header('X-Content-Type-Options', 'nosniff')
-      .code(200).send(content);
-  });
-
-  server.get('/driver/assets/*', async (request: any, reply: FastifyReply) => {
-    const sub = (request.url as string).split('?')[0].replace(/^\/driver\//, '');
-    const safePath = resolveSafePath(sub, DRIVER_ROOT);
-    if (!safePath || !fileExists(safePath)) { reply.code(404).send('Not Found'); return; }
-    const content = readFileSafe(safePath);
-    if (!content) { reply.code(500).send('Internal Server Error'); return; }
-    reply
-      .header('Content-Type', getMimeType(safePath))
-      .header('Cache-Control', 'public, max-age=31536000, immutable')
-      .header('X-Content-Type-Options', 'nosniff')
-      .code(200).send(content);
-  });
-
-  server.get('/driver/polyfill.js', async (_request: any, reply: FastifyReply) => {
-    const safePath = resolveSafePath('polyfill.js', DRIVER_ROOT);
-    if (!safePath || !fileExists(safePath)) { reply.code(404).send('Not Found'); return; }
-    const content = readFileSafe(safePath);
-    if (!content) { reply.code(500).send('Internal Server Error'); return; }
-    reply
-      .header('Content-Type', 'application/javascript')
-      .header('Cache-Control', 'public, max-age=3600')
-      .code(200).send(content);
-  });
-
-  // Driver app SPA fallback — catches all other /driver/* sub-paths (Expo Router)
-  server.get('/driver/*', async (_request: any, reply: FastifyReply) => {
-    await safeServeSpa(reply, DRIVER_ROOT);
+  
+  // Driver app SPA fallback — * catches all /driver/* sub-paths for React Router
+  server.get('/driver/*', async (request: any, reply: FastifyReply) => {
+    await serveSpaWithAssets(request, reply, DRIVER_ROOT, '/driver');
   });
   
   // Dispatcher dashboard
@@ -327,15 +369,28 @@ export async function registerWebRoutes(server: any): Promise<void> {
   });
   
   // Dispatcher SPA fallback — * catches all /dispatcher/* sub-paths for React Router
-  server.get('/dispatcher/*', async (_request: any, reply: FastifyReply) => {
-    await safeServeSpa(reply, DISPATCHER_ROOT);
+  server.get('/dispatcher/*', async (request: any, reply: FastifyReply) => {
+    await serveSpaWithAssets(request, reply, DISPATCHER_ROOT, '/dispatcher');
   });
   
   // Enterprise alias
   server.get('/enterprise', async (_request: any, reply: FastifyReply) => {
     reply.redirect('/dispatcher');
   });
-  
+
+  // Admin portal (Vite SPA)
+  const ADMIN_ROOT = 'dist/admin';
+  server.get('/admin', async (_request: any, reply: FastifyReply) => {
+    if (directoryExists(ADMIN_ROOT)) {
+      await safeServeSpa(reply, ADMIN_ROOT);
+    } else {
+      reply.code(503).send('Admin portal not built. Run: docker build --target admin-builder .');
+    }
+  });
+  server.get('/admin/*', async (request: any, reply: FastifyReply) => {
+    await serveSpaWithAssets(request, reply, ADMIN_ROOT, '/admin');
+  });
+
   // Web health check
   server.get('/web-health', async (_request: any, reply: FastifyReply) => {
     const health = await getWebHealth();

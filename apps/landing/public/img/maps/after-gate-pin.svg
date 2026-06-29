@@ -1,36 +1,150 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400" role="img" aria-label="Gate pin delivery result — satellite view of a UK rural property showing exact gate location with Plus Code and approach arrow">
+  <title>Gate pin delivery — exact property gate location</title>
+  <desc>Dark satellite-style map showing a UK rural property with a teal MJ Maps pin precisely placed at the driveway gate. Plus Code displayed, approach bearing arrow shown. Compare to postcode centroid which places marker mid-street.</desc>
   <defs>
+    <filter id="blur-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
     <radialGradient id="pin-glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#00C2A8" stop-opacity="0.7"/>
+      <stop offset="60%" stop-color="#00C2A8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00C2A8" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="bottom-fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="1"/>
+    </linearGradient>
+    <!-- Satellite imagery colours: dark vegetation -->
+    <pattern id="sat-tiles" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#0c140e"/>
+      <rect x="0" y="0" width="40" height="40" fill="#0e1610" opacity="0.5"/>
+    </pattern>
   </defs>
-  <!-- Satellite-ish background -->
-  <rect width="640" height="400" fill="#0f1a0f"/>
-  <!-- Fields / terrain patches -->
-  <rect x="0" y="0" width="640" height="400" fill="#0e1a10"/>
-  <rect x="0" y="0" width="320" height="200" fill="#0f1f12" rx="0"/>
-  <rect x="320" y="200" width="320" height="200" fill="#0f1f12" rx="0"/>
-  <rect x="60" y="60" width="180" height="140" fill="#122018" rx="4"/>
-  <rect x="280" y="20" width="240" height="120" fill="#132118" rx="4"/>
-  <rect x="60" y="240" width="260" height="120" fill="#111f12" rx="4"/>
-  <rect x="380" y="210" width="200" height="160" fill="#132018" rx="4"/>
-  <!-- Farm track -->
-  <rect x="400" y="0" width="18" height="200" fill="#1c2e1c" rx="2"/>
-  <rect x="400" y="195" width="200" height="14" fill="#1c2e1c" rx="2"/>
-  <!-- Gate indicator -->
-  <rect x="395" y="190" width="30" height="24" fill="rgba(34,197,94,0.12)" stroke="#22c55e" stroke-width="1.5" rx="3"/>
-  <line x1="395" y1="202" x2="425" y2="202" stroke="#22c55e" stroke-width="2"/>
-  <!-- Precise pin -->
-  <circle cx="410" cy="197" r="28" fill="url(#pin-glow)"/>
-  <circle cx="410" cy="188" r="13" fill="#22c55e"/>
-  <path d="M398 188 a12 12 0 0 1 24 0 q0 10-12 20-12-10-12-20z" fill="#22c55e"/>
-  <circle cx="410" cy="187" r="4.5" fill="#fff"/>
-  <!-- what3words badge -->
-  <rect x="430" y="168" width="188" height="44" fill="#0e1a0e" rx="6" stroke="#22c55e" stroke-width="1" stroke-opacity="0.5"/>
-  <text x="442" y="185" fill="#22c55e" font-size="11" font-family="system-ui,sans-serif" font-weight="700">///filled.lamp.arrive</text>
-  <text x="442" y="202" fill="#5c7f5c" font-size="10" font-family="system-ui,sans-serif">Exact 3m² pin · gate entrance</text>
-  <!-- Confirm chip -->
-  <rect x="340" y="240" width="140" height="28" fill="#0f2f1a" rx="14" stroke="#22c55e" stroke-width="1"/>
-  <text x="365" y="258" fill="#22c55e" font-size="12" font-family="system-ui,sans-serif" font-weight="600">✓ First-time delivery</text>
+
+  <!-- Dark satellite-style base (aerial imagery feel) -->
+  <rect width="600" height="400" fill="#0c140e"/>
+
+  <g>
+    <!-- Fields / hedgerows: dark green irregular shapes -->
+    <!-- Top field -->
+    <path d="M 0 0 L 600 0 L 600 120 Q 500 130 400 125 Q 300 118 200 122 Q 100 128 0 120 Z" fill="#0e1a10" opacity="0.9"/>
+    <!-- Left field -->
+    <path d="M 0 0 L 0 400 L 160 400 Q 155 300 158 200 Q 162 100 160 0 Z" fill="#0c160e" opacity="0.8"/>
+    <!-- Right field -->
+    <path d="M 600 0 L 600 400 L 440 400 Q 445 300 442 200 Q 438 100 440 0 Z" fill="#0c160e" opacity="0.8"/>
+    <!-- Bottom field -->
+    <path d="M 0 400 L 600 400 L 600 280 Q 500 272 400 278 Q 300 285 200 280 Q 100 275 0 282 Z" fill="#0e1a10" opacity="0.9"/>
+
+    <!-- Hedgerow lines: thicker dark lines suggesting tree lines -->
+    <g stroke="#152218" stroke-width="6" stroke-linecap="round" opacity="0.8">
+      <!-- Top boundary -->
+      <path d="M 0 120 Q 150 115 300 118 Q 450 122 600 120"/>
+      <!-- Bottom boundary -->
+      <path d="M 0 282 Q 150 278 300 285 Q 450 290 600 282"/>
+      <!-- Left boundary -->
+      <path d="M 160 0 Q 158 100 155 200 Q 153 300 160 400"/>
+      <!-- Right boundary -->
+      <path d="M 440 0 Q 442 100 445 200 Q 448 300 440 400"/>
+    </g>
+
+    <!-- Track / lane: pale gravel/dirt road through fields -->
+    <g stroke="#1e2618" stroke-width="5" stroke-linecap="round">
+      <!-- Main track: enters from top-left, curves through fields -->
+      <path d="M 160 0 Q 200 60 240 80 Q 280 95 320 100 Q 360 104 400 102 Q 440 98 440 120"/>
+      <!-- Track continues bottom-right -->
+      <path d="M 440 280 Q 440 302 400 310 Q 360 318 320 322 Q 280 326 240 320 Q 200 314 160 400"/>
+    </g>
+
+    <!-- Track centre-line dashes -->
+    <g stroke="#2a3020" stroke-width="0.6" stroke-dasharray="4,8" stroke-linecap="round" opacity="0.5">
+      <path d="M 160 0 Q 200 60 240 80 Q 280 95 320 100 Q 360 104 400 102 Q 440 98 440 120"/>
+      <path d="M 440 280 Q 440 302 400 310 Q 360 318 320 322 Q 280 326 240 320 Q 200 314 160 400"/>
+    </g>
+
+    <!-- Property: stone farmhouse with outbuildings -->
+    <g fill="#1a2030" stroke="#222e3e" stroke-width="0.5" opacity="0.95">
+      <!-- Main house -->
+      <rect x="295" y="160" width="90" height="65" rx="3"/>
+      <!-- House shadow/depth -->
+      <rect x="295" y="225" width="90" height="4" fill="#0a0e14" opacity="0.6"/>
+      <!-- Outbuilding 1 (left) -->
+      <rect x="240" y="172" width="50" height="38" rx="2"/>
+      <!-- Outbuilding 2 (right) -->
+      <rect x="390" y="168" width="44" height="44" rx="2"/>
+      <!-- Garden / yard area -->
+      <rect x="245" y="212" width="190" height="22" fill="#111a12" opacity="0.7"/>
+      <!-- Front garden -->
+      <rect x="295" y="138" width="90" height="24" fill="#101810" opacity="0.6"/>
+    </g>
+
+    <!-- Driveway: lighter path from track to house -->
+    <g fill="#1c2018" opacity="0.8">
+      <polygon points="300,100 340,100 335,138 305,138"/>
+    </g>
+
+    <!-- Gate: small rectangle at track entry -->
+    <g stroke="#2a2e28" stroke-width="1" fill="none" opacity="0.7">
+      <line x1="296" y1="100" x2="296" y2="110"/>
+      <line x1="344" y1="100" x2="344" y2="110"/>
+      <line x1="296" y1="105" x2="344" y2="105"/>
+    </g>
+
+    <!-- Trees/vegetation around property -->
+    <g fill="#0a1208" opacity="0.7">
+      <circle cx="282" cy="160" r="10"/>
+      <circle cx="388" cy="158" r="8"/>
+      <circle cx="392" cy="168" r="6"/>
+      <circle cx="238" cy="175" r="8"/>
+      <circle cx="245" cy="185" r="6"/>
+      <circle cx="295" cy="135" r="6"/>
+      <circle cx="310" cy="135" r="5"/>
+      <circle cx="380" cy="160" r="7"/>
+      <!-- Large trees along hedgerow -->
+      <circle cx="180" cy="118" r="12"/>
+      <circle cx="210" cy="120" r="10"/>
+      <circle cx="390" cy="118" r="10"/>
+      <circle cx="420" cy="120" r="12"/>
+      <circle cx="200" cy="284" r="10"/>
+      <circle cx="380" cy="286" r="10"/>
+    </g>
+
+    <!-- Satellite texture: subtle grid suggesting aerial imagery -->
+    <g stroke="#111a10" stroke-width="0.3" opacity="0.3">
+      <line x1="0" y1="200" x2="600" y2="200"/>
+      <line x1="0" y1="100" x2="600" y2="100"/>
+      <line x1="0" y1="300" x2="600" y2="300"/>
+      <line x1="150" y1="0" x2="150" y2="400"/>
+      <line x1="300" y1="0" x2="300" y2="400"/>
+      <line x1="450" y1="0" x2="450" y2="400"/>
+    </g>
+  </g>
+
+  <!-- Correct gate pin: teal MJ Maps pin at driveway gate (NOT on road) -->
+  <!-- Glow effect -->
+  <circle cx="320" cy="105" r="40" fill="url(#pin-glow)" filter="url(#blur-glow)"/>
+  <!-- Pin shadow -->
+  <ellipse cx="320" cy="118" rx="10" ry="4" fill="#000" fill-opacity="0.5"/>
+  <!-- Pin body: teardrop/pin shape -->
+  <circle cx="320" cy="105" r="14" fill="#00C2A8"/>
+  <!-- Inner white dot -->
+  <circle cx="320" cy="105" r="7"  fill="#0d1117"/>
+  <circle cx="320" cy="105" r="3"  fill="#00C2A8" opacity="0.6"/>
+  <!-- Approach arrow: teal arrow pointing toward gate -->
+  <path d="M 305 95 L 290 105 L 300 110 L 300 100 Z" fill="#00C2A8" opacity="0.7"/>
+
+  <!-- Pin label chip -->
+  <rect x="262" y="68" width="116" height="20" rx="5" fill="#0d1117" fill-opacity="0.9" stroke="#00C2A8" stroke-width="1"/>
+  <text x="320" y="82" text-anchor="middle" fill="#00C2A8" font-family="'IBM Plex Mono', monospace" font-size="9" font-weight="600">9C3W+4GW Malvern</text>
+
+  <!-- Plus Code overlay -->
+  <rect x="262" y="90" width="116" height="16" rx="4" fill="#00C2A8" fill-opacity="0.12" stroke="#00C2A8" stroke-width="0.5"/>
+  <text x="320" y="101" text-anchor="middle" fill="#00E8D4" font-family="'IBM Plex Mono', monospace" font-size="8">Plus: 9C3W+4GW</text>
+
+  <!-- Bottom scrim -->
+  <rect x="0" y="320" width="600" height="80" fill="url(#bottom-fade)" opacity="0.8"/>
+
+  <!-- Bottom label chip -->
+  <rect x="12" y="370" width="220" height="22" rx="4" fill="#0d1117" fill-opacity="0.85" stroke="#00C2A8" stroke-width="0.5"/>
+  <text x="122" y="385" text-anchor="middle" fill="#00C2A8" font-family="'IBM Plex Mono', monospace" font-size="9">Gate pin — exact driveway entrance</text>
 </svg>

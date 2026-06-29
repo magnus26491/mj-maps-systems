@@ -5,108 +5,227 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MJ Maps Systems — Delivery Route Intelligence</title>
   <meta name="description" content="AI-powered delivery route intelligence platform for UK courier drivers">
-  
+
   <!-- OpenGraph / Social -->
   <meta property="og:title" content="MJ Maps Systems — Delivery Route Intelligence">
   <meta property="og:description" content="AI-powered delivery route intelligence for UK courier drivers. Smart routing, turn warnings, voice navigation.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://mjmapsystems.com">
   <meta property="og:image" content="https://mjmapsystems.com/og-image.png">
-  
+
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MJ Maps Systems">
   <meta name="twitter:description" content="AI-powered delivery route intelligence for UK courier drivers.">
-  
+
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
     :root {
       --primary: #00c2a8;
       --primary-dark: #00a090;
-      --bg: #0f1117;
-      --surface: #1c2a37;
-      --text: #e0eaf4;
-      --text-muted: #8fa0b0;
+      --bg: #0d1117;
+      --surface: #161d27;
+      --surface-2: #1c2636;
+      --text: #e2eaf4;
+      --text-muted: #8da0b4;
+      --text-faint: #4a5568;
       --green: #22c55e;
       --amber: #f59e0b;
       --blue: #3b82f6;
+      --border: rgba(255,255,255,0.07);
+      --radius: 16px;
     }
-    
+
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
     }
-    
-    .hero {
-      flex: 1;
+
+    /* ─── NAV ─────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      text-align: center;
-      background: linear-gradient(180deg, var(--bg) 0%, #0a1628 100%);
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(13, 17, 23, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
     }
-    
-    .logo {
-      width: 80px;
-      height: 80px;
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .nav-logo-icon {
+      width: 32px; height: 32px;
       background: var(--primary);
-      border-radius: 20px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .nav-links {
       display: flex;
       align-items: center;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      background: var(--primary);
+      color: var(--bg) !important;
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 700 !important;
+    }
+
+    .nav-cta:hover { background: var(--primary-dark); opacity: 1; }
+
+    /* ─── HERO ────────────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       justify-content: center;
-      margin-bottom: 2rem;
-      box-shadow: 0 8px 32px rgba(0, 194, 168, 0.3);
+      padding: 8rem 2rem 5rem;
+      text-align: center;
+      overflow: hidden;
     }
-    
-    .logo svg {
-      width: 48px;
-      height: 48px;
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
     }
-    
+
+    .hero-bg img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center 40%;
+      display: block;
+    }
+
+    /* layered dark gradient over the photo */
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom,
+          rgba(13,17,23,0.55) 0%,
+          rgba(13,17,23,0.35) 40%,
+          rgba(13,17,23,0.80) 80%,
+          rgba(13,17,23,1.00) 100%
+        );
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(0,194,168,0.12);
+      border: 1px solid rgba(0,194,168,0.3);
+      color: var(--primary);
+      padding: 0.35rem 1rem;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      background: var(--primary);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
     h1 {
-      font-size: 2.5rem;
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
       font-weight: 800;
-      margin-bottom: 1rem;
-      background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    h1 .accent {
+      background: linear-gradient(135deg, var(--primary) 0%, #7ef5e8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    
+
     .tagline {
-      font-size: 1.25rem;
+      font-size: clamp(1rem, 2vw, 1.2rem);
       color: var(--text-muted);
-      margin-bottom: 3rem;
-      max-width: 500px;
+      margin-bottom: 2.5rem;
+      line-height: 1.6;
+      max-width: 560px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    
+
     .cta-group {
       display: flex;
       gap: 1rem;
       flex-wrap: wrap;
       justify-content: center;
     }
-    
+
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 1rem 2rem;
+      gap: 0.5rem;
+      padding: 0.875rem 2rem;
       border-radius: 12px;
       font-size: 1rem;
       font-weight: 700;
@@ -114,133 +233,323 @@
       transition: all 0.2s ease;
       min-width: 180px;
     }
-    
+
     .btn-primary {
       background: var(--primary);
       color: var(--bg);
     }
-    
+
     .btn-primary:hover {
       background: var(--primary-dark);
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 194, 168, 0.4);
+      box-shadow: 0 8px 24px rgba(0,194,168,0.4);
     }
-    
+
     .btn-secondary {
-      background: var(--surface);
+      background: rgba(255,255,255,0.06);
       color: var(--text);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
     }
-    
+
     .btn-secondary:hover {
-      background: #243447;
-      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.15);
     }
-    
-    .features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
-      max-width: 900px;
-      margin-top: 3rem;
-      padding: 0 1rem;
-    }
-    
-    .feature-card {
-      background: var(--surface);
-      border-radius: 16px;
-      padding: 1.5rem;
-      text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    
-    .feature-icon {
-      font-size: 2rem;
+
+    /* ─── SECTION SHARED ─────────────────────── */
+    section { padding: 6rem 2rem; }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--primary);
       margin-bottom: 0.75rem;
     }
-    
+
+    .section-title {
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .section-sub {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      line-height: 1.65;
+    }
+
+    /* ─── FEATURES GRID ──────────────────────── */
+    .features-section {
+      background: var(--surface);
+    }
+
+    .features-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .features-header {
+      margin-bottom: 3.5rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 580px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+
+    .feature-card {
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+    }
+
+    .feature-card-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+    }
+
+    .feature-card-body {
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+
+    .feature-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 0.6rem;
+    }
+
     .feature-title {
       font-size: 1.1rem;
       font-weight: 700;
       margin-bottom: 0.5rem;
       color: var(--text);
     }
-    
+
     .feature-desc {
       font-size: 0.9rem;
       color: var(--text-muted);
-      line-height: 1.5;
+      line-height: 1.6;
     }
-    
-    footer {
-      padding: 1.5rem;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.875rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
+
+    /* ─── SHOWCASE (alternating) ─────────────── */
+    .showcase-section {
+      background: var(--bg);
     }
-    
-    footer a {
+
+    .showcase-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6rem;
+    }
+
+    .showcase-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .showcase-row.reverse { direction: rtl; }
+    .showcase-row.reverse > * { direction: ltr; }
+
+    @media (max-width: 768px) {
+      .showcase-row, .showcase-row.reverse {
+        grid-template-columns: 1fr;
+        direction: ltr;
+        gap: 2rem;
+      }
+    }
+
+    .showcase-img-wrap {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .showcase-img-wrap img {
+      width: 100%;
+      display: block;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+    }
+
+    .showcase-text .section-title { font-size: clamp(1.6rem, 2.5vw, 2.2rem); }
+    .showcase-text .section-sub { margin-top: 0; }
+
+    .showcase-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .pill {
+      background: rgba(0,194,168,0.1);
+      border: 1px solid rgba(0,194,168,0.2);
       color: var(--primary);
-      text-decoration: none;
+      padding: 0.3rem 0.85rem;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 600;
     }
-    
-    footer a:hover {
-      text-decoration: underline;
-    }
-    
-    @media (max-width: 600px) {
-      h1 {
-        font-size: 1.75rem;
-      }
-      
-      .tagline {
-        font-size: 1rem;
-      }
-      
-      .btn {
-        width: 100%;
-      }
-    }
-    
-    .pricing {
-      padding: 4rem 2rem;
+
+    /* ─── OFFLINE STRIP ──────────────────────── */
+    .offline-strip {
       background: var(--surface);
-      margin-top: 4rem;
+      padding: 5rem 2rem;
     }
-    
-    .pricing h2 {
-      font-size: 2rem;
+
+    .offline-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    @media (max-width: 768px) {
+      .offline-inner { grid-template-columns: 1fr; gap: 2rem; }
+    }
+
+    .offline-img-wrap {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .offline-img-wrap img {
+      width: 100%;
+      display: block;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+    }
+
+    .offline-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+
+    .stat-number {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── PRICING ────────────────────────────── */
+    .pricing {
+      position: relative;
+      padding: 6rem 2rem;
+      overflow: hidden;
+    }
+
+    .pricing-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+
+    .pricing-bg img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0.08;
+      filter: grayscale(30%);
+    }
+
+    .pricing-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, var(--bg) 0%, rgba(13,17,23,0.6) 50%, var(--bg) 100%);
+    }
+
+    .pricing-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
       text-align: center;
-      margin-bottom: 2rem;
-      color: var(--text);
     }
-    
+
+    .pricing-inner .section-title { margin-bottom: 0.75rem; }
+    .pricing-inner .section-sub { margin: 0 auto 3rem; }
+
     .pricing-cards {
       display: flex;
       gap: 2rem;
       justify-content: center;
       flex-wrap: wrap;
-      max-width: 900px;
-      margin: 0 auto;
     }
-    
+
     .pricing-card {
-      background: var(--bg);
+      background: var(--surface);
       border-radius: 20px;
       padding: 2rem;
       min-width: 280px;
-      max-width: 350px;
+      max-width: 340px;
+      flex: 1;
       text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
       position: relative;
     }
-    
+
     .pricing-card-enterprise {
       border-color: var(--primary);
-      box-shadow: 0 0 40px rgba(0, 194, 168, 0.15);
+      box-shadow: 0 0 40px rgba(0,194,168,0.15);
     }
-    
+
     .pricing-badge {
       position: absolute;
       top: -12px;
@@ -252,129 +561,360 @@
       border-radius: 20px;
       font-size: 0.75rem;
       font-weight: 700;
+      white-space: nowrap;
     }
-    
+
     .pricing-title {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 700;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
-    
+
     .pricing-price {
       font-size: 2.5rem;
       font-weight: 800;
       color: var(--primary);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.4rem;
+      line-height: 1;
     }
-    
+
     .pricing-price span {
       font-size: 1rem;
       font-weight: 400;
       color: var(--text-muted);
     }
-    
+
     .pricing-desc {
       color: var(--text-muted);
       margin-bottom: 1.5rem;
       font-size: 0.9rem;
     }
-    
+
     .pricing-features {
       list-style: none;
       text-align: left;
       margin-bottom: 2rem;
     }
-    
+
     .pricing-features li {
-      padding: 0.5rem 0;
+      padding: 0.45rem 0;
       color: var(--text);
       font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
     }
-    
+
+    .pricing-features li:last-child { border-bottom: none; }
+
     .pricing-features li::before {
       content: '✓ ';
       color: var(--green);
       font-weight: 700;
     }
+
+    /* ─── FOOTER ─────────────────────────────── */
+    footer {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-faint);
+      font-size: 0.875rem;
+      border-top: 1px solid var(--border);
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    /* ─── RESPONSIVE NAV ─────────────────────── */
+    @media (max-width: 600px) {
+      nav { padding: 1rem; }
+      .nav-links { display: none; }
+      .btn { width: 100%; min-width: auto; }
+    }
   </style>
 </head>
 <body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+          <path d="M8 24L16 8L24 24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="2.5" fill="white"/>
+        </svg>
+      </div>
+      MJ Maps
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="/driver" class="nav-cta">Driver App</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO — hero-van-dawn.webp as full-bleed background -->
   <div class="hero">
-    <div class="logo">
-      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 24L16 8L24 24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="16" cy="18" r="2.5" fill="white"/>
-      </svg>
+    <div class="hero-bg">
+      <picture>
+        <source srcset="/img/photos/hero-van-dawn@2x.webp" media="(min-width: 1280px)" type="image/webp">
+        <source srcset="/img/photos/hero-van-dawn.webp" type="image/webp">
+        <img src="/img/photos/hero-van-dawn.png" alt="Delivery van on a dawn road" width="1920" height="1080" loading="eager" decoding="async">
+      </picture>
     </div>
-    
-    <h1>MJ Maps Systems</h1>
-    <p class="tagline">AI-powered delivery route intelligence for UK courier drivers. Optimise routes, avoid tight turns, deliver with confidence.</p>
-    
-    <div class="cta-group">
-      <a href="/driver" class="btn btn-primary">🚚 Driver App</a>
-      <a href="/dispatcher" class="btn btn-secondary">📊 Dispatcher Dashboard</a>
-    </div>
-    
-    <div class="features">
-      <div class="feature-card">
-        <div class="feature-icon">🗺️</div>
-        <div class="feature-title">Smart Route Planning</div>
-        <div class="feature-desc">AI-optimised delivery routes that minimise backtracking and maximise efficiency.</div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        Built for UK Couriers
       </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon">⚠️</div>
-        <div class="feature-title">Turn Warnings</div>
-        <div class="feature-desc">Green, amber, and red alerts warn you about tight turns before you commit.</div>
-      </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon">📱</div>
-        <div class="feature-title">Mobile First</div>
-        <div class="feature-desc">Designed for one-handed operation while driving. Voice alerts included.</div>
+      <h1>Deliver Smarter.<br><span class="accent">Route Intelligently.</span></h1>
+      <p class="tagline">AI-powered delivery route intelligence for UK courier drivers. Optimise routes, avoid tight turns, and deliver with confidence — every round.</p>
+      <div class="cta-group">
+        <a href="/driver" class="btn btn-primary">🚚 Driver App</a>
+        <a href="/dispatcher" class="btn btn-secondary">📊 Dispatcher Dashboard</a>
       </div>
     </div>
   </div>
 
-  <div class="pricing" id="pricing">
-    <h2>Simple, Transparent Pricing</h2>
-
-    <div class="pricing-cards">
-      <div class="pricing-card">
-        <div class="pricing-title">Driver Pro</div>
-        <div class="pricing-price">£9.99<span>/month</span></div>
-        <div class="pricing-desc">Your AI delivery co-pilot</div>
-        <ul class="pricing-features">
-          <li>Smart route planning</li>
-          <li>Turn quality warnings</li>
-          <li>Voice navigation</li>
-          <li>Saved routes</li>
-          <li>CSV import</li>
-          <li>Dark mode</li>
-        </ul>
-        <a href="/driver?plan=pro" class="btn btn-primary">Get Started</a>
+  <!-- FEATURES GRID — 6 cards, each with a contextual photo -->
+  <section class="features-section" id="features">
+    <div class="features-inner">
+      <div class="features-header">
+        <span class="section-label">Platform Features</span>
+        <h2 class="section-title">Everything a driver needs.<br>Everything a fleet demands.</h2>
       </div>
+      <div class="features-grid">
 
-      <div class="pricing-card pricing-card-enterprise">
-        <div class="pricing-badge">Most Popular</div>
-        <div class="pricing-title">Enterprise</div>
-        <div class="pricing-price">Custom</div>
-        <div class="pricing-desc">Complete fleet intelligence platform</div>
-        <ul class="pricing-features">
-          <li>Everything in Driver Pro</li>
-          <li>Fleet dispatch dashboard</li>
-          <li>Real-time fleet tracking</li>
-          <li>Live fleet analytics</li>
-          <li>Bulk stop upload</li>
-          <li>Priority support</li>
-        </ul>
-        <a href="/dispatcher" class="btn btn-secondary">Contact Sales</a>
+        <!-- Smart Route Planning → fleet-routing -->
+        <div class="feature-card">
+          <picture>
+            <source srcset="/img/photos/fleet-routing@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/fleet-routing.webp" type="image/webp">
+            <img class="feature-card-img" src="/img/photos/fleet-routing.png" alt="Fleet route planning map view" width="600" height="338" loading="lazy" decoding="async">
+          </picture>
+          <div class="feature-card-body">
+            <div class="feature-tag">🗺️ Routing</div>
+            <div class="feature-title">Smart Route Planning</div>
+            <div class="feature-desc">AI-optimised delivery routes that minimise backtracking and maximise stops-per-hour efficiency.</div>
+          </div>
+        </div>
+
+        <!-- Turn Warnings → bridge-hgv (HGV at a bridge = clearance risk) -->
+        <div class="feature-card">
+          <picture>
+            <source srcset="/img/photos/bridge-hgv@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/bridge-hgv.webp" type="image/webp">
+            <img class="feature-card-img" src="/img/photos/bridge-hgv.png" alt="HGV approaching a low bridge" width="600" height="338" loading="lazy" decoding="async">
+          </picture>
+          <div class="feature-card-body">
+            <div class="feature-tag">⚠️ Safety</div>
+            <div class="feature-title">Turn &amp; Clearance Warnings</div>
+            <div class="feature-desc">Green, amber, and red alerts warn you about tight turns, low bridges, and awkward junctions before you commit.</div>
+          </div>
+        </div>
+
+        <!-- Mobile First → drivers-van-lane -->
+        <div class="feature-card">
+          <picture>
+            <source srcset="/img/photos/drivers-van-lane@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/drivers-van-lane.webp" type="image/webp">
+            <img class="feature-card-img" src="/img/photos/drivers-van-lane.png" alt="Driver in van navigating a delivery lane" width="600" height="338" loading="lazy" decoding="async">
+          </picture>
+          <div class="feature-card-body">
+            <div class="feature-tag">📱 Mobile</div>
+            <div class="feature-title">Designed for Driving</div>
+            <div class="feature-desc">One-handed operation, large tap targets, and voice alerts — so your eyes stay on the road.</div>
+          </div>
+        </div>
+
+        <!-- Turn Score → turn-score-night (night scene matches the dark UI) -->
+        <div class="feature-card">
+          <picture>
+            <source srcset="/img/photos/turn-score-night@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/turn-score-night.webp" type="image/webp">
+            <img class="feature-card-img" src="/img/photos/turn-score-night.png" alt="Turn scoring overlay at night" width="600" height="338" loading="lazy" decoding="async">
+          </picture>
+          <div class="feature-card-body">
+            <div class="feature-tag">🎯 Scoring</div>
+            <div class="feature-title">Turn Quality Scoring</div>
+            <div class="feature-desc">Every junction is rated before you arrive. Know the difficulty of each turn in advance — day or night.</div>
+          </div>
+        </div>
+
+        <!-- Gate/POD → gate-pin-delivery -->
+        <div class="feature-card">
+          <picture>
+            <source srcset="/img/photos/gate-pin-delivery@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/gate-pin-delivery.webp" type="image/webp">
+            <img class="feature-card-img" src="/img/photos/gate-pin-delivery.png" alt="Delivery driver at a gate with a pin location" width="600" height="338" loading="lazy" decoding="async">
+          </picture>
+          <div class="feature-card-body">
+            <div class="feature-tag">📍 Delivery</div>
+            <div class="feature-title">Precise Drop Points</div>
+            <div class="feature-desc">Gate codes, access notes, and exact pin locations saved per address — never hunt for the right entrance again.</div>
+          </div>
+        </div>
+
+        <!-- POD Signature → pod-signature -->
+        <div class="feature-card">
+          <picture>
+            <source srcset="/img/photos/pod-signature@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/pod-signature.webp" type="image/webp">
+            <img class="feature-card-img" src="/img/photos/pod-signature.png" alt="Proof of delivery signature capture" width="600" height="338" loading="lazy" decoding="async">
+          </picture>
+          <div class="feature-card-body">
+            <div class="feature-tag">✍️ POD</div>
+            <div class="feature-title">Proof of Delivery</div>
+            <div class="feature-desc">Digital signature capture and photo POD — dispute-proof records attached to every completed stop.</div>
+          </div>
+        </div>
+
       </div>
     </div>
-  </div>
+  </section>
+
+  <!-- SHOWCASE ROWS — how it works deep-dives -->
+  <section class="showcase-section" id="how-it-works">
+    <div class="showcase-inner">
+
+      <!-- Row 1: Fleet routing full-width intro -->
+      <div class="showcase-row">
+        <div class="showcase-img-wrap">
+          <picture>
+            <source srcset="/img/photos/fleet-routing@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/fleet-routing.webp" type="image/webp">
+            <img src="/img/photos/fleet-routing.png" alt="Fleet dispatcher overview showing multiple routes" width="800" height="600" loading="lazy" decoding="async">
+          </picture>
+        </div>
+        <div class="showcase-text">
+          <span class="section-label">For Dispatchers</span>
+          <h2 class="section-title">Full fleet visibility from one screen.</h2>
+          <p class="section-sub">Upload your stop list in bulk, assign rounds to drivers, and watch the entire fleet in real time. Every vehicle. Every status. Every ETA.</p>
+          <div class="showcase-pills">
+            <span class="pill">Bulk CSV Upload</span>
+            <span class="pill">Live Tracking</span>
+            <span class="pill">Analytics Dashboard</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: turn-score-night, reversed -->
+      <div class="showcase-row reverse">
+        <div class="showcase-img-wrap">
+          <picture>
+            <source srcset="/img/photos/turn-score-night@2x.webp" media="(min-width: 1280px)" type="image/webp">
+            <source srcset="/img/photos/turn-score-night.webp" type="image/webp">
+            <img src="/img/photos/turn-score-night.png" alt="Turn score UI at night showing colour-coded junction warnings" width="800" height="600" loading="lazy" decoding="async">
+          </picture>
+        </div>
+        <div class="showcase-text">
+          <span class="section-label">For Drivers</span>
+          <h2 class="section-title">Know every junction before you reach it.</h2>
+          <p class="section-sub">The turn score overlay colour-codes every upcoming junction — green you'll sail through, amber needs care, red demands a rethink. Confidence in every mile.</p>
+          <div class="showcase-pills">
+            <span class="pill">Colour-coded Alerts</span>
+            <span class="pill">Voice Warnings</span>
+            <span class="pill">Works in Dark</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- OFFLINE STRIP — offline-no-signal -->
+  <section class="offline-strip">
+    <div class="offline-inner">
+      <div class="offline-img-wrap">
+        <picture>
+          <source srcset="/img/photos/offline-no-signal@2x.webp" media="(min-width: 1280px)" type="image/webp">
+          <source srcset="/img/photos/offline-no-signal.webp" type="image/webp">
+          <img src="/img/photos/offline-no-signal.png" alt="Driver in a no-signal area with offline mode active" width="800" height="600" loading="lazy" decoding="async">
+        </picture>
+      </div>
+      <div>
+        <span class="section-label">Reliability</span>
+        <h2 class="section-title">Works where signal doesn't.</h2>
+        <p class="section-sub">Industrial estates, rural deliveries, underground car parks — MJ Maps caches your entire round locally so no-signal zones never stop your day.</p>
+        <div class="offline-stats">
+          <div class="stat-box">
+            <div class="stat-number">100%</div>
+            <div class="stat-label">Offline capable</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number">&lt;3s</div>
+            <div class="stat-label">Route load time</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number">UK</div>
+            <div class="stat-label">Road data only</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number">24/7</div>
+            <div class="stat-label">Always available</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING — fleet-bg-abstract as subtle background texture -->
+  <section class="pricing" id="pricing">
+    <div class="pricing-bg">
+      <picture>
+        <source srcset="/img/photos/fleet-bg-abstract@2x.webp" media="(min-width: 1280px)" type="image/webp">
+        <source srcset="/img/photos/fleet-bg-abstract.webp" type="image/webp">
+        <img src="/img/photos/fleet-bg-abstract.png" alt="" role="presentation" width="1920" height="1080" loading="lazy" decoding="async">
+      </picture>
+    </div>
+    <div class="pricing-inner">
+      <span class="section-label">Pricing</span>
+      <h2 class="section-title">Simple, transparent pricing.</h2>
+      <p class="section-sub">One plan for independent drivers. Custom pricing for fleets. No hidden fees.</p>
+
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <div class="pricing-title">Driver Pro</div>
+          <div class="pricing-price">£9.99<span>/month</span></div>
+          <div class="pricing-desc">Your AI delivery co-pilot</div>
+          <ul class="pricing-features">
+            <li>Smart route planning</li>
+            <li>Turn quality warnings</li>
+            <li>Voice navigation</li>
+            <li>Saved routes</li>
+            <li>CSV import</li>
+            <li>Offline mode</li>
+            <li>Dark mode</li>
+          </ul>
+          <a href="/driver?plan=pro" class="btn btn-primary">Get Started</a>
+        </div>
+
+        <div class="pricing-card pricing-card-enterprise">
+          <div class="pricing-badge">Most Popular</div>
+          <div class="pricing-title">Enterprise</div>
+          <div class="pricing-price">Custom</div>
+          <div class="pricing-desc">Complete fleet intelligence platform</div>
+          <ul class="pricing-features">
+            <li>Everything in Driver Pro</li>
+            <li>Fleet dispatch dashboard</li>
+            <li>Real-time fleet tracking</li>
+            <li>Live fleet analytics</li>
+            <li>Bulk stop upload</li>
+            <li>POD &amp; signature capture</li>
+            <li>Priority support</li>
+          </ul>
+          <a href="/dispatcher" class="btn btn-secondary">Contact Sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <footer>
-    <p>&copy; 2024 MJ Maps Systems. <a href="/api/v1/health">API Health</a></p>
+    <p>&copy; 2025 MJ Maps Systems. Built for UK couriers. &nbsp;·&nbsp; <a href="/api/v1/health">API Health</a></p>
   </footer>
+
 </body>
 </html>

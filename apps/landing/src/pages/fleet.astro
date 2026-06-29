@@ -4,49 +4,36 @@ import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import { type FeatureKey } from '@plans';
+import { t } from '../i18n/index';
 
 const fleetKeys: FeatureKey[] = [
   'DISPATCHER', 'LIVE_TRACKING_WS', 'RED_ALERTS', 'ROUTE_INTEL',
   'ADMIN_ANALYTICS', 'WORKLOAD_GUARD', 'POD_PHOTO', 'SIGNATURE_CAPTURE',
   'ETA_NOTIFICATIONS', 'STOP_STATUS', 'FAILED_DELIVERY', 'TROLLEY_ADVISORY',
 ];
-
-const breadcrumb = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mjmapsystems.com' },
-    { '@type': 'ListItem', position: 2, name: 'For Fleets', item: 'https://mjmapsystems.com/fleet' },
-  ],
-};
 ---
 
 <BaseLayout
-  title="For Fleets — MJ Maps Enterprise: Live Dispatcher Console & Fleet Tracking"
-  description="MJ Maps Enterprise for fleet operations. Live dispatcher console, real-time driver tracking, photo POD, signature capture, and exception alerts. UK GDPR compliant."
-  schema={breadcrumb}
+  title="For Fleets — MJ Maps Enterprise"
+  description="MJ Maps Enterprise for fleet operations. Live dispatcher console, real-time tracking, POD photo capture, signature collection, and exception alerts."
 >
   <Nav activePage="/fleet" />
   <main id="main-content">
     <div class="page-hero">
-      <div class="page-hero-photo-wrap">
-        <picture>
-          <source srcset="/img/photos/fleet-routing.avif" type="image/avif">
-          <source srcset="/img/photos/fleet-routing.webp" type="image/webp">
-          <img
-            class="page-hero-photo"
-            src="/img/photos/fleet-routing.jpg"
-            alt=""
-            aria-hidden="true"
-            loading="eager"
-            fetchpriority="high"
-            width="1920"
-            height="800"
-            onerror="this.parentElement.classList.add('no-photo')"
-          />
-        </picture>
-        <div class="page-hero-scrim"></div>
-      </div>
+      <!-- Full-bleed fleet routing visualisation -->
+      <picture>
+        <source srcset="/img/photos/fleet-routing.webp" type="image/webp" />
+        <img
+          src="/img/photos/fleet-routing.png"
+          alt="Fleet routing visualisation — 3 vans with live routes on a dispatcher map"
+          class="hero-photo"
+          loading="eager"
+          fetchpriority="high"
+          width="1600"
+          height="900"
+        />
+      </picture>
+      <div class="hero-scrim" aria-hidden="true"></div>
       <div class="container">
         <div class="chip chip-brand hero-chip reveal">Enterprise</div>
         <h1 class="reveal">Fleet-grade control for operations teams</h1>
@@ -111,19 +98,37 @@ const breadcrumb = {
           <h2 class="compliance-heading">Data stays yours. Always.</h2>
           <div class="compliance-grid">
             {[
-              { icon: '🔒', title: 'UK GDPR compliant', body: 'Registered UK data controller. Location data is collected only during active shifts and never sold or shared with third parties.' },
-              { icon: '📦', title: 'Data portability', body: 'Export your routes, stops, and POD records any time in CSV or JSON. Cancel any month — no data held hostage.' },
-              { icon: '🛡️', title: 'TLS in transit', body: 'All API traffic is encrypted. Driver locations are transmitted over authenticated WebSocket and stored with row-level access control.' },
-              { icon: '📋', title: 'Privacy by design', body: 'Driver location is used for routing and shift reporting only. No advertising profiling. Full details in our Privacy Policy.' },
+              {
+                title: 'UK GDPR compliant',
+                body: 'Registered UK data controller. Location data is collected only during active shifts and never sold or shared with third parties.',
+                svg: '<path d="M7 10.5l2 2 4-4" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#00C2A8" stroke-width="1.5"/>'
+              },
+              {
+                title: 'Data portability',
+                body: 'Export your routes, stops, and POD records any time in CSV or JSON. Cancel any month — no data held hostage.',
+                svg: '<path d="M8 3v8M5 8l3 3 3-3" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M3 11v2a2 2 0 002 2h6a2 2 0 002-2v-2" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" fill="none"/>'
+              },
+              {
+                title: 'TLS in transit',
+                body: 'All API traffic is encrypted. Driver locations are transmitted over authenticated WebSocket and stored with row-level access control.',
+                svg: '<path d="M8 2l6 6-6 6" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M2 6l6 6-6 6" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14 10H8M10 8v4" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round"/>'
+              },
+              {
+                title: 'Privacy by design',
+                body: 'Driver location is used for routing and shift reporting only. No advertising profiling. Full details in our Privacy Policy.',
+                svg: '<rect x="3" y="3" width="8" height="6" rx="1" stroke="#00C2A8" stroke-width="1.5" fill="none"/><path d="M3 9h8M6 9v5" stroke="#00C2A8" stroke-width="1.5" stroke-linecap="round"/>'
+              },
             ].map(item => (
               <div class="compliance-card">
-                <div class="compliance-icon" aria-hidden="true">{item.icon}</div>
+                <div class="compliance-icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" set:html={item.svg}/>
+                </div>
                 <h3 class="compliance-title">{item.title}</h3>
                 <p class="compliance-body text-muted">{item.body}</p>
               </div>
             ))}
           </div>
-          <p class="compliance-links text-muted">
+          <p class="compliance-links">
             <a href="/legal/privacy">Privacy Policy</a> · <a href="/legal/terms">Terms of Service</a> · <a href="/legal/cookies">Cookie Policy</a>
           </p>
         </div>
@@ -147,39 +152,26 @@ const breadcrumb = {
 <style>
   .page-hero {
     position: relative;
-    overflow: hidden;
     padding-block: 120px 64px;
-    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59,130,246,0.05) 0%, transparent 60%), var(--void);
     text-align: center;
+    overflow: hidden;
   }
-
-  .page-hero-photo-wrap {
+  .page-hero .container { position: relative; z-index: 2; }
+  .hero-photo {
     position: absolute;
     inset: 0;
-    z-index: 0;
-  }
-  .page-hero-photo-wrap.no-photo { display: none; }
-
-  .page-hero-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center 40%;
-    display: block;
+    z-index: 0;
   }
-
-  .page-hero-scrim {
+  .hero-scrim {
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(to bottom, rgba(10,14,20,0.78) 0%, rgba(10,14,20,0.55) 55%, rgba(10,14,20,0.88) 100%);
-  }
-
-  .page-hero .container {
-    position: relative;
     z-index: 1;
+    background: linear-gradient(to right, rgba(10,12,16,0.97) 0%, rgba(10,12,16,0.78) 30%, rgba(10,12,16,0.38) 52%, transparent 72%);
   }
-
   .hero-chip { margin-bottom: 16px; display: inline-flex; }
   .page-hero-sub {
     color: var(--ink-muted);
@@ -190,6 +182,21 @@ const breadcrumb = {
     margin-bottom: 24px;
   }
   .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+  /* Dispatcher preview — atmospheric fleet-bg photo behind the text */
+  .dispatcher-preview {
+    padding-block: var(--section-py);
+    background-image:
+      linear-gradient(
+        to right,
+        rgba(10, 12, 16, 0.96) 0%,
+        rgba(10, 12, 16, 0.82) 50%,
+        rgba(10, 12, 16, 0.60) 100%
+      ),
+      url('/img/photos/fleet-bg-abstract.webp');
+    background-size: cover;
+    background-position: center center;
+  }
 
   .dp-inner {
     display: grid;
@@ -214,17 +221,37 @@ const breadcrumb = {
     border-radius: var(--r-card);
     padding: 0;
     overflow: hidden;
+    border: 1px solid rgba(0, 194, 168, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(0, 194, 168, 0.05),
+      0 16px 48px rgb(0 0 0 / 0.5);
+    /* Subtle teal ambient glow behind the panel */
+    position: relative;
   }
+
+  .dp-panel::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(0,194,168,0.10) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
   .dp-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 14px 16px;
-    border-bottom: 1px solid var(--glass-brd);
-    background: var(--surface-2);
+    border-bottom: 1px solid rgba(0, 194, 168, 0.10);
+    background: rgba(10, 14, 20, 0.8);
+    backdrop-filter: blur(8px);
+    position: relative;
+    z-index: 1;
   }
-  .dp-title { font-weight: 600; font-size: 0.9375rem; }
-  .dp-drivers { display: flex; flex-direction: column; }
+  .dp-title { font-weight: 600; font-size: 0.9375rem; color: var(--ink); }
+  .dp-drivers { display: flex; flex-direction: column; background: rgba(10, 12, 16, 0.6); position: relative; z-index: 1; }
   .dp-driver-row {
     display: flex;
     align-items: center;
@@ -232,18 +259,29 @@ const breadcrumb = {
     padding: 12px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
     font-size: 0.9rem;
+    transition: background var(--dur-micro) ease-out;
   }
   .dp-driver-row:last-child { border-bottom: none; }
+  .dp-driver-row:hover { background: rgba(255,255,255,0.03); }
   .dp-driver-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
+    /* Pulse animation for live feel */
+    animation: live-dot 2s ease-in-out infinite;
   }
   .dp-driver-dot.chip-green { background: var(--green); }
-  .dp-driver-dot.chip-amber { background: var(--amber); }
+  .dp-driver-dot.chip-amber { background: var(--amber); animation-delay: 0.5s; }
+  @keyframes live-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dp-driver-dot { animation: none; }
+  }
   .dp-driver-name { flex: 1; color: var(--ink); font-weight: 500; }
-  .dp-driver-stops { font-size: 0.8125rem; }
+  .dp-driver-stops { font-size: 0.8125rem; color: var(--ink-muted); }
   .dp-driver-eta { font-size: 0.8125rem; color: var(--brand-bright); }
 
   /* Compliance strip */
@@ -277,7 +315,16 @@ const breadcrumb = {
     border: 1px solid var(--glass-brd);
     text-align: left;
   }
-  .compliance-icon { font-size: 1.5rem; }
+  .compliance-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-md);
+    background: rgba(0, 194, 168, 0.08);
+    margin-bottom: 4px;
+  }
   .compliance-title { font-size: 0.9375rem; font-weight: 600; color: var(--ink); margin: 0; }
   .compliance-body { font-size: 0.875rem; line-height: 1.55; margin: 0; }
   .compliance-links { font-size: 0.875rem; }

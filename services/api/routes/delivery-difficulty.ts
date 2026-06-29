@@ -11,7 +11,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireTier } from '../middleware/auth.js';
 import { pool } from '../../db/index.js';
 
 // Canonical category list — IDs are stored in DB; labels/consensus text live here.
@@ -115,7 +115,7 @@ export const deliveryDifficultyRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/api/v1/stops/:stopId/difficulty',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, requireTier('courier', 'fleet', 'enterprise')],
       schema: {
         params: { type: 'object', properties: { stopId: { type: 'string' } }, required: ['stopId'] },
         body: {

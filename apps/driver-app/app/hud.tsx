@@ -48,12 +48,9 @@ function HudInner() {
   const { isDriving } = useDrivingMode();
   const { speechLang, t } = useLocale();
   const shift               = useShiftStore(s => s.shift);
-  const isActive            = useShiftStore(s => s.isActive);
-  const stops               = useShiftStore(s => s.stops);
   const currentStop         = useShiftStore(s => s.currentStop);
   const completeStop        = useShiftStore(s => s.completeStop);
   const failStop            = useShiftStore(s => s.failStop);
-  const endShift            = useShiftStore(s => s.endShift);
   const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
   const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
   const user                = useAuthStore(s => s.user);
@@ -64,23 +61,6 @@ function HudInner() {
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const hasGreeted = useRef(false);
-  const shiftCompleteEnteredRef = useRef(false);
-
-  // FIX 4: End Shift handler — confirms before ending
-  const handleEndShift = () => {
-    Alert.alert(
-      'End shift?',
-      'This will close your current route. All completed stops are saved.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'End Shift',
-          style: 'destructive',
-          onPress: () => { endShift(); router.replace('/'); },
-        },
-      ],
-    );
-  };
 
   // Auto-dismiss dispatcher message after 15s
   useEffect(() => {
@@ -129,75 +109,6 @@ function HudInner() {
     ]).start();
   }, [alert]);
 
-  // FIX 5: All stops done — shift completion summary
-  const allStopsDone = isActive && shift && !currentStop
-    && stops.length > 0
-    && stops.every(s => s.status !== 'pending');
-
-  if (allStopsDone) {
-    // Haptic celebration — fires once
-    if (!shiftCompleteEnteredRef.current) {
-      shiftCompleteEnteredRef.current = true;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-
-    const completed = stops.filter(s => s.status === 'completed').length;
-    const failed    = stops.filter(s => s.status === 'failed').length;
-    const totalParcels = stops
-      .filter(s => s.status === 'completed')
-      .reduce((sum, s) => sum + s.parcelCount, 0);
-    const elapsedMs  = shift ? Date.now() - shift.startedAt : 0;
-    const elapsedMin = Math.round(elapsedMs / 60_000);
-    const elapsedStr = elapsedMin < 60
-      ? `${elapsedMin} min`
-      : `${Math.floor(elapsedMin / 60)}h ${elapsedMin % 60}m`;
-
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.app.background }}>
-        <View style={styles.completionWrap}>
-          <Text style={[styles.completionHeading, { color: colors.app.success }]}>
-            Route complete!
-          </Text>
-          <Text style={[styles.completionSub, { color: colors.app.textFaint }]}>
-            All stops delivered. Well done.
-          </Text>
-
-          <View style={[styles.completionCard, { backgroundColor: colors.app.surface }]}>
-            <View style={styles.completionRow}>
-              <Text style={[styles.completionLabel, { color: colors.app.textFaint }]}>Completed</Text>
-              <Text style={[styles.completionValue, { color: colors.app.success }]}>{completed}</Text>
-            </View>
-            {failed > 0 && (
-              <View style={styles.completionRow}>
-                <Text style={[styles.completionLabel, { color: colors.app.textFaint }]}>Skipped</Text>
-                <Text style={[styles.completionValue, { color: colors.app.danger }]}>{failed}</Text>
-              </View>
-            )}
-            <View style={styles.completionRow}>
-              <Text style={[styles.completionLabel, { color: colors.app.textFaint }]}>Parcels delivered</Text>
-              <Text style={[styles.completionValue, { color: colors.app.text }]}>{totalParcels}</Text>
-            </View>
-            <View style={styles.completionRow}>
-              <Text style={[styles.completionLabel, { color: colors.app.textFaint }]}>Shift duration</Text>
-              <Text style={[styles.completionValue, { color: colors.app.text }]}>{elapsedStr}</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.completionEndBtn, { backgroundColor: colors.app.success }]}
-            onPress={() => { endShift(); router.replace('/'); }}
-            accessibilityLabel="End shift and return home"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.completionEndBtnText, { color: colors.app.background }]}>
-              End shift
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   if (!shift || !currentStop) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.app.background }}>
@@ -209,17 +120,6 @@ function HudInner() {
           >
             <Text style={styles.emptyBtnText}>Start a new shift</Text>
           </TouchableOpacity>
-          {/* FIX 4: End Shift also available from empty state if shift is active */}
-          {isActive && (
-            <TouchableOpacity
-              style={[styles.emptyEndShiftBtn]}
-              onPress={handleEndShift}
-              accessibilityLabel="End shift"
-              accessibilityRole="button"
-            >
-              <Text style={styles.emptyEndShiftText}>End shift</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </SafeAreaView>
     );
@@ -374,16 +274,6 @@ function HudInner() {
         </TouchableOpacity>
       </View>
 
-      {/* FIX 4: End Shift secondary action — small, below the card, not in primary thumb zone */}
-      <TouchableOpacity
-        style={styles.endShiftLink}
-        onPress={handleEndShift}
-        accessibilityLabel="End shift"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.endShiftLinkText, { color: colors.app.textFaint }]}>End shift</Text>
-      </TouchableOpacity>
-
       <View style={{ flex: 1 }} />
 
       {/* ── Bottom Action Bar — thumb zone ─────────────────────── */}
@@ -537,33 +427,4 @@ const styles = StyleSheet.create({
   actionIcon:  { fontSize: 20, color: '#94A3B8' },
   actionLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
   actionBtnText: { fontSize: 16, fontWeight: '700' },
-
-  // FIX 4: End Shift secondary link — low-prominence, below stop card
-  endShiftLink: {
-    alignSelf: 'center', marginTop: 10, paddingVertical: 6, paddingHorizontal: 16,
-  },
-  endShiftLinkText: { fontSize: 13, fontWeight: '500', textDecorationLine: 'underline' },
-
-  // FIX 4: End Shift in empty state
-  emptyEndShiftBtn: {
-    marginTop: 12, paddingVertical: 10, paddingHorizontal: 24,
-    borderRadius: 10, borderWidth: 1, borderColor: '#EF4444',
-  },
-  emptyEndShiftText: { color: '#EF4444', fontWeight: '600', fontSize: 15 },
-
-  // FIX 5: Shift completion card
-  completionWrap:    { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  completionHeading: { fontSize: 32, fontWeight: '900', marginBottom: 8 },
-  completionSub:     { fontSize: 16, marginBottom: 28, textAlign: 'center' },
-  completionCard: {
-    width: '100%', borderRadius: 16, padding: 20, marginBottom: 28, gap: 14,
-  },
-  completionRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  completionLabel: { fontSize: 15, fontWeight: '500' },
-  completionValue: { fontSize: 18, fontWeight: '800' },
-  completionEndBtn: {
-    width: '100%', height: 60, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  completionEndBtnText: { fontSize: 18, fontWeight: '800' },
 });

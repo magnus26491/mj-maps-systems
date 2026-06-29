@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getRoutes, getLocationStreamUrl } from '../api';
+import { getRoutes, getLocationStreamUrl, hasToken } from '../api';
 import type { Route } from '../types';
 
 interface SseLocation {
@@ -55,8 +55,15 @@ export function useRoutes() {
         return;
       }
 
-      // 2. Open SSE stream for live location updates
-      es = new EventSource(getLocationStreamUrl());
+      // 2. Only open SSE stream when a valid token is confirmed present.
+      // This prevents empty-token requests that would error and trigger
+      // the fallback polling loop immediately after login.
+      if (!hasToken()) {
+        return;
+      }
+      const streamUrl = getLocationStreamUrl();
+      if (!streamUrl) return;
+      es = new EventSource(streamUrl);
 
       es.addEventListener('snapshot', (e: MessageEvent) => {
         if (cancelled) return;

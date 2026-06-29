@@ -30,7 +30,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useShiftStore } from '../store/shift';
-import { useTheme } from '../components/ThemeContext';
+import { useTheme } from '../lib/theme';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 

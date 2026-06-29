@@ -16,10 +16,13 @@ import { planHasFeature, type FeatureKey } from '../../billing/subscription-guar
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface AuthUser {
-  id:     string;
-  role:   string;
-  tier:   string;
-  planId: string;
+  id:      string;
+  role:    string;
+  tier:    string;
+  planId:  string;
+  isOwner: boolean;
+  /** Set to true by requireImpersonation() for impersonation tokens */
+  isImpersonation?: boolean;
 }
 
 // ── requireAuth ────────────────────────────────────────────────────────────────
@@ -52,10 +55,11 @@ export function requireAuth(
 
   // Attach as req.authUser to avoid conflict with @fastify/jwt's req.user
   (request as unknown as { authUser: AuthUser }).authUser = {
-    id:     payload.sub,
-    role:   payload.role,
-    tier:   payload.tier,
-    planId: payload.planId ?? 'navigation',
+    id:      payload.sub,
+    role:    payload.role,
+    tier:    payload.tier,
+    planId:  payload.planId ?? 'navigation',
+    isOwner: payload.isOwner ?? false,
   };
   done();
 }

@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Driver capturing a signature on a mobile phone at a customer's doorstep">
+  <title>Signature capture POD — POD &amp; signature feature</title>
+  <defs>
+    <linearGradient id="sky5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1a3a60"/>
+      <stop offset="40%"  stop-color="#3a6090"/>
+      <stop offset="100%" stop-color="#6a8ab0"/>
+    </linearGradient>
+    <linearGradient id="wall5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#e8e0d0"/>
+      <stop offset="100%" stop-color="#c8c0b0"/>
+    </linearGradient>
+    <linearGradient id="door5" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#8B5E3C"/>
+      <stop offset="100%" stop-color="#6a4028"/>
+    </linearGradient>
+    <linearGradient id="path5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#c0b898"/>
+      <stop offset="100%" stop-color="#a09070"/>
+    </linearGradient>
+    <radialGradient id="vignette5" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+    </radialGradient>
+    <filter id="sw5" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/></filter>
+    <filter id="grain5" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="n"/>
+      <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+      <feBlend in="SourceGraphic" in2="g" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1600" height="900" fill="url(#sky5)"/>
+  <!-- Clouds -->
+  <g fill="#ffffff" opacity="0.4">
+    <ellipse cx="200"  cy="80"  rx="120" ry="45"/>
+    <ellipse cx="350"  cy="55"  rx="90"  ry="38"/>
+    <ellipse cx="1200" cy="100" rx="130" ry="55"/>
+    <ellipse cx="1380" cy="70"  rx="100" ry="42"/>
+    <ellipse cx="800"  cy="40"  rx="80"  ry="32"/>
+  </g>
+
+  <!-- House wall -->
+  <rect x="0" y="200" width="1600" height="500" fill="url(#wall5)"/>
+  <!-- Wall brick lines -->
+  <g stroke="#b8b0a0" stroke-width="0.5" opacity="0.4">
+    <line x1="0" y1="240" x2="1600" y2="240"/>
+    <line x1="0" y1="280" x2="1600" y2="280"/>
+    <line x1="0" y1="320" x2="1600" y2="320"/>
+    <line x1="0" y1="360" x2="1600" y2="360"/>
+    <line x1="0" y1="400" x2="1600" y2="400"/>
+    <line x1="0" y1="440" x2="1600" y2="440"/>
+    <line x1="0" y1="480" x2="1600" y2="480"/>
+    <line x1="0" y1="520" x2="1600" y2="520"/>
+    <line x1="0" y1="560" x2="1600" y2="560"/>
+    <line x1="0" y1="600" x2="1600" y2="600"/>
+    <line x1="0" y1="640" x2="1600" y2="640"/>
+    <line x1="0" y1="680" x2="1600" y2="680"/>
+  </g>
+  <!-- Windows left -->
+  <rect x="180" y="280" width="180" height="220" rx="4" fill="#1a2a3a" stroke="#8a7058" stroke-width="4"/>
+  <line x1="270" y1="280" x2="270" y2="500" stroke="#8a7058" stroke-width="3"/>
+  <line x1="180" y1="390" x2="360" y2="390" stroke="#8a7058" stroke-width="3"/>
+  <rect x="186" y="286" width="80" height="100" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <rect x="280" y="286" width="76" height="100" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <rect x="186" y="394" width="80" height="102" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <rect x="280" y="394" width="76" height="102" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <!-- Windows right -->
+  <rect x="1240" y="280" width="180" height="220" rx="4" fill="#1a2a3a" stroke="#8a7058" stroke-width="4"/>
+  <line x1="1330" y1="280" x2="1330" y2="500" stroke="#8a7058" stroke-width="3"/>
+  <line x1="1240" y1="390" x2="1420" y2="390" stroke="#8a7058" stroke-width="3"/>
+  <rect x="1246" y="286" width="80" height="100" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <rect x="1340" y="286" width="76" height="100" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <rect x="1246" y="394" width="80" height="102" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+  <rect x="1340" y="394" width="76" height="102" rx="2" fill="#2a3a50" fill-opacity="0.8"/>
+
+  <!-- Front door (centre) -->
+  <rect x="680" y="300" width="240" height="400" rx="4" fill="url(#door5)"/>
+  <!-- Door frame -->
+  <rect x="672" y="294" width="256" height="412" rx="6" fill="none" stroke="#5a3820" stroke-width="6"/>
+  <!-- Door panels -->
+  <rect x="690" y="316" width="100" height="160" rx="3" fill="#7a5030" stroke="#5a3820" stroke-width="1"/>
+  <rect x="810" y="316" width="100" height="160" rx="3" fill="#7a5030" stroke="#5a3820" stroke-width="1"/>
+  <rect x="690" y="490" width="100" height="190" rx="3" fill="#7a5030" stroke="#5a3820" stroke-width="1"/>
+  <rect x="810" y="490" width="100" height="190" rx="3" fill="#7a5030" stroke="#5a3820" stroke-width="1"/>
+  <!-- Door knocker / handle -->
+  <circle cx="840" cy="490" r="8" fill="#c8a840"/>
+  <!-- Door step -->
+  <rect x="660" y="700" width="280" height="30" rx="3" fill="#a09080"/>
+  <rect x="640" y="726" width="320" height="20" rx="2" fill="#908070"/>
+
+  <!-- Path / driveway -->
+  <path d="M 640 746 L 960 746 L 1200 900 L 400 900 Z" fill="url(#path5)"/>
+  <path d="M 660 746 L 940 746 L 1160 900 L 440 900 Z" fill="#c8b898" opacity="0.3"/>
+
+  <!-- Garden/grass sides -->
+  <rect x="0" y="700" width="640" height="200" fill="#4a7a2a"/>
+  <rect x="960" y="700" width="640" height="200" fill="#4a7a2a"/>
+
+  <!-- DRIVER (holding phone out for signature) -->
+  <g filter="url(#sw5)">
+    <!-- Shadow -->
+    <ellipse cx="720" cy="900" rx="60" ry="14" fill="#000" fill-opacity="0.3"/>
+    <!-- Legs -->
+    <rect x="690" y="760" width="24" height="140" rx="5" fill="#1a2030"/>
+    <rect x="718" y="760" width="24" height="140" rx="5" fill="#1a2030"/>
+    <!-- Boots -->
+    <rect x="686" y="885" width="30" height="20" rx="4" fill="#2a2018"/>
+    <rect x="714" y="885" width="30" height="20" rx="4" fill="#2a2018"/>
+    <!-- Torso (hi-vis) -->
+    <rect x="682" y="640" width="66" height="125" rx="6" fill="#e8c820"/>
+    <!-- Vest stripes -->
+    <rect x="682" y="658" width="66" height="8"  rx="0" fill="#1a1a1a" opacity="0.6"/>
+    <rect x="682" y="682" width="66" height="8"  rx="0" fill="#1a1a1a" opacity="0.6"/>
+    <rect x="682" y="706" width="66" height="8"  rx="0" fill="#1a1a1a" opacity="0.6"/>
+    <rect x="682" y="730" width="66" height="8"  rx="0" fill="#1a1a1a" opacity="0.6"/>
+    <!-- Jacket -->
+    <rect x="682" y="640" width="66" height="125" rx="6" fill="#2a3850" opacity="0.35"/>
+    <!-- Right arm extended (holding phone toward customer) -->
+    <path d="M 748 660 Q 800 640 840 620 Q 870 610 900 605" stroke="#1a2030" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <!-- Glove -->
+    <circle cx="902" cy="604" r="13" fill="#2a2018"/>
+    <!-- Left arm (resting) -->
+    <path d="M 682 660 Q 650 700 640 750" stroke="#1a2030" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <!-- Head -->
+    <circle cx="715" cy="618" r="30" fill="#d4a880"/>
+    <!-- Safety helmet -->
+    <ellipse cx="715" cy="600" rx="30" ry="13" fill="#e8c820"/>
+    <rect x="689" y="594" width="52" height="18" rx="4" fill="#e8c820"/>
+  </g>
+
+  <!-- PHONE SCREEN (signature capture UI) -->
+  <g filter="url(#sw5)" transform="translate(860, 530)">
+    <!-- Phone body -->
+    <rect x="0" y="0" width="90" height="150" rx="10" fill="#1a1a28"/>
+    <!-- Screen -->
+    <rect x="5" y="8" width="80" height="134" rx="5" fill="#0d1420"/>
+    <!-- Header bar -->
+    <rect x="5" y="8" width="80" height="24" rx="5" fill="#1a2838"/>
+    <text x="45" y="24" text-anchor="middle" fill="#00C2A8" font-family="'Space Grotesk', sans-serif" font-size="7" font-weight="600">Capture Signature</text>
+    <!-- "Sign below" -->
+    <text x="45" y="42" text-anchor="middle" fill="#94A3B8" font-family="'Space Grotesk', sans-serif" font-size="6">Sign below</text>
+    <!-- Signature box -->
+    <rect x="10" y="48" width="70" height="50" rx="3" fill="#0a1020" stroke="#334155" stroke-width="1"/>
+    <!-- Signature line -->
+    <path d="M 15 80 Q 25 72 35 80 Q 45 88 55 75 Q 65 62 72 75 Q 76 82 78 80" stroke="#00E8D4" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <!-- Bottom: timestamp -->
+    <text x="45" y="108" text-anchor="middle" fill="#64748B" font-family="'IBM Plex Mono', monospace" font-size="5">14:32 · 12 Jun 2026</text>
+    <!-- Confirm button -->
+    <rect x="15" y="114" width="60" height="20" rx="4" fill="#00C2A8" fill-opacity="0.9"/>
+    <text x="45" y="127" text-anchor="middle" fill="#0d1420" font-family="'Space Grotesk', sans-serif" font-size="7" font-weight="700">Confirm POD</text>
+  </g>
+
+  <!-- "POD captured" confirmation chip -->
+  <g transform="translate(100, 100)">
+    <rect x="0" y="0" width="160" height="44" rx="8" fill="#0a1a14" stroke="#10B981" stroke-width="1.5"/>
+    <circle cx="22" cy="22" r="10" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="1"/>
+    <path d="M 17 22 L 20 25 L 27 18" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="42" y="19" fill="#F1F5F9" font-family="'Space Grotesk', sans-serif" font-size="11" font-weight="600">POD captured</text>
+    <text x="42" y="34" fill="#94A3B8" font-family="'IBM Plex Mono', monospace" font-size="8">Uploaded to dispatcher</text>
+  </g>
+
+  <!-- Door number -->
+  <rect x="740" y="265" width="120" height="32" rx="4" fill="#f0f0dc"/>
+  <text x="800" y="287" text-anchor="middle" fill="#2a2a18" font-family="monospace" font-size="16" font-weight="bold">42</text>
+
+  <!-- Vignette + grain -->
+  <rect width="1600" height="900" fill="url(#vignette5)"/>
+  <rect width="1600" height="900" fill="#808080" fill-opacity="0.02" filter="url(#grain5)"/>
+</svg>

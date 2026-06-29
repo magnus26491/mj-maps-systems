@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import AnnouncementBar from '../components/AnnouncementBar.astro';
+import { t } from '../i18n/index';
 
 export interface Props {
   title: string;
@@ -75,12 +76,12 @@ const schemas = [
     <div id="cookie-banner" class="cookie-banner glass" role="region" aria-label="Cookie preferences" aria-live="polite">
       <div class="cookie-inner">
         <p class="cookie-text">
-          We use essential cookies only — no tracking, no advertising. Your location data is used for navigation only and is never sold.
-          <a href="/legal/cookies" class="cookie-link">Cookie policy</a>
+          {t('cookie.text')}
+          <a href="/legal/cookies" class="cookie-link">{t('cookie.policy')}</a>
         </p>
         <div class="cookie-actions">
-          <button id="cookie-accept" class="btn btn-primary cookie-btn">Accept</button>
-          <a href="/legal/cookies" class="btn btn-secondary cookie-btn">Learn more</a>
+          <button id="cookie-accept" class="btn btn-primary cookie-btn">{t('cookie.accept')}</button>
+          <a href="/legal/cookies" class="btn btn-secondary cookie-btn">Cookie Policy</a>
         </div>
       </div>
     </div>
@@ -159,6 +160,32 @@ const schemas = [
       localStorage.setItem(KEY, '1');
       banner.classList.add('dismissed');
       setTimeout(() => { banner.hidden = true; }, 350);
+    });
+  }
+
+  // ─── Scroll-reveal ────────────────────────────────────────────────
+  const reveals = document.querySelectorAll('.reveal');
+  if (reveals.length > 0) {
+    const revealObs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target as HTMLElement;
+          const delay = el.dataset.delay ?? '0';
+          setTimeout(() => {
+            el.classList.add('revealed');
+            revealObs.unobserve(el);
+          }, parseInt(delay));
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -10% 0px' }
+    );
+    reveals.forEach((el, i) => {
+      const htmlEl = el as HTMLElement;
+      if (!htmlEl.dataset.delay) {
+        htmlEl.dataset.delay = String(i * 60);
+      }
+      revealObs.observe(el);
     });
   }
 </script>

@@ -1,305 +1,522 @@
 ---
-// TurnScoreDemo — interactive turn-score chip demo
-// Uses turn-score-night.webp as background when the photo is present.
-// Falls back to a CSS gradient + SVG if the photo isn't placed yet.
+/**
+ * TurnScoreDemo.astro — Inline animated turn-score demonstration
+ *
+ * SVG road segment with vehicle. Three states (cycling or scroll-triggered):
+ * GREEN → AMBER → RED with animated score bar and message.
+ * Respects prefers-reduced-motion.
+ *
+ * Props:
+ *   autoCycle: boolean  — cycle through states automatically (default: true)
+ *   initialState: 'green' | 'amber' | 'red'  (default: 'green')
+ *   class: additional CSS classes
+ */
+
+interface Props {
+  autoCycle?: boolean;
+  initialState?: 'green' | 'amber' | 'red';
+  class?: string;
+}
+
+const {
+  autoCycle = true,
+  initialState = 'green',
+  class: className = '',
+} = Astro.props;
+
+const states = ['green', 'amber', 'red'] as const;
+const initialIndex = states.indexOf(initialState);
+
+const messages: Record<string, { heading: string; sub: string; badge: string }> = {
+  green: {
+    heading: 'GREEN — clear junction',
+    sub: 'Vehicle fits comfortably. Road width 7.2m.',
+    badge: 'GREEN',
+  },
+  amber: {
+    heading: 'AMBER — take care',
+    sub: 'Tight turn for this vehicle. Reduce speed to <15 mph.',
+    badge: 'AMBER',
+  },
+  red: {
+    heading: 'RED — do not attempt',
+    sub: 'Bridge height 3.8m. Vehicle clearance 4.2m. Rerouting.',
+    badge: 'RED',
+  },
+};
 ---
 
-<section class="tsd-section below-fold" aria-labelledby="tsd-heading">
-  <div class="container">
-    <div class="tsd-eyebrow reveal">Driver safety</div>
-    <h2 id="tsd-heading" class="reveal">Know what's coming before you reach it</h2>
-    <p class="tsd-sub text-muted reveal">Every junction scored green, amber, or red — 300 metres before you arrive. Tight turns, blind bends, and low-clearance roads flagged before you're committed.</p>
+<div
+  class:list={['turn-demo', `turn-state-${initialState}`, className]}
+  data-auto-cycle={autoCycle ? 'true' : 'false'}
+  data-initial-index={initialIndex}
+  aria-live="polite"
+  aria-label="Turn score demonstration"
+>
+  <!-- SVG road scene -->
+  <div class="turn-scene" aria-hidden="true">
+    <!-- Real photo background: night driving scene with HUD -->
+    <picture>
+      <source srcset="/img/photos/turn-score-night.webp" type="image/webp" />
+      <img
+        src="/img/photos/turn-score-night.png"
+        alt="Night driving scene — MJ Maps navigation HUD with GREEN turn score"
+        class="turn-map-bg"
+        width="320"
+        height="180"
+        loading="lazy"
+      />
+    </picture>
+    <!-- Turn score SVG overlay -->
+    <svg
+      class="turn-svg"
+      viewBox="0 0 320 180"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <!-- Road surface -->
+        <linearGradient id="road-surface" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#1A1F26"/>
+          <stop offset="100%" stop-color="#12151B"/>
+        </linearGradient>
 
-    <div class="tsd-demo-wrap reveal">
-      <!-- Photo background with gradient scrim -->
-      <div class="tsd-photo-wrap">
-        <picture>
-          <source srcset="/img/photos/turn-score-night.avif" type="image/avif">
-          <source srcset="/img/photos/turn-score-night.webp" type="image/webp">
-          <img
-            class="tsd-photo"
-            src="/img/photos/turn-score-night.jpg"
-            alt="Van approaching a junction at night with turn-score warning visible on the device"
-            loading="lazy"
-            width="1200"
-            height="675"
-            onerror="this.parentElement.classList.add('no-photo')"
-          />
-        </picture>
-        <div class="tsd-scrim"></div>
-      </div>
+        <!-- Glow for score colour -->
+        <filter id="ts-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
 
-      <!-- HUD overlay -->
-      <div class="tsd-hud glass">
-        <!-- State selector -->
-        <div class="tsd-tabs" role="tablist" aria-label="Turn score states">
-          <button class="tsd-tab active" role="tab" data-score="green"
-                  aria-selected="true" aria-controls="tsd-panel">
-            <span class="tsd-dot green"></span> Green
-          </button>
-          <button class="tsd-tab" role="tab" data-score="amber"
-                  aria-selected="false" aria-controls="tsd-panel">
-            <span class="tsd-dot amber"></span> Amber
-          </button>
-          <button class="tsd-tab" role="tab" data-score="red"
-                  aria-selected="false" aria-controls="tsd-panel">
-            <span class="tsd-dot red"></span> Red
-          </button>
-        </div>
+        <!-- Drop shadow for vehicle -->
+        <filter id="van-shadow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.5)"/>
+        </filter>
+      </defs>
 
-        <!-- Score display -->
-        <div id="tsd-panel" class="tsd-panel">
-          <div class="tsd-badge" id="tsd-badge" data-state="green">
-            <span class="tsd-badge-icon" id="tsd-icon">✓</span>
-            <span class="tsd-badge-text" id="tsd-text">Route clear for your vehicle</span>
-          </div>
-          <div class="tsd-detail">
-            <div class="tsd-street mono" id="tsd-street">Long Lane North</div>
-            <div class="tsd-dist mono" id="tsd-dist">in 0.3 mi</div>
-          </div>
-          <p class="tsd-why text-muted" id="tsd-why">Wide approach, clear sightlines. Your van fits comfortably.</p>
-        </div>
-      </div>
+      <!-- Background ground -->
+      <rect width="320" height="180" fill="#0A0C10"/>
+
+      <!-- Road: approaching straight then turning right -->
+      <!-- Incoming road (from left) -->
+      <path
+        d="M -10 100 L 120 100"
+        stroke="url(#road-surface)"
+        stroke-width="28"
+        stroke-linecap="butt"
+      />
+
+      <!-- Junction box -->
+      <rect x="100" y="76" width="80" height="80" rx="4" fill="#1A1F26"/>
+
+      <!-- Road: going right (exit) -->
+      <path
+        d="M 120 136 L 220 136 L 260 136"
+        stroke="url(#road-surface)"
+        stroke-width="28"
+        stroke-linecap="butt"
+      />
+
+      <!-- Road edges (white dashes) -->
+      <g stroke="rgba(255,255,255,0.12)" stroke-width="1.5" stroke-dasharray="8 8">
+        <line x1="-10" y1="86" x2="100" y2="86"/>
+        <line x1="-10" y1="114" x2="100" y2="114"/>
+        <line x1="120" y1="122" x2="260" y2="122"/>
+        <line x1="120" y1="150" x2="260" y2="150"/>
+      </g>
+
+      <!-- Centre line dashes -->
+      <g stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-dasharray="12 10">
+        <line x1="-10" y1="100" x2="100" y2="100"/>
+        <line x1="120" y1="136" x2="260" y2="136"/>
+      </g>
+
+      <!-- Junction markings -->
+      <g stroke="rgba(255,255,255,0.08)" stroke-width="1">
+        <!-- Box junction hatching -->
+        <line x1="105" y1="80" x2="115" y2="90"/>
+        <line x1="115" y1="80" x2="125" y2="90"/>
+        <line x1="125" y1="80" x2="135" y2="90"/>
+        <line x1="135" y1="80" x2="145" y2="90"/>
+        <line x1="145" y1="80" x2="155" y2="90"/>
+        <line x1="155" y1="80" x2="165" y2="90"/>
+        <line x1="165" y1="80" x2="175" y2="90"/>
+      </g>
+
+      <!-- Turn arrow (animated, colour changes with score) -->
+      <g class="turn-arrow" filter="url(#ts-glow)">
+        <path
+          d="M 105 100 L 118 100 L 118 94 L 132 106 L 118 118 L 118 112 L 105 112 Z"
+          fill="currentColor"
+          class="turn-arrow-path"
+        />
+      </g>
+
+      <!-- Vehicle (white van, approaching the junction) -->
+      <g class="van-group" filter="url(#van-shadow)" transform="translate(20, 78)">
+        <!-- Van body -->
+        <rect x="0" y="8" width="56" height="28" rx="4" fill="#1E293B" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <!-- Cab (front) -->
+        <rect x="48" y="4" width="20" height="36" rx="4" fill="#1E293B" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <!-- Windscreen -->
+        <rect x="52" y="8" width="12" height="14" rx="2" fill="rgba(0,194,168,0.15)" stroke="rgba(0,194,168,0.3)" stroke-width="0.5"/>
+        <!-- Side windows -->
+        <rect x="8" y="12" width="14" height="10" rx="2" fill="rgba(0,194,168,0.10)"/>
+        <rect x="26" y="12" width="14" height="10" rx="2" fill="rgba(0,194,168,0.10)"/>
+        <!-- Wheels -->
+        <circle cx="16" cy="38" r="6" fill="#0F1318" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <circle cx="56" cy="38" r="6" fill="#0F1318" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <!-- Wheel hubs -->
+        <circle cx="16" cy="38" r="2.5" fill="rgba(255,255,255,0.15)"/>
+        <circle cx="56" cy="38" r="2.5" fill="rgba(255,255,255,0.15)"/>
+        <!-- Side door line -->
+        <line x1="24" y1="8" x2="24" y2="36" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+        <!-- Roof rack hint -->
+        <rect x="4" y="5" width="40" height="3" rx="1" fill="rgba(255,255,255,0.06)"/>
+      </g>
+
+      <!-- Road sign (junction ahead indicator) -->
+      <g transform="translate(60, 20)">
+        <rect x="0" y="0" width="36" height="24" rx="3" fill="#1A1F26" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <path d="M 12 18 L 18 6 L 24 18 Z" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+      </g>
+
+      <!-- Score indicator pip (top right) -->
+      <g class="score-pip" transform="translate(280, 20)">
+        <circle cx="0" cy="0" r="18" fill="#12151B" stroke="currentColor" stroke-width="2" class="score-pip-ring"/>
+        <circle cx="0" cy="0" r="6" fill="currentColor" class="score-pip-dot"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Score display -->
+  <div class="turn-info">
+    <div class="turn-badge-row">
+      <span class="chip chip-green turn-chip" aria-label="Turn score: green">GREEN</span>
+      <span class="turn-code mono">51.5074° N, 0.1278° W</span>
+    </div>
+    <h3 class="turn-heading">GREEN — clear junction</h3>
+    <p class="turn-sub">Vehicle fits comfortably. Road width 7.2m.</p>
+
+    <!-- Score bar -->
+    <div class="turn-bar-track" role="progressbar" aria-valuenow="92" aria-valuemin="0" aria-valuemax="100" aria-label="Turn score 92 out of 100">
+      <div class="turn-bar-fill turn-bar-green" style="width: 92%"></div>
+    </div>
+    <div class="turn-bar-labels">
+      <span class="mono">0</span>
+      <span class="mono turn-bar-score">92/100</span>
+      <span class="mono">100</span>
     </div>
 
-    <!-- How scores are computed -->
-    <div class="tsd-explainer">
-      {[
-        { score: 'green', label: 'Green', desc: 'Wide, clear approach. No restrictions for your vehicle class.' },
-        { score: 'amber', label: 'Amber', desc: 'Tight turn or reduced width. Proceed carefully — you can pass.' },
-        { score: 'red',   label: 'Red',   desc: 'Do not attempt. Turning circle or width will trap your vehicle.' },
-      ].map(s => (
-        <div class="tsd-card reveal">
-          <div class={`tsd-indicator ${s.score}`}></div>
-          <div>
-            <strong class="tsd-card-label">{s.label}</strong>
-            <p class="tsd-card-desc text-muted">{s.desc}</p>
-          </div>
-        </div>
-      ))}
+    <!-- State toggle buttons -->
+    <div class="turn-controls" role="group" aria-label="Select turn score to demo">
+      <button class="turn-btn turn-btn-green active" data-state="green" aria-pressed="true">
+        <span class="turn-btn-dot"></span>GREEN
+      </button>
+      <button class="turn-btn turn-btn-amber" data-state="amber" aria-pressed="false">
+        <span class="turn-btn-dot"></span>AMBER
+      </button>
+      <button class="turn-btn turn-btn-red" data-state="red" aria-pressed="false">
+        <span class="turn-btn-dot"></span>RED
+      </button>
     </div>
   </div>
-</section>
+</div>
 
 <style>
-  .tsd-section { padding-block: var(--section-py); }
-
-  .tsd-eyebrow {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--brand-bright);
-    margin-bottom: 12px;
-  }
-
-  .tsd-section h2 { margin-bottom: 12px; }
-
-  .tsd-sub {
-    max-width: 560px;
-    margin-bottom: 40px;
-    font-size: 1.0625rem;
-  }
-
-  /* Demo area */
-  .tsd-demo-wrap {
-    position: relative;
-    border-radius: var(--r-panel);
+  .turn-demo {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    background: var(--color-surface-1);
+    border: 1px solid var(--glass-brd);
+    border-radius: var(--r-lg);
     overflow: hidden;
-    aspect-ratio: 16 / 7;
-    min-height: 320px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-start;
-    background: linear-gradient(135deg, #0a1520 0%, #0f1c2e 60%, #0a1015 100%);
+    box-shadow: var(--elevation-1);
   }
 
-  .tsd-photo-wrap {
+  @media (min-width: 640px) {
+    .turn-demo {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* ─── Scene ───────────────────────────────────────────────────────── */
+
+  .turn-scene {
+    background: #0A0C10;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .turn-map-bg {
     position: absolute;
     inset: 0;
-  }
-
-  .tsd-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
-    display: block;
-  }
-
-  .tsd-scrim {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to right, rgba(10,14,20,0.85) 0%, rgba(10,14,20,0.4) 60%, rgba(10,14,20,0.2) 100%),
-                linear-gradient(to top, rgba(10,14,20,0.7) 0%, transparent 50%);
-  }
-
-  /* Grain texture */
-  .tsd-photo-wrap::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-    background-size: 200px 200px;
-    pointer-events: none;
     opacity: 0.6;
   }
 
-  /* HUD */
-  .tsd-hud {
+  .turn-svg {
     position: relative;
-    z-index: 2;
-    margin: 24px;
-    border-radius: var(--r-card);
-    padding: 0;
-    overflow: hidden;
-    min-width: 280px;
-    max-width: 320px;
+    width: 100%;
+    height: auto;
+    display: block;
+    z-index: 1;
   }
 
-  .tsd-tabs {
+  .turn-arrow {
+    color: var(--green);
+    transition: color 400ms ease;
+  }
+
+  .turn-demo.turn-state-amber .turn-arrow { color: var(--amber); }
+  .turn-demo.turn-state-red   .turn-arrow { color: var(--red); }
+
+  .score-pip {
+    color: var(--green);
+    transition: color 400ms ease;
+  }
+
+  .turn-demo.turn-state-amber .score-pip { color: var(--amber); }
+  .turn-demo.turn-state-red   .score-pip { color: var(--red); }
+
+  /* ─── Info panel ──────────────────────────────────────────────────── */
+
+  .turn-info {
+    padding: 24px;
     display: flex;
-    border-bottom: 1px solid var(--glass-brd);
-    background: var(--surface-2);
+    flex-direction: column;
+    gap: 12px;
+    justify-content: center;
   }
 
-  .tsd-tab {
-    flex: 1;
-    padding: 10px 4px;
-    border: none;
-    background: transparent;
-    color: var(--ink-muted);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
+  .turn-badge-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 5px;
-    font-family: inherit;
-    transition: color var(--dur-micro) ease-out, background var(--dur-micro) ease-out;
+    gap: 12px;
   }
 
-  .tsd-tab.active { color: var(--ink); background: rgba(255,255,255,0.04); }
-
-  @media (hover: hover) {
-    .tsd-tab:not(.active):hover { background: rgba(255,255,255,0.03); color: var(--ink); }
+  .turn-chip {
+    transition: background 300ms ease, color 300ms ease;
   }
 
-  .tsd-dot {
+  .turn-code {
+    color: var(--ink-faint);
+    font-size: 0.75rem;
+  }
+
+  .turn-heading {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0;
+    transition: color 300ms ease;
+  }
+
+  .turn-demo.turn-state-amber .turn-heading { color: var(--amber); }
+  .turn-demo.turn-state-red   .turn-heading { color: var(--red); }
+
+  .turn-sub {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ─── Score bar ───────────────────────────────────────────────────── */
+
+  .turn-bar-track {
+    width: 100%;
+    height: 6px;
+    background: var(--color-surface-2);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+  }
+
+  .turn-bar-fill {
+    height: 100%;
+    border-radius: var(--r-pill);
+    transition: width 600ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                background 400ms ease;
+  }
+
+  .turn-bar-green { background: var(--green); }
+  .turn-bar-amber { background: var(--amber); }
+  .turn-bar-red   { background: var(--red); }
+
+  .turn-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    margin-top: 4px;
+  }
+
+  .turn-bar-score {
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+
+  /* ─── Control buttons ─────────────────────────────────────────────── */
+
+  .turn-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .turn-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: var(--r-pill);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: var(--color-surface-2);
+    color: var(--ink-muted);
+    transition: all var(--dur-micro) ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .turn-btn-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
+    background: currentColor;
     flex-shrink: 0;
   }
-  .tsd-dot.green { background: var(--green); }
-  .tsd-dot.amber { background: var(--amber); }
-  .tsd-dot.red   { background: var(--red);   }
 
-  .tsd-panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-
-  .tsd-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    transition: background var(--dur-micro) ease-out;
-  }
-  .tsd-badge[data-state="green"] { background: rgba(34,197,94,0.12);  }
-  .tsd-badge[data-state="amber"] { background: rgba(245,158,11,0.12); }
-  .tsd-badge[data-state="red"]   { background: rgba(239,68,68,0.12);  }
-
-  .tsd-badge-icon { font-size: 1.125rem; }
-  .tsd-badge-text { font-size: 0.875rem; font-weight: 600; color: var(--ink); }
-
-  .tsd-badge[data-state="green"] .tsd-badge-text { color: var(--green); }
-  .tsd-badge[data-state="amber"] .tsd-badge-text { color: var(--amber); }
-  .tsd-badge[data-state="red"]   .tsd-badge-text { color: var(--red);   }
-
-  .tsd-detail { display: flex; flex-direction: column; gap: 2px; }
-  .tsd-street { font-size: 0.875rem; color: var(--ink); font-weight: 600; }
-  .tsd-dist   { font-size: 0.8125rem; color: var(--ink-muted); }
-
-  .tsd-why { font-size: 0.8125rem; line-height: 1.5; margin: 0; }
-
-  /* Explainer cards */
-  .tsd-explainer {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 32px;
-  }
-  @media (min-width: 640px) { .tsd-explainer { grid-template-columns: repeat(3, 1fr); } }
-
-  .tsd-card {
-    display: flex;
-    gap: 14px;
-    align-items: flex-start;
-    padding: 16px;
-    border-radius: var(--r-card);
-    background: var(--surface);
-    border: 1px solid var(--glass-brd);
+  .turn-btn-green.active {
+    background: var(--green-bg);
+    color: var(--green);
+    border-color: rgba(16, 185, 129, 0.3);
   }
 
-  .tsd-indicator {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 3px;
+  .turn-btn-amber.active {
+    background: var(--amber-bg);
+    color: var(--amber);
+    border-color: rgba(245, 158, 11, 0.3);
   }
-  .tsd-indicator.green { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
-  .tsd-indicator.amber { background: var(--amber); box-shadow: 0 0 8px rgba(245,158,11,0.4); }
-  .tsd-indicator.red   { background: var(--red);   box-shadow: 0 0 8px rgba(239,68,68,0.4); }
 
-  .tsd-card-label { font-size: 0.9375rem; font-weight: 600; color: var(--ink); display: block; margin-bottom: 4px; }
-  .tsd-card-desc  { font-size: 0.875rem; margin: 0; line-height: 1.5; }
+  .turn-btn-red.active {
+    background: var(--red-bg);
+    color: var(--red);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  @media (hover: hover) {
+    .turn-btn:hover {
+      background: var(--color-surface-2);
+      color: var(--ink);
+    }
+  }
+
+  .turn-btn:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  /* ─── Reduced motion ──────────────────────────────────────────────── */
 
   @media (prefers-reduced-motion: reduce) {
-    .tsd-badge { transition: none; }
+    .turn-arrow,
+    .score-pip,
+    .turn-chip,
+    .turn-bar-fill,
+    .turn-btn {
+      transition: none;
+    }
   }
 </style>
 
 <script>
-  const states = {
+  const scoreData: Record<string, { score: number; heading: string; sub: string; barClass: string }> = {
     green: {
-      icon: '✓', text: 'Route clear for your vehicle',
-      street: 'Long Lane North', dist: 'in 0.3 mi',
-      why: 'Wide approach, clear sightlines. Your van fits comfortably.',
+      score: 92,
+      heading: 'GREEN — clear junction',
+      sub: 'Vehicle fits comfortably. Road width 7.2m.',
+      barClass: 'turn-bar-green',
     },
     amber: {
-      icon: '⚠', text: 'Tight access — proceed with care',
-      street: 'Mill End Road', dist: 'in 0.2 mi',
-      why: 'Narrow entrance and a 170° turn. Reduce speed and keep left.',
+      score: 58,
+      heading: 'AMBER — take care',
+      sub: 'Tight turn for this vehicle. Reduce speed to <15 mph.',
+      barClass: 'turn-bar-amber',
     },
     red: {
-      icon: '✗', text: 'Do not enter with your vehicle',
-      street: 'Farm Track (Gated)', dist: 'ahead',
-      why: 'Track width 1.8m — not suitable for vans or lorries. Use alternate.',
+      score: 18,
+      heading: 'RED — do not attempt',
+      sub: 'Bridge height 3.8m. Vehicle clearance 4.2m. Rerouting.',
+      barClass: 'turn-bar-red',
     },
-  } as const;
+  };
 
-  const tabs   = document.querySelectorAll<HTMLButtonElement>('.tsd-tab');
-  const badge  = document.getElementById('tsd-badge');
-  const icon   = document.getElementById('tsd-icon');
-  const text   = document.getElementById('tsd-text');
-  const street = document.getElementById('tsd-street');
-  const dist   = document.getElementById('tsd-dist');
-  const why    = document.getElementById('tsd-why');
+  function initTurnDemo(el: HTMLElement) {
+    const stateBtns = el.querySelectorAll<HTMLButtonElement>('.turn-btn');
+    const chip = el.querySelector<HTMLElement>('.turn-chip')!;
+    const heading = el.querySelector<HTMLElement>('.turn-heading')!;
+    const sub = el.querySelector<HTMLElement>('.turn-sub')!;
+    const barFill = el.querySelector<HTMLElement>('.turn-bar-fill')!;
+    const barScore = el.querySelector<HTMLElement>('.turn-bar-score')!;
+    const barTrack = el.querySelector<HTMLElement>('.turn-bar-track')!;
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const score = tab.dataset.score as keyof typeof states;
-      const s = states[score];
-      tabs.forEach(t => {
-        t.classList.toggle('active', t === tab);
-        t.setAttribute('aria-selected', String(t === tab));
+    function setState(state: string) {
+      const data = scoreData[state];
+      if (!data) return;
+
+      // Update container class
+      el.classList.remove('turn-state-green', 'turn-state-amber', 'turn-state-red');
+      el.classList.add(`turn-state-${state}`);
+
+      // Update chip
+      chip.textContent = state.toUpperCase();
+      chip.className = `chip chip-${state} turn-chip`;
+
+      // Update heading
+      heading.textContent = data.heading;
+
+      // Update sub
+      sub.textContent = data.sub;
+
+      // Update bar
+      barFill.style.width = `${data.score}%`;
+      barFill.className = `turn-bar-fill ${data.barClass}`;
+      barScore.textContent = `${data.score}/100`;
+      barTrack.setAttribute('aria-valuenow', String(data.score));
+
+      // Update buttons
+      stateBtns.forEach(btn => {
+        const isActive = btn.dataset.state === state;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
       });
-      if (badge) badge.dataset.state = score;
-      if (icon)   icon.textContent   = s.icon;
-      if (text)   text.textContent   = s.text;
-      if (street) street.textContent = s.street;
-      if (dist)   dist.textContent   = s.dist;
-      if (why)    why.textContent    = s.why;
+    }
+
+    // Button click handlers
+    stateBtns.forEach(btn => {
+      btn.addEventListener('click', () => setState(btn.dataset.state ?? 'green'));
     });
-  });
+
+    // Auto-cycle
+    const autoCycle = el.dataset.autoCycle === 'true';
+    if (autoCycle) {
+      let idx = parseInt(el.dataset.initialIndex ?? '0');
+      setInterval(() => {
+        idx = (idx + 1) % 3;
+        const states = ['green', 'amber', 'red'];
+        setState(states[idx]);
+      }, 3200);
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>('.turn-demo').forEach(initTurnDemo);
 </script>

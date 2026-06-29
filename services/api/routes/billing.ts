@@ -56,15 +56,11 @@ export async function registerBillingRoutes(server: FastifyInstance): Promise<vo
       const successUrl = request.body?.successUrl ?? `${appUrl}billing/success`;
       const cancelUrl  = request.body?.cancelUrl  ?? `${appUrl}billing/cancel`;
 
-      // If Stripe is not yet configured, return a stub so the frontend doesn't 404
-      if (!stripe || !priceId) {
-        return reply.send({
-          ok: true,
-          data: {
-            checkoutUrl: null,
-            message: 'Billing integration coming soon. Your account has been created with a trial.',
-          },
-        });
+      if (!stripe) {
+        return reply.status(503).send({ error: 'Stripe is not configured.' });
+      }
+      if (!priceId) {
+        return reply.status(503).send({ error: 'STRIPE_PRO_PRICE_ID is not configured.' });
       }
 
       try {
@@ -75,14 +71,11 @@ export async function registerBillingRoutes(server: FastifyInstance): Promise<vo
           successUrl,
           cancelUrl,
         });
-        return reply.send({
-          ok: true,
-          data: { checkoutUrl: result.url, url: result.url },
-        });
+        return reply.send({ url: result.url });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         server.log.error({ err }, '[billing] checkout session failed');
-        return reply.status(500).send({ ok: false, error: msg });
+        return reply.status(500).send({ error: msg });
       }
     },
   );

@@ -1730,55 +1730,6 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // ── POST /admin/dispatchers ───────────────────────────────────────────────
-  // Create a brand-new dispatcher account (owner only).
-  // Skips the public register flow; account is immediately active.
-
-  fastify.post<{
-    Body: { email?: string; password?: string; name?: string };
-  }>(
-    '/dispatchers',
-    async (request, reply) => {
-      if (!isOwner(request)) {
-        return reply.code(403).send({ ok: false, error: 'Only the owner can create dispatcher accounts.', code: 'OWNER_REQUIRED' });
-      }
-      const { email, password, name } = request.body ?? {};
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return reply.code(400).send({ ok: false, error: 'Valid email required' });
-      }
-      if (!password || password.length < 8) {
-        return reply.code(400).send({ ok: false, error: 'Password must be at least 8 characters' });
-      }
-
-      const { hashPassword } = await import('../../auth/index.js');
-      const hash = await hashPassword(password);
-      const aid  = adminId(request);
-
-      const { rows } = await pool.query(
-        `INSERT INTO users (email, password_hash, name, role, plan_id, is_active)
-         VALUES ($1, $2, $3, 'dispatcher', 'navigation', true)
-         ON CONFLICT (email) DO NOTHING
-         RETURNING id, email, name, role`,
-        [email.toLowerCase().trim(), hash, name?.trim() ?? null],
-      );
-
-      if (!rows.length) {
-        return reply.code(409).send({ ok: false, error: 'An account with this email already exists.' });
-      }
-
-      const created = rows[0] as { id: string; email: string; name: string | null; role: string };
-
-      await createAuditLog(buildAuditEntry(request, aid, 'user_update', {
-        targetType: 'user',
-        targetId:   created.id,
-        newValue:   { email: created.email, role: 'dispatcher' },
-        reason:     'Dispatcher account created directly by owner',
-      }));
-
-      return reply.code(201).send({ ok: true, user: { id: created.id, email: created.email, name: created.name, role: created.role } });
-    },
-  );
-
   // ── DELETE /admin/admins/:id ───────────────────────────────────────────────
 
   fastify.delete<{ Params: { id: string }; Body: { reason?: string } }>(

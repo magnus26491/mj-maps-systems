@@ -1,0 +1,208 @@
+---
+/**
+ * DeviceFrame.astro — Unified device bezel for all app screenshots
+ *
+ * Props:
+ *   variant: 'iphone' | 'android'  (default: 'iphone')
+ *   orientation: 'portrait' | 'landscape' (default: 'portrait')
+ *   size: 'sm' | 'md' | 'lg'  (default: 'md')
+ *   notch: boolean  — show notch/dynamic island (default: true)
+ *
+ * Usage:
+ *   <DeviceFrame variant="iphone" orientation="portrait">
+ *     <img src="/app-hud.png" alt="MJ Maps HUD" />
+ *   </DeviceFrame>
+ */
+
+interface Props {
+  variant?: 'iphone' | 'android';
+  orientation?: 'portrait' | 'landscape';
+  size?: 'sm' | 'md' | 'lg';
+  notch?: boolean;
+  class?: string;
+}
+
+const {
+  variant = 'iphone',
+  orientation = 'portrait',
+  size = 'md',
+  notch = true,
+  class: className = '',
+} = Astro.props;
+
+const isLandscape = orientation === 'landscape';
+const isAndroid = variant === 'android';
+
+// Size dimensions in px (portrait)
+const sizes = {
+  sm: { w: 240, h: 480 },
+  md: { w: 280, h: 560 },
+  lg: { w: 320, h: 640 },
+};
+const { w, h } = sizes[size];
+const frameW = isLandscape ? h : w;
+const frameH = isLandscape ? w : h;
+
+// Bezel
+const bezel = 10;
+const screenX = bezel;
+const screenY = isAndroid ? 16 : (notch ? 32 : bezel);
+const screenW = frameW - bezel * 2;
+const screenH = frameH - screenY - bezel;
+
+// Dynamic island (iPhone 14 Pro+)
+const islandW = 96;
+const islandH = 28;
+const islandX = (frameW - islandW) / 2;
+const islandY = 10;
+
+// Notch bar (older iPhones)
+const notchW = 120;
+const notchH = 24;
+const notchX = (frameW - notchW) / 2;
+const notchY = 8;
+
+// Home indicator (iPhones without home button)
+const indicatorW = 100;
+const indicatorH = 4;
+const indicatorX = (frameW - indicatorW) / 2;
+const indicatorY = frameH - bezel - 8;
+
+// Android nav bar
+const androidNavH = 24;
+---
+
+<div
+  class:list={['device-frame', `device-${variant}`, `device-${orientation}`, `device-${size}`, className]}
+  style={`--frame-w: ${frameW}px; --frame-h: ${frameH}px;`}
+  role="img"
+  aria-label={`${variant} device mockup`}
+>
+  <svg
+    class="device-svg"
+    viewBox={`0 0 ${frameW} ${frameH}`}
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <!-- Outer case -->
+    <rect
+      x="1" y="1"
+      width={frameW - 2}
+      height={frameH - 2}
+      rx={isAndroid ? 20 : 36}
+      ry={isAndroid ? 20 : 36}
+      fill="#0F1318"
+      stroke="rgba(255,255,255,0.08)"
+      stroke-width="1"
+    />
+
+    <!-- Screen area -->
+    <rect
+      x={screenX}
+      y={screenY}
+      width={screenW}
+      height={screenH}
+      rx="4"
+      fill="#0A0C10"
+    />
+
+    <!-- Dynamic island (iPhone) -->
+    {variant === 'iphone' && notch && !isLandscape && (
+      <rect
+        x={islandX}
+        y={islandY}
+        width={islandW}
+        height={islandH}
+        rx={islandH / 2}
+        fill="#000"
+      />
+    )}
+
+    <!-- Notch bar (older iPhone style) -->
+    {variant === 'iphone' && notch && isLandscape && (
+      <rect
+        x={islandX}
+        y={islandY}
+        width={islandH}
+        height={islandW}
+        rx={islandH / 2}
+        fill="#000"
+      />
+    )}
+
+    <!-- Android nav dots -->
+    {variant === 'android' && (
+      <>
+        <circle cx={frameW / 2 - 24} cy={frameH - 12} r="2.5" fill="rgba(255,255,255,0.25)"/>
+        <circle cx={frameW / 2}      cy={frameH - 12} r="2.5" fill="rgba(255,255,255,0.50)"/>
+        <circle cx={frameW / 2 + 24} cy={frameH - 12} r="2.5" fill="rgba(255,255,255,0.25)"/>
+      </>
+    )}
+
+    <!-- Side buttons (Android) -->
+    {variant === 'android' && (
+      <>
+        <rect x={frameW - 3} y="60" width="3" height="32" rx="1.5" fill="#1A1F26"/>
+        <rect x={frameW - 3} y="100" width="3" height="48" rx="1.5" fill="#1A1F26"/>
+        <rect x="-1" y="72" width="3" height="48" rx="1.5" fill="#1A1F26"/>
+      </>
+    )}
+  </svg>
+
+  <!-- Screen content slot -->
+  <div
+    class="device-screen"
+    style={`
+      left: ${screenX}px;
+      top: ${screenY}px;
+      width: ${screenW}px;
+      height: ${screenH}px;
+    `}
+  >
+    <slot />
+  </div>
+</div>
+
+<style>
+  .device-frame {
+    position: relative;
+    width: var(--frame-w);
+    height: var(--frame-h);
+    flex-shrink: 0;
+    border-radius: inherit;
+  }
+
+  .device-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .device-screen {
+    position: absolute;
+    overflow: hidden;
+    border-radius: 4px;
+  }
+
+  .device-screen :global(img),
+  .device-screen :global(video) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Drop shadow */
+  .device-frame::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: inherit;
+    background: transparent;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 194, 168, 0.06);
+    pointer-events: none;
+    z-index: -1;
+  }
+</style>

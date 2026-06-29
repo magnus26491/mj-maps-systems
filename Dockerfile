@@ -29,10 +29,7 @@ ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 # after --ignore-scripts so native-only postinstall scripts (pod-install, etc.)
 # don't crash on Alpine Linux
 RUN node scripts/stub-react-native.js
-# --public-url /driver rewrites all asset paths in the generated HTML/JS to
-# use /driver/_expo/... instead of /_expo/..., so assets load correctly when
-# the app is served at mjmapsystems.com/driver (not at root /).
-RUN npx expo export --platform web --public-url /driver --clear
+RUN npx expo export --platform web --clear
 # Expo's static renderer strips ALL <script> tags from +html.tsx.
 # public/polyfill.js is copied to dist/ by expo export.
 # Inject the <script src> into the generated index.html so it loads
@@ -52,11 +49,6 @@ RUN npm run build
 # ── Stage 4: Build Landing Page (Astro static site) ───────────
 FROM node:20-alpine AS landing-builder
 WORKDIR /landing
-# MAPTILER_KEY: BUILD-TIME ONLY — fetches static map PNGs for the landing page.
-# The key NEVER ships to the client bundle. Set Allowed Origins = https://mjmapsystems.com
-# in the MapTiler dashboard.
-ARG MAPTILER_KEY
-ENV MAPTILER_KEY=$MAPTILER_KEY
 # Copy the plans package (imported via Vite alias in astro.config.mjs)
 COPY packages/plans/ /packages/plans/
 # Install and build
@@ -65,17 +57,29 @@ RUN npm install --legacy-peer-deps
 COPY apps/landing/ .
 # Make packages available at the resolved path
 COPY packages/ /packages/
-# Copy the map-baking script
-COPY scripts/fetch-maps.mjs ./scripts/fetch-maps.mjs
-# Fetch real static map PNGs when key is present; SVG fallbacks used otherwise
+
+# ── Optional: bake real MapTiler static map images ──────────────────────────
+# If MAPTILER_KEY is set in the Docker build args, download real map images.
+# If absent, the committed SVG fallbacks in public/img/ are used instead.
+# Runs before build so Astro can reference the baked images in the output.
 RUN if [ -n "$MAPTILER_KEY" ]; then \
-      node scripts/fetch-maps.mjs || echo "[docker] fetch-maps failed, using SVG fallbacks"; \
+      echo "MAPTILER_KEY present — baking real map images..."; \
+      npx ts-node scripts/fetch-maps.ts; \
     else \
-      echo "[docker] No MAPTILER_KEY — using committed SVG fallbacks"; \
+      echo "MAPTILER_KEY not set — using committed SVG fallbacks"; \
     fi
+
 RUN npm run build
 
-# ── Stage 5: Runtime ──────────────────────────────────────────
+# ── Stage 5: Build Admin Portal (Vite SPA) ────────────────────
+FROM node:20-alpine AS admin-builder
+WORKDIR /admin
+COPY apps/admin-portal/package.json apps/admin-portal/package-lock.json* ./
+RUN npm install --legacy-peer-deps
+COPY apps/admin-portal/ .
+RUN npm run build
+
+# ── Stage 6: Runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
 WORKDIR /app
 RUN addgroup -S mjmaps && adduser -S mjmaps -G mjmaps
@@ -94,6 +98,9 @@ COPY --from=dispatcher-builder /dispatcher/dist ./dist/dispatcher
 # Copy from Landing builder
 COPY --from=landing-builder /landing/dist ./dist/landing
 
+# Copy from Admin portal builder
+COPY --from=admin-builder /admin/dist ./dist/admin
+
 # Copy startup script
 COPY start.sh ./start.sh
 
@@ -102,6 +109,7 @@ RUN echo "=== Validating build artifacts ===" \
   && ls -la dist/landing/index.html \
   && ls -la dist/apps/driver-app/dist/index.html \
   && ls -la dist/dispatcher/index.html \
+  && ls -la dist/admin/index.html \
   && ls -la dist/services/api/server.js \
   && echo "=== All build artifacts present ==="
 

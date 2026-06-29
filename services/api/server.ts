@@ -24,6 +24,7 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
+import { pool } from '../db/index.js';
 import { registerWebRoutes } from './web-serving.js';
 import { z } from 'zod';
 import {
@@ -41,17 +42,23 @@ import { VEHICLE_PROFILES } from '../../packages/vehicle-profiles/index.js';
 import { confirmPinRoute } from './routes/confirm-pin.js';
 import { mapConfigRoute } from './routes/map-config.js';
 import { autocompleteRoute } from './routes/autocomplete.js';
-import { authRoutes } from './routes/auth.js';
-import { signAccessToken } from '../auth/index.js';
+import { authRoutes, inviteRoutes } from './routes/auth.js';
 import { podRoute } from './routes/pod.js';
 import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
 import { fcmTokenRoutes } from './routes/fcm-token.js';
 import { dispatcherRoutes } from './routes/dispatcher.js';
+import { registerDispatcherMessageRoutes } from './routes/dispatcher-message.js';
+import { registerBillingRoutes } from './routes/billing.js';
+import { registerStoragePresignRoutes } from './routes/storage-presign.js';
 import { analyticsRoutes }   from './routes/analytics.js';
 import { driverRoutes }      from './routes/driver-routes.js';
 import { assignRouteRoutes } from './routes/assign-route.js';
 import { requireAuth, requireRole, requireTier, requireFeature, requireEnterprise } from './middleware/auth.js';
+import { adminRoutes } from './routes/admin.js';
+import { savingsRoutes } from './routes/savings.js';
+import { driverInsightsRoutes } from './routes/driver-insights.js';
+import { turnBreakdownRoutes } from './routes/turn-breakdown.js';
 import { locationRoute } from './routes/location.js';
 import { pinCorrectionRoute } from './routes/pin-correction.js';
 import { navigateLegRoute } from './routes/navigate-leg.js';
@@ -61,9 +68,7 @@ import { safetyRoutes } from './routes/safety.js';
 import { fleetStreamRoute } from './routes/fleet-stream.js';
 import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
 import { poisRoute } from './routes/pois.js';
-import { adminRoutes } from './routes/admin.js';
-import { geocodingProvider } from '../geocoding/geocoding-provider.js';
-import { optimiseRoute } from '../route-engine/route-engine.js';
+import { sendPlatformAlert } from '../notifications/telegram-alerts.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
 const PORT       = Number(process.env.PORT ?? 3000);
@@ -77,10 +82,22 @@ if (NODE_ENV === 'production') {
     console.error('[mj-maps-api] FATAL: JWT_SECRET is required in production');
     process.exit(1);
   }
+  if (
+    process.env.JWT_SECRET === 'dev-secret-not-for-production' ||
+    process.env.JWT_SECRET === 'changeme_insecure_default'
+  ) {
+    console.error('[mj-maps-api] FATAL: JWT_SECRET is set to an insecure default value in production');
+    process.exit(1);
+  }
 }
 
 process.on('uncaughtException', (err: Error) => {
   console.error('[mj-maps-api] UNCAUGHT EXCEPTION:', err.message, err.stack);
+  sendPlatformAlert({
+    level:   'CRITICAL',
+    service: 'api',
+    message: `Uncaught exception: ${err.message}`,
+  }).catch(() => {});
   process.exit(1);
 });
 
@@ -145,7 +162,6 @@ const start = async () => {
       ? [
           'https://mjmapsystems.com',
           'https://www.mjmapsystems.com',
-          'https://api.mjmapsystems.com',
           ...extraOrigins,
         ]
       : true,
@@ -171,8 +187,28 @@ const start = async () => {
 
   await server.register(fastifyWebsocket);
 
+  // ── Stripe webhook raw body parser ─────────────────────────────────────────
+// Stripe requires the raw body for HMAC signature verification.
+// Register BEFORE the billing plugin so the webhook route reads unparsed bytes.
+  server.addContentTypeParser(
+    'application/json',
+    { parseAs: 'buffer' },
+    (req, body, done) => {
+      (req as any).rawBody = body;
+      try {
+        done(null, JSON.parse(body.toString()));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // ── Routes ──────────────────────────────────────────────────────────────────
   await server.register(authRoutes, { prefix: '/api/v1/auth' });
+  // Public invite redemption routes — no auth prefix
+  await server.register(inviteRoutes, { prefix: '/invite' });
+  await server.register(registerBillingRoutes);
+  await server.register(registerStoragePresignRoutes);
   await server.register(confirmPinRoute);
   await server.register(pinCorrectionRoute);
   await server.register(mapConfigRoute);
@@ -182,13 +218,38 @@ const start = async () => {
   await server.register(vehiclesRoutes);
   await server.register(fcmTokenRoutes);
   await server.register(dispatcherRoutes);
+  await registerDispatcherMessageRoutes(server);
   await server.register(analyticsRoutes, {
     prefix: '/api/v1/dispatcher',
     hooks: {
       preHandler: [requireAuth, requireRole('dispatcher', 'admin'), requireEnterprise],
     },
   });
+
+  // ── Admin Portal — rate-limited to 60 req/min per admin ───────────────────
+  await server.register(async (app) => {
+    await app.register(fastifyRateLimit, {
+      max:   60,
+      timeWindow: '1 minute',
+      errorResponseBuilder: () => ({
+        ok: false,
+        error: 'Too many admin requests — rate limited to 60/min',
+        code: 'RATE_LIMITED',
+        retryAfterSeconds: 60,
+      }),
+      keyGenerator: (request) => {
+        // Rate limit by admin user ID, not IP — proxies don't bypass limits
+        const authUser = (request as unknown as { authUser?: { id: string } }).authUser;
+        return authUser?.id ?? request.ip;
+      },
+    });
+    await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+  });
+
   await server.register(driverRoutes);
+  await server.register(savingsRoutes);          // /api/v1/analytics/savings*
+  await server.register(driverInsightsRoutes);   // /api/v1/drivers/:driverId/insights*
+  await server.register(turnBreakdownRoutes);   // /api/v1/routes/:routeId/turn-breakdown
   await server.register(assignRouteRoutes);
   await server.register(locationRoute);
   await server.register(navigateLegRoute);
@@ -199,129 +260,65 @@ const start = async () => {
   await server.register(deliveryDifficultyRoutes);
   await server.register(poisRoute);
 
-  // ── PAF / postcode lookup ────────────────────────────────────────────────────
-  // Driver app calls GET /api/v1/paf/lookup?postcode=SO14+2AH
-  // Returns addresses with real lat/lng so the app can geocode stops correctly.
-  server.get('/api/v1/paf/lookup', { preHandler: [requireAuth] }, async (request, reply) => {
-    const { postcode } = request.query as { postcode?: string };
-    if (!postcode?.trim()) {
-      return reply.code(400).send({ ok: false, error: 'postcode query param required' });
-    }
-    try {
-      const candidates = await geocodingProvider.resolvePostcodeToCandidates(postcode.trim());
-      const addresses = candidates.map(c => {
-        const parts = c.address.split(',').map((p: string) => p.trim());
-        return {
-          line1:       parts[0] ?? c.address,
-          line2:       parts[1] ?? undefined,
-          postTown:    parts[parts.length - 3] ?? '',
-          postcode:    c.postcode || postcode.trim().toUpperCase(),
-          fullAddress: c.address,
-          lat:         c.lat,
-          lng:         c.lng,
-          uprn:        c.uprn ?? c.id,          // UPRN for door-pin cache key
-          confidence:  c.confidence,             // so app can show precision badge
-          source:      c.source,                 // 'os_places' | 'nominatim' | 'plus_code'
-        };
-      });
-      return reply.send({ ok: true, addresses });
-    } catch (err) {
-      return reply.code(500).send({ ok: false, error: (err as Error).message });
-    }
-  });
-
-  // ── Driver optimise alias ────────────────────────────────────────────────────
-  // Driver app calls POST /api/v1/optimise with its own schema:
-  //   { depot, stops: [{id,address,lat,lng,parcelCount}], vehicleProfileKey, plannedDepartureTime }
-  // This endpoint geocodes any stops with lat=0 and runs the route engine.
-  server.post('/api/v1/optimise', { preHandler: [requireAuth] }, async (request, reply) => {
-    const body = request.body as {
-      depot?: { lat?: number; lng?: number };
-      stops?: Array<{ id: string; address: string; lat?: number; lng?: number; parcelCount?: number }>;
-      vehicleProfileKey?: string;
-      plannedDepartureTime?: string;
-    };
-    if (!Array.isArray(body.stops) || body.stops.length === 0) {
-      return reply.code(400).send({ ok: false, error: 'stops array required' });
-    }
-
-    // Geocode stops that have no coordinates (lat=0 or missing)
-    const resolved = await Promise.all(body.stops.map(async s => {
-      if (s.lat && s.lng && (s.lat !== 0 || s.lng !== 0)) return s;
-      try {
-        const candidates = await geocodingProvider.resolvePostcodeToCandidates(s.address);
-        if (candidates.length > 0) {
-          return { ...s, lat: candidates[0].lat, lng: candidates[0].lng };
-        }
-      } catch { /* non-fatal — leave at 0,0 */ }
-      return s;
-    }));
-
-    const depEpoch = body.plannedDepartureTime
-      ? Math.floor(new Date(body.plannedDepartureTime).getTime() / 1000)
-      : Math.floor(Date.now() / 1000);
-
-    const engineStops = resolved.map(s => ({
-      id:             s.id,
-      lat:            s.lat ?? 0,
-      lng:            s.lng ?? 0,
-      serviceMinutes: 3,
-      address:        s.address,
-      parcelCount:    s.parcelCount ?? 1,
-    }));
-
-    const config = {
-      depotLat:        body.depot?.lat ?? 0,
-      depotLng:        body.depot?.lng ?? 0,
-      vehicleId:       body.vehicleProfileKey ?? 'lwb_van',
-      shiftStartEpoch: depEpoch,
-      shiftEndEpoch:   depEpoch + 8 * 3600,
-      returnToDepot:   false,
-    };
-
-    const result = await optimiseRoute(engineStops as any, config);
-
-    return reply.send({
-      ok: true,
-      optimized: {
-        orderedStops: result.orderedStops.map(s => ({
-          id:          s.id,
-          address:     (s as any).address ?? '',
-          lat:         s.lat,
-          lng:         s.lng,
-          parcelCount: (s as any).parcelCount ?? 1,
-        })),
-      },
-    });
-  });
-
   server.get('/api/v1/health', handleHealth as any);
 
   server.get('/api/v1/health/ready', async (_request, reply) => {
     const { isConfigured, getPool } = await import('../db/index.js');
+    const { pingCache } = await import('../cache/index.js');
+
+    const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
+
+    // 1. Database check
     if (!isConfigured()) {
       return reply.code(503).send({
-        ok: false,
+        ok:     false,
         status: 'unavailable',
         reason: 'DATABASE_URL is not configured',
       });
     }
     try {
-      // Short timeout so the readiness probe doesn't hang the health check
+      const t0 = Date.now();
       await Promise.race([
         getPool().query('SELECT 1'),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('DB check timed out')), 5_000),
         ),
       ]);
-      return reply.send({ ok: true, status: 'ready' });
-    } catch {
+      checks.database = { ok: true, latencyMs: Date.now() - t0 };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      checks.database = { ok: false, error: errMsg };
+      sendPlatformAlert({
+        level:   'CRITICAL',
+        service: 'database',
+        message: `Readiness check failed: DB unreachable — ${errMsg}`,
+      }).catch(() => {});
       return reply.code(503).send({
-        ok: false,
+        ok:     false,
         status: 'unavailable',
         reason: 'Database connection failed',
+        checks,
       });
     }
+
+    // 2. Redis check (optional — graceful degradation, never blocks readiness)
+    try {
+      const t0 = Date.now();
+      const redisOk = await Promise.race([
+        pingCache(),
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), 3_000),
+        ),
+      ]);
+      checks.redis = redisOk
+        ? { ok: true, latencyMs: Date.now() - t0 }
+        : { ok: false, error: 'Redis ping timed out after 3s' };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      checks.redis = { ok: false, error: errMsg };
+    }
+
+    return reply.send({ ok: true, status: 'ready', checks });
   });
 
   server.post('/api/v1/auth/token', async (request, reply) => {
@@ -336,7 +333,7 @@ const start = async () => {
     if (NODE_ENV === 'production' && secret !== process.env.DRIVER_API_KEY) {
       return reply.code(401).send({ ok: false, error: 'Invalid credentials' });
     }
-    const token = signAccessToken(driverId, 'driver', 'navigation', 'navigation');
+    const token = (server as any).jwt.sign({ sub: driverId, role: 'driver' });
     return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
   });
 
@@ -450,19 +447,6 @@ const start = async () => {
     },
   );
 
-  /** Admin-only routes */
-  await server.register(async (app) => {
-    await app.register(fastifyRateLimit, {
-      max: 60,
-      timeWindow: '1 minute',
-      keyGenerator: (request) => {
-        const authUser = (request as any).authUser;
-        return authUser?.id ?? request.ip;
-      },
-    });
-    await app.register(adminRoutes, { prefix: '/api/v1/admin' });
-  });
-
   // ── Admin setup (one-time, protected by ADMIN_SETUP_SECRET) ──────────────────
   // Used to create the initial admin account. Disabled once ADMIN_SETUP_SECRET is unset.
   server.post('/api/v1/admin/setup', async (request, reply) => {
@@ -487,14 +471,13 @@ const start = async () => {
 
     const hash = await hashPassword(password);
     const { rows } = await getPool().query(
-      `INSERT INTO users (email, password_hash, role, plan_id, is_active, is_owner)
-       VALUES ($1, $2, 'admin', 'custom', true, true)
+      `INSERT INTO users (email, password_hash, role, plan_id, is_active)
+       VALUES ($1, $2, 'admin', 'custom', true)
        ON CONFLICT (email) DO UPDATE SET
          password_hash = EXCLUDED.password_hash,
          role          = 'admin',
          plan_id       = 'custom',
-         is_active     = true,
-         is_owner      = true
+         is_active     = true
        RETURNING id, email, role, plan_id`,
       [email, hash],
     );
@@ -507,7 +490,20 @@ const start = async () => {
     fastify.get(
       '/ws/driver/:driverId/:routeId',
       { websocket: true },
-      (socket: any, req: any) => {
+      async (socket: any, req: any) => {
+        const token = (req.query as any)?.token;
+        if (!token) {
+          socket.send(JSON.stringify({ type: 'error', code: 'AUTH_REQUIRED' }));
+          socket.close(1008, 'Authentication required');
+          return;
+        }
+        try {
+          (req as any).authUser = (server as any).jwt.verify(token);
+        } catch {
+          socket.send(JSON.stringify({ type: 'error', code: 'AUTH_INVALID' }));
+          socket.close(1008, 'Invalid token');
+          return;
+        }
         const { driverId, routeId } = req.params as { driverId: string; routeId: string };
         handleDriverWebSocket(socket, driverId, routeId);
       },
@@ -517,6 +513,28 @@ const start = async () => {
   // ── Web Frontend Routes ────────────────────────────────────────────────
   // Uses web-serving.ts module for safe static file serving
   await registerWebRoutes(server);
+
+  // ── Token cleanup job ─────────────────────────────────────────────────────
+  // Hard-deletes used+expired tokens after 7 days — keeps rows for audit trail.
+  // Runs once 30s after startup, then every 24h.
+  async function cleanupExpiredTokens() {
+    try {
+      const { rowCount } = await pool.query(
+        `DELETE FROM password_reset_tokens
+         WHERE expires_at < NOW() - INTERVAL '7 days'
+           AND used_at IS NOT NULL`,
+      );
+      if (rowCount && rowCount > 0) {
+        console.log(`[cleanup] Deleted ${rowCount} expired password reset tokens`);
+      }
+    } catch (err) {
+      console.error('[cleanup] Token cleanup failed:', err);
+    }
+  }
+  setTimeout(() => {
+    cleanupExpiredTokens();
+    setInterval(cleanupExpiredTokens, 24 * 60 * 60 * 1000);
+  }, 30_000);
 
   // ── Listen ────────────────────────────────────────────────────────────────
   try {
@@ -543,7 +561,10 @@ const shutdown = async (signal: string) => {
   }
 };
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGTERM', () => {
+  sendPlatformAlert({ level: 'INFO', service: 'api', message: 'Server shutting down gracefully (SIGTERM)' }).catch(() => {});
+  shutdown('SIGTERM');
+});
 process.on('SIGINT',  () => shutdown('SIGINT'));
 
 start();

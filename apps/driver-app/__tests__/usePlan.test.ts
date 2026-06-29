@@ -32,8 +32,8 @@ describe('usePlan', () => {
     expect(result.current.canUse('saved_routes')).toBe(false);
   });
 
-  it('canUse returns true for saved_routes on pro plan', () => {
-    useAuthStore.setState({ user: makeUser('pro'), token: 'test-token' });
+  it('canUse returns true for saved_routes on navigation plan', () => {
+    useAuthStore.setState({ user: makeUser('navigation'), token: 'test-token' });
     const { result } = renderHook(() => usePlan());
     expect(result.current.canUse('saved_routes')).toBe(true);
   });
@@ -51,14 +51,14 @@ describe('usePlan', () => {
     expect(result.current.isTrialing()).toBe(false);
   });
 
-  it('enterprise plan can use fleet_dispatch', () => {
-    useAuthStore.setState({ user: makeUser('enterprise'), token: 'test-token' });
+  it('custom plan can use fleet_dispatch', () => {
+    useAuthStore.setState({ user: makeUser('custom'), token: 'test-token' });
     const { result } = renderHook(() => usePlan());
     expect(result.current.canUse('fleet_dispatch')).toBe(true);
   });
 
-  it('pro plan cannot use fleet_dispatch', () => {
-    useAuthStore.setState({ user: makeUser('pro'), token: 'test-token' });
+  it('navigation plan cannot use fleet_dispatch', () => {
+    useAuthStore.setState({ user: makeUser('navigation'), token: 'test-token' });
     const { result } = renderHook(() => usePlan());
     expect(result.current.canUse('fleet_dispatch')).toBe(false);
   });

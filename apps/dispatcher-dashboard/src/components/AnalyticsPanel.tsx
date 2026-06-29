@@ -1,3 +1,8 @@
+/**
+ * AnalyticsPanel — Fleet analytics view.
+ * Uses new cartographic design tokens from globals.css.
+ * Enterprise-only gate with premium upgrade prompt.
+ */
 import { useState } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import RouteDetailModal from './RouteDetailModal';
@@ -7,21 +12,43 @@ export default function AnalyticsPanel() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
   if (isLoading) {
-    return <div style={mutedStyle}>Loading analytics...</div>;
+    return (
+      <div style={{ color: 'var(--color-text-muted)', padding: '0.5rem', fontFamily: 'var(--font-body)' }}>
+        Loading analytics...
+      </div>
+    );
   }
 
   const isEnterpriseError = error && (error as string).includes('ENTERPRISE_REQUIRED');
 
   if (isEnterpriseError) {
     return (
-      <div style={enterpriseBoxStyle}>
-        Fleet analytics require an Enterprise plan.
+      <div className="plan-gate" role="alert">
+        {/* Upgrade arrow icon */}
+        <div className="plan-gate__icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 4v12M4 10l6-6 6 6" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div className="plan-gate__title">Fleet analytics</div>
+        <div className="plan-gate__body">
+          This feature requires an Enterprise plan. Upgrade to access route intelligence, cost-per-stop reporting, and driver performance dashboards.
+        </div>
+        <div className="plan-gate__badge">Enterprise</div>
+        <a href="/pricing" className="d-btn d-btn--primary" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+          View plans
+        </a>
+        <div className="plan-gate__footer">Cancel anytime · VAT inclusive pricing</div>
       </div>
     );
   }
 
   if (error) {
-    return <div style={{ ...mutedStyle, color: '#ef4444' }}>{error}</div>;
+    return (
+      <div style={{ color: 'var(--color-red)', padding: '0.5rem', fontFamily: 'var(--font-body)' }}>
+        {error}
+      </div>
+    );
   }
 
   if (!summary) return null;
@@ -41,17 +68,27 @@ export default function AnalyticsPanel() {
       </div>
 
       {/* Additional stats */}
-      <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+      <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
         <span>Avg completion: {summary.avgCompletionMins}m</span>
-        <span>🔴 {summary.redAlertCount}</span>
-        <span>🟡 {summary.amberAlertCount}</span>
+        {summary.redAlertCount > 0 && (
+          <span>
+            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-red)', marginRight: 4 }} />
+            {summary.redAlertCount}
+          </span>
+        )}
+        {summary.amberAlertCount > 0 && (
+          <span>
+            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-amber)', marginRight: 4 }} />
+            {summary.amberAlertCount}
+          </span>
+        )}
       </div>
 
       {/* Route history table */}
-      <div className="table-scroll" style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}>
-        <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
+      <div className="d-card table-scroll">
+        <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: '0.875rem', color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>
           <thead>
-            <tr style={{ background: '#1e293b', color: '#94a3b8' }}>
+            <tr style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
               <th style={thStyle}>Driver</th>
               <th style={thStyle}>Stops</th>
               <th style={thStyle}>Failed</th>
@@ -65,32 +102,42 @@ export default function AnalyticsPanel() {
             {routes.map(route => (
               <tr
                 key={route.routeId}
-                style={{ borderBottom: '1px solid #1e293b', cursor: 'pointer' }}
+                style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer' }}
                 onClick={() => setSelectedRouteId(route.routeId)}
               >
                 <td style={tdStyle}>
                   <div>{route.driverName ?? 'Unassigned'}</div>
-                  <div style={{ color: '#64748b', fontSize: '0.75rem' }}>{route.vehicleLabel ?? '—'}</div>
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>{route.vehicleLabel ?? '—'}</div>
                 </td>
                 <td style={tdStyle}>{route.completedStops}/{route.totalStops}</td>
-                <td style={{ ...tdStyle, color: route.failedStops > 0 ? '#ef4444' : '#64748b' }}>
+                <td style={{ ...tdStyle, color: route.failedStops > 0 ? 'var(--color-red)' : 'var(--color-text-muted)' }}>
                   {route.failedStops}
                 </td>
                 <td style={tdStyle}>
-                  {route.redAlerts > 0 && <span style={{ color: '#ef4444' }}>🔴 {route.redAlerts} </span>}
-                  {route.amberAlerts > 0 && <span style={{ color: '#eab308' }}>🟡 {route.amberAlerts}</span>}
+                  {route.redAlerts > 0 && (
+                    <span style={{ color: 'var(--color-red)', marginRight: 4 }}>
+                      <svg width="8" height="8" viewBox="0 0 8 8" style={{ verticalAlign: 'middle' }}><circle cx="4" cy="4" r="4" fill="var(--color-red)" /></svg>
+                      {route.redAlerts}
+                    </span>
+                  )}
+                  {route.amberAlerts > 0 && (
+                    <span style={{ color: 'var(--color-amber)' }}>
+                      <svg width="8" height="8" viewBox="0 0 8 8" style={{ verticalAlign: 'middle' }}><circle cx="4" cy="4" r="4" fill="var(--color-amber)" /></svg>
+                      {route.amberAlerts}
+                    </span>
+                  )}
                   {route.redAlerts === 0 && route.amberAlerts === 0 && '—'}
                 </td>
                 <td style={tdStyle}>
-                  {route.podCount > 0 ? `📷 ${route.podCount}` : '—'}
+                  {route.podCount > 0 ? (
+                    <span style={{ color: 'var(--color-teal)' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: 4 }}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      {route.podCount}
+                    </span>
+                  ) : '—'}
                 </td>
                 <td style={tdStyle}>
-                  <span style={{
-                    ...badgeStyle,
-                    background: route.status === 'active' ? '#1e3a5f' : '#14532d',
-                    color: route.status === 'active' ? '#3b82f6' : '#22c55e',
-                    border: `1px solid ${route.status === 'active' ? '#3b82f6' : '#22c55e'}`,
-                  }}>
+                  <span className={`status-badge status-badge--${route.status === 'active' ? 'active' : route.status === 'completed' ? 'completed' : route.status === 'failed' ? 'failed' : 'pending'}`}>
                     {route.status}
                   </span>
                 </td>
@@ -110,38 +157,12 @@ export default function AnalyticsPanel() {
 
 function KpiCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={cardStyle}>
-      <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '0.25rem' }}>{label}</div>
-      <div style={{ color: '#f1f5f9', fontSize: '1.5rem', fontWeight: 700 }}>{value}</div>
+    <div className="d-card">
+      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem', fontFamily: 'var(--font-body)' }}>{label}</div>
+      <div style={{ color: 'var(--color-text-primary)', fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{value}</div>
     </div>
   );
 }
 
-const cardStyle: React.CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
-  borderRadius: 8,
-  padding: '0.75rem',
-};
-
 const thStyle: React.CSSProperties = { padding: '0.5rem', textAlign: 'left', fontWeight: 600 };
 const tdStyle: React.CSSProperties = { padding: '0.5rem', verticalAlign: 'middle' };
-
-const badgeStyle: React.CSSProperties = {
-  borderRadius: 4,
-  padding: '0.125rem 0.375rem',
-  fontSize: '0.75rem',
-  fontWeight: 600,
-};
-
-const mutedStyle: React.CSSProperties = { color: '#64748b', padding: '0.5rem' };
-
-const enterpriseBoxStyle: React.CSSProperties = {
-  background: '#1e293b',
-  border: '1px solid #f59e0b',
-  borderRadius: 8,
-  padding: '1rem',
-  color: '#f59e0b',
-  fontSize: '0.875rem',
-  textAlign: 'center',
-};
