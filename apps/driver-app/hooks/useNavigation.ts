@@ -8,10 +8,11 @@
  * stopNav() unsubscribes.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Alert } from 'react-native';
 import * as Speech from 'expo-speech';
 import { fetchNavRoute, type NavRoute, type NavStep, type NavGuardWarning } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
-import { subscribeSharedLocation, type SharedLocation } from '../lib/shared-location';
+import { subscribeSharedLocation, getLatestLocation, type SharedLocation } from '../lib/shared-location';
 
 const DEVIATION_THRESHOLD_M = 250;  // metres — if user is this far off route, re-route
 
@@ -155,7 +156,7 @@ export function useNavigation(): UseNavigationResult {
       setUserLng(loc.longitude);
       if (loc.heading !== null) setBearing(loc.heading);
 
-      // Off-route detection — re-fetch route if driver deviates
+      // Off-route detection — prompt driver before rerouting
       const currentRoute = routeRef.current;
       if (currentRoute && !isReroutingRef.current) {
         const offRoute = isOffRoute(
@@ -164,25 +165,45 @@ export function useNavigation(): UseNavigationResult {
           DEVIATION_THRESHOLD_M,
         );
         if (offRoute) {
-          isReroutingRef.current = true;
-          console.log('[useNavigation] Off route — re-routing...');
-          fetchNavRoute(
-            loc.latitude, loc.longitude,
-            destLat.current!, destLng.current!,
-            vehicleId ?? 'lwb_van',
-            customHeightM,
-            destAddress.current,
-          ).then(newRoute => {
-            if (newRoute) {
-              routeRef.current = newRoute;
-              setRoute(newRoute);
-              setStepIndex(0);
-              if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
-            }
-            isReroutingRef.current = false;
-          }).catch(() => {
-            isReroutingRef.current = false;
-          });
+          isReroutingRef.current = true; // prevent repeated prompts
+          Alert.alert(
+            '🔄 Off Route',
+            'You appear to be off your planned route. Reroute now?',
+            [
+              {
+                text: 'Keep Going',
+                style: 'cancel',
+                onPress: () => {
+                  // Re-arm after 90s so the prompt can fire again if still off-route
+                  setTimeout(() => { isReroutingRef.current = false; }, 90_000);
+                },
+              },
+              {
+                text: 'Reroute',
+                onPress: () => {
+                  const cur = getLatestLocation();
+                  fetchNavRoute(
+                    cur?.latitude ?? loc.latitude, cur?.longitude ?? loc.longitude,
+                    destLat.current!, destLng.current!,
+                    vehicleId ?? 'lwb_van',
+                    customHeightM,
+                    destAddress.current,
+                  ).then(newRoute => {
+                    if (newRoute) {
+                      routeRef.current = newRoute;
+                      setRoute(newRoute);
+                      setStepIndex(0);
+                      if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
+                    }
+                    isReroutingRef.current = false;
+                  }).catch(() => {
+                    isReroutingRef.current = false;
+                  });
+                },
+              },
+            ],
+            { cancelable: true, onDismiss: () => { isReroutingRef.current = false; } },
+          );
         }
       }
     });
