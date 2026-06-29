@@ -78,20 +78,25 @@ export interface AccessBrief {
 
 export interface User {
   id:             string;
-  name:           string;
+  name?:          string;
   email:          string;
   role:           string;
+  tier?:          string;
   planId:         PlanId;
   trialEndsAt?:   string;
   planExpiresAt?: string;
 }
 
 export interface AuthResponse {
-  ok:   boolean;
-  data: {
-    token:        string;
-    refreshToken: string;
-    user:         User;
+  accessToken:  string;
+  refreshToken: string;
+  user: {
+    id:     string;
+    email:  string;
+    role:   string;
+    tier:   string;
+    planId: string;
+    name?:  string;
   };
 }
 
