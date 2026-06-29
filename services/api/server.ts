@@ -42,6 +42,7 @@ import { confirmPinRoute } from './routes/confirm-pin.js';
 import { mapConfigRoute } from './routes/map-config.js';
 import { autocompleteRoute } from './routes/autocomplete.js';
 import { authRoutes } from './routes/auth.js';
+import { signAccessToken } from '../auth/index.js';
 import { podRoute } from './routes/pod.js';
 import { stopsRoutes } from './routes/stops.js';
 import { vehiclesRoutes } from './routes/vehicles.js';
@@ -335,7 +336,7 @@ const start = async () => {
     if (NODE_ENV === 'production' && secret !== process.env.DRIVER_API_KEY) {
       return reply.code(401).send({ ok: false, error: 'Invalid credentials' });
     }
-    const token = (server as any).jwt.sign({ sub: driverId, role: 'driver' });
+    const token = signAccessToken(driverId, 'driver', 'navigation', 'navigation');
     return reply.send({ ok: true, data: { token, expiresIn: '12h' } });
   });
 

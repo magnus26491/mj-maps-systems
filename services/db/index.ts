@@ -183,10 +183,11 @@ export async function createRoute(data: {
   shiftStart: Date;
   totalStops: number;
   rawResult: unknown;
+  polylineJson?: string | null;
 }): Promise<string> {
   const { rows } = await pool.query(
-    `INSERT INTO routes (driver_id, vehicle_id, depot_lat, depot_lon, shift_start, total_stops, raw_result)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `INSERT INTO routes (driver_id, vehicle_id, depot_lat, depot_lon, shift_start, total_stops, raw_result, polyline_json)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      RETURNING id`,
     [
       data.driverId ?? null,
@@ -196,6 +197,7 @@ export async function createRoute(data: {
       data.shiftStart,
       data.totalStops,
       JSON.stringify(data.rawResult),
+      data.polylineJson ?? null,
     ],
   );
   return rows[0].id as string;
