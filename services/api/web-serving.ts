@@ -272,8 +272,47 @@ export async function registerWebRoutes(server: any): Promise<void> {
       reply.code(503).send('Driver app not built');
     }
   });
-  
-  // Driver app SPA fallback — * catches all /driver/* sub-paths for React Router
+
+  // Driver app static assets — Expo exports with --public-url /driver so all
+  // chunk/asset paths start with /driver/_expo/... or /driver/assets/...
+  server.get('/driver/_expo/*', async (request: any, reply: FastifyReply) => {
+    const sub = (request.url as string).split('?')[0].replace(/^\/driver\//, '');
+    const safePath = resolveSafePath(sub, DRIVER_ROOT);
+    if (!safePath || !fileExists(safePath)) { reply.code(404).send('Not Found'); return; }
+    const content = readFileSafe(safePath);
+    if (!content) { reply.code(500).send('Internal Server Error'); return; }
+    reply
+      .header('Content-Type', getMimeType(safePath))
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('X-Content-Type-Options', 'nosniff')
+      .code(200).send(content);
+  });
+
+  server.get('/driver/assets/*', async (request: any, reply: FastifyReply) => {
+    const sub = (request.url as string).split('?')[0].replace(/^\/driver\//, '');
+    const safePath = resolveSafePath(sub, DRIVER_ROOT);
+    if (!safePath || !fileExists(safePath)) { reply.code(404).send('Not Found'); return; }
+    const content = readFileSafe(safePath);
+    if (!content) { reply.code(500).send('Internal Server Error'); return; }
+    reply
+      .header('Content-Type', getMimeType(safePath))
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('X-Content-Type-Options', 'nosniff')
+      .code(200).send(content);
+  });
+
+  server.get('/driver/polyfill.js', async (_request: any, reply: FastifyReply) => {
+    const safePath = resolveSafePath('polyfill.js', DRIVER_ROOT);
+    if (!safePath || !fileExists(safePath)) { reply.code(404).send('Not Found'); return; }
+    const content = readFileSafe(safePath);
+    if (!content) { reply.code(500).send('Internal Server Error'); return; }
+    reply
+      .header('Content-Type', 'application/javascript')
+      .header('Cache-Control', 'public, max-age=3600')
+      .code(200).send(content);
+  });
+
+  // Driver app SPA fallback — catches all other /driver/* sub-paths (Expo Router)
   server.get('/driver/*', async (_request: any, reply: FastifyReply) => {
     await safeServeSpa(reply, DRIVER_ROOT);
   });

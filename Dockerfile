@@ -29,7 +29,10 @@ ENV EXPO_PUBLIC_API_URL=https://mjmapsystems.com
 # after --ignore-scripts so native-only postinstall scripts (pod-install, etc.)
 # don't crash on Alpine Linux
 RUN node scripts/stub-react-native.js
-RUN npx expo export --platform web --clear
+# --public-url /driver rewrites all asset paths in the generated HTML/JS to
+# use /driver/_expo/... instead of /_expo/..., so assets load correctly when
+# the app is served at mjmapsystems.com/driver (not at root /).
+RUN npx expo export --platform web --public-url /driver --clear
 # Expo's static renderer strips ALL <script> tags from +html.tsx.
 # public/polyfill.js is copied to dist/ by expo export.
 # Inject the <script src> into the generated index.html so it loads
