@@ -178,6 +178,7 @@ export async function serveSpaWithAssets(
   const sub = urlPath.slice(mountPrefix.length).replace(/^\//, ''); // e.g. assets/index-Dk2lAgfX.css
 
   if (sub) {
+    // 1. Exact file (assets, images, etc.)
     const safePath = resolveSafePath(sub, rootDir);
     if (safePath && fileExists(safePath)) {
       const content = readFileSafe(safePath);
@@ -190,9 +191,23 @@ export async function serveSpaWithAssets(
         return;
       }
     }
+
+    // 2. Directory index — Next.js static export writes /login → login/index.html
+    const dirIndex = resolveSafePath(`${sub}/index.html`, rootDir);
+    if (dirIndex && fileExists(dirIndex)) {
+      const content = readFileSafe(dirIndex);
+      if (content) {
+        reply
+          .header('Content-Type', 'text/html; charset=utf-8')
+          .header('Cache-Control', 'public, max-age=60')
+          .header('X-Content-Type-Options', 'nosniff')
+          .code(200).send(content);
+        return;
+      }
+    }
   }
 
-  // Not a real file — real SPA route (e.g. /admin/users, /driver/shift-start) → index.html
+  // 3. SPA fallback — client-side route (e.g. /admin/users, /driver/shift-start) → index.html
   await safeServeSpa(reply, rootDir);
 }
 
