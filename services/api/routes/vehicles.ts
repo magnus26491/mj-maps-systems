@@ -14,12 +14,13 @@ export async function vehiclesRoutes(server: FastifyInstance): Promise<void> {
    * Public — no auth required (no sensitive data).
    */
   server.get('/api/v1/vehicles', async (_request, reply) => {
+    const makes     = getMakes();
+    const catalogue = VEHICLE_CATALOGUE;
     return reply.send({
       ok: true,
-      data: {
-        makes: getMakes(),
-        catalogue: VEHICLE_CATALOGUE,
-      },
+      data: catalogue,   // Vehicle[] array — matches frontend lib/api.ts expectation
+      makes,             // kept for any caller that reads makes separately
+      catalogue,         // alias for backward compatibility
     });
   });
 

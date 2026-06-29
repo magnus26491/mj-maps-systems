@@ -11,6 +11,12 @@
  *    accurate pin automatically once contributor_count reaches threshold.
  * 3. Invalidates the Redis pin cache for this address once verified.
  * 4. Returns the updated contributor count and confidence level.
+ *
+ * POST /api/v1/pins/confirm
+ *
+ * Called by PinConfirmMap.tsx. Normalises the address and upserts into
+ * geocode_pins directly (not tied to a specific stop).
+ * Body: { address: string, lat: number, lng: number }
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -20,6 +26,7 @@ import {
   updateStopPin,
   upsertGeocodePin,
 } from '../../db/pin-store.js';
+import { pool } from '../../db/index.js';
 
 
 const BodySchema = z.object({
@@ -30,6 +37,62 @@ const BodySchema = z.object({
 
 
 export const confirmPinRoute: FastifyPluginAsync = async (fastify) => {
+
+  // ── POST /api/v1/pins/confirm ──────────────────────────────────────────────
+  // Called by PinConfirmMap.tsx with { address, lat, lng }.
+  // Normalises the address and upserts directly into geocode_pins.
+  fastify.post<{
+    Body: { address: string; lat: number; lng: number };
+  }>(
+    '/api/v1/pins/confirm',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            address: { type: 'string' },
+            lat:     { type: 'number' },
+            lng:     { type: 'number' },
+          },
+          required: ['address', 'lat', 'lng'],
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = z.object({
+        address: z.string().min(1),
+        lat:     z.number(),
+        lng:     z.number(),
+      }).safeParse(request.body);
+
+      if (!parsed.success) {
+        return reply.code(400).send({ ok: false, error: parsed.error.message });
+      }
+
+      const { address, lat, lng } = parsed.data;
+
+      // Normalise: lowercase, trim, collapse multiple spaces
+      const normalisedAddress = address.toLowerCase().trim().replace(/\s+/g, ' ');
+
+      try {
+        await pool.query(
+          `INSERT INTO geocode_pins (normalised_address, lat, lng, confidence, created_at)
+           VALUES ($1, $2, $3, 2, NOW())
+           ON CONFLICT (normalised_address)
+           DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, confidence = 2, last_confirmed_at = NOW()`,
+          [normalisedAddress, lat, lng],
+        );
+
+        return reply.send({ ok: true });
+      } catch (err) {
+        request.log.error({ err }, '[pins/confirm] Unexpected error');
+        return reply.code(500).send({ ok: false, error: 'Internal server error' });
+      }
+    },
+  );
+
+  // ── POST /api/v1/stops/:stopId/confirm-pin ─────────────────────────────────
   fastify.post<{
     Params: { stopId: string };
     Body: z.infer<typeof BodySchema>;
