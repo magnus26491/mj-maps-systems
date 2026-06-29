@@ -59,7 +59,7 @@ export function AlertFeed({ alerts, connected, onDismiss, onReplan }: AlertFeedP
               </div>
               <button
                 onClick={() => onDismiss(alert.alertId)}
-                className="flex-shrink-0 text-zinc-600 hover:text-zinc-300 transition-colors"
+                className="flex-shrink-0 text-zinc-600 hover:text-zinc-300 transition-colors p-3 -mr-3 -mt-1"
                 aria-label="Dismiss alert"
               >
                 <X size={14} />

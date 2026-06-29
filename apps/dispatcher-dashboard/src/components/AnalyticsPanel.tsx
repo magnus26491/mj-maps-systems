@@ -48,8 +48,8 @@ export default function AnalyticsPanel() {
       </div>
 
       {/* Route history table */}
-      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
+      <div className="table-scroll" style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}>
+        <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
           <thead>
             <tr style={{ background: '#1e293b', color: '#94a3b8' }}>
               <th style={thStyle}>Driver</th>

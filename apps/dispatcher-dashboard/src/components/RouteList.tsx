@@ -46,10 +46,17 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
           <div key={route.routeId} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, overflow: 'hidden' }}>
             {/* Route row */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '0.75rem 1rem', gap: '1rem' }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem', cursor: 'pointer', minWidth: 20 }}
-                onClick={() => toggleRoute(route.routeId)}>
+              <button
+                onClick={() => toggleRoute(route.routeId)}
+                style={{
+                  background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.75rem',
+                  cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}
+                aria-label={expanded ? 'Collapse route' : 'Expand route'}
+              >
                 {expanded ? '▼' : '▶'}
-              </span>
+              </button>
               <div style={{ flex: 1 }}>
                 <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{route.driverName ?? 'Unassigned'}</span>
                 <span style={{ color: '#64748b', marginLeft: '0.5rem', fontSize: '0.875rem' }}>{route.vehicleLabel}</span>
@@ -77,8 +84,9 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
                     border: '1px solid #22c55e',
                     color: '#22c55e',
                     borderRadius: 6,
-                    padding: '0.25rem 0.5rem',
+                    padding: '0.5rem 0.75rem',
                     fontSize: '0.75rem',
+                    minHeight: 44,
                     cursor: completingRouteId === route.routeId ? 'not-allowed' : 'pointer',
                     marginLeft: '0.5rem',
                     opacity: completingRouteId === route.routeId ? 0.5 : 1,
@@ -91,7 +99,8 @@ export default function RouteList({ routes, isLoading, onAssign, onComplete }: P
                 onClick={() => onAssign(route.routeId)}
                 style={{
                   background: '#1e3a5f', border: '1px solid #3b82f6', borderRadius: 4,
-                  color: '#3b82f6', fontSize: '0.75rem', padding: '0.25rem 0.5rem', cursor: 'pointer',
+                  color: '#3b82f6', fontSize: '0.75rem', padding: '0.5rem 0.75rem',
+                  minHeight: 44, cursor: 'pointer',
                 }}
               >
                 Assign →

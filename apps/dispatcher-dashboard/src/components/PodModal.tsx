@@ -42,8 +42,8 @@ export default function PodModal({ stopId, onClose }: Props) {
   if (!stopId) return null;
 
   return (
-    <div style={overlayStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-box-sm" onClick={e => e.stopPropagation()}>
         {/* Close button */}
         <button onClick={onClose} style={closeBtn}>
           &times;
@@ -81,19 +81,10 @@ export default function PodModal({ stopId, onClose }: Props) {
   );
 }
 
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-};
-
-const modalStyle: React.CSSProperties = {
-  background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12,
-  padding: '1.5rem', width: '100%', maxWidth: 700, position: 'relative',
-};
-
 const closeBtn: React.CSSProperties = {
-  position: 'absolute', top: 12, right: 16, background: 'transparent', border: 'none',
+  position: 'absolute', top: 4, right: 4, background: 'transparent', border: 'none',
   color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1,
+  minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
 const titleStyle: React.CSSProperties = {

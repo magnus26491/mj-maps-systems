@@ -196,7 +196,7 @@ export default function NavigationScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.app.background }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.app.border }]}>
-        <TouchableOpacity onPress={handleBack} hitSlop={12}>
+        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[styles.backBtn, { color: colors.app.primary }]}>Back</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.app.text }]}>Navigate</Text>

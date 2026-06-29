@@ -119,8 +119,9 @@ export default function Dashboard() {
 
 const tabStyle: React.CSSProperties = {
   borderRadius: 6,
-  padding: '0.25rem 0.75rem',
+  padding: '0.625rem 0.75rem',
   fontSize: '0.875rem',
   cursor: 'pointer',
   fontWeight: 600,
+  minHeight: 44,
 };
