@@ -60,6 +60,7 @@ import { safetyRoutes } from './routes/safety.js';
 import { fleetStreamRoute } from './routes/fleet-stream.js';
 import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
 import { poisRoute } from './routes/pois.js';
+import { adminRoutes } from './routes/admin.js';
 import { geocodingProvider } from '../geocoding/geocoding-provider.js';
 import { optimiseRoute } from '../route-engine/route-engine.js';
 
@@ -449,17 +450,17 @@ const start = async () => {
   );
 
   /** Admin-only routes */
-  server.get(
-    '/api/v1/admin/users',
-    { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (_request, reply) => reply.send({ ok: true, data: [] }),
-  );
-
-  server.get(
-    '/api/v1/admin/analytics',
-    { preHandler: [requireAuth, requireRole('admin'), requireFeature('ADMIN_ANALYTICS')] },
-    async (_request, reply) => reply.send({ ok: true, data: {} }),
-  );
+  await server.register(async (app) => {
+    await app.register(fastifyRateLimit, {
+      max: 60,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => {
+        const authUser = (request as any).authUser;
+        return authUser?.id ?? request.ip;
+      },
+    });
+    await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+  });
 
   // ── Admin setup (one-time, protected by ADMIN_SETUP_SECRET) ──────────────────
   // Used to create the initial admin account. Disabled once ADMIN_SETUP_SECRET is unset.

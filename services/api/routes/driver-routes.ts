@@ -28,7 +28,7 @@ export async function driverRoutes(server: FastifyInstance): Promise<void> {
     '/api/v1/driver/me/today-route',
     { preHandler: [requireAuth] },
     async (request, reply) => {
-      const driverId = (request as any).authUser?.sub ?? (request as any).authUser?.id;
+      const driverId = (request as any).authUser?.id;
 
       const { rows } = await pool.query(
         `SELECT id as route_id, status, total_stops, created_at
@@ -69,7 +69,7 @@ export async function driverRoutes(server: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { routeId } = request.params;
-      const driverId = (request as any).authUser?.sub ?? (request as any).authUser?.id;
+      const driverId = (request as any).authUser?.id;
 
       const { rows } = await pool.query(
         `SELECT r.*, json_agg(s.* ORDER BY s.sequence_number) as stops
@@ -107,7 +107,7 @@ export async function driverRoutes(server: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { routeId } = request.params;
-      const driverId = (request as any).authUser?.sub ?? (request as any).authUser?.id;
+      const driverId = (request as any).authUser?.id;
 
       const { rowCount } = await pool.query(
         `UPDATE routes SET status = 'accepted', updated_at = NOW()

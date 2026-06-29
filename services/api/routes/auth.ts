@@ -94,7 +94,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send({ error: 'Password must be at least 8 characters' });
       }
 
-      // Self-registration is restricted to drivers only — no privilege escalation.
+      // Validate role — self-registration is restricted to drivers only.
+      // Dispatcher and admin accounts must be created by a fleet admin.
       if (role && role !== 'driver') {
         return reply.code(400).send({
           error: 'Self-registration is only available for drivers. Contact your fleet admin for dispatcher or admin access.',
@@ -386,7 +387,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           role:            user.role,
           tier:            user.tier,
           planId:          user.plan_id,
-          isOwner:         user.is_owner ?? false,
+          isOwner:         (user as any).is_owner ?? false,
           organisationId:  user.organisation_id,
           createdAt:       user.created_at,
           lastLogin:       user.last_login,
