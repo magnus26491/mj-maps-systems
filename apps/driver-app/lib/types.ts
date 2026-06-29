@@ -92,6 +92,7 @@ export interface User {
   role:           string;
   tier?:          string;
   planId:         PlanId;
+  isOwner?:       boolean;
   trialEndsAt?:   string;
   planExpiresAt?: string;
 }
@@ -100,12 +101,13 @@ export interface AuthResponse {
   accessToken:  string;
   refreshToken: string;
   user: {
-    id:     string;
-    email:  string;
-    role:   string;
-    tier:   string;
-    planId: string;
-    name?:  string;
+    id:       string;
+    email:    string;
+    role:     string;
+    tier:     string;
+    planId:   PlanId;
+    name?:    string;
+    isOwner?: boolean;
   };
 }
 

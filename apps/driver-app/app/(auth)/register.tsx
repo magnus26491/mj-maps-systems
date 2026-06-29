@@ -110,20 +110,18 @@ export default function RegisterScreen() {
       await setAuth(loginRes.accessToken, loginRes.refreshToken, loginUser);
 
       // Step 4 — Open Stripe Checkout
+      // Server returns { url: string }; body fields optional (server uses env defaults).
       const token = useAuthStore.getState().token;
       try {
         const checkoutRes = await fetch(`${API}/api/v1/billing/checkout`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body:    JSON.stringify({}),
         });
         if (checkoutRes.ok) {
-          const { data } = await checkoutRes.json() as { ok: boolean; data: { checkoutUrl: string } };
-          if (data?.checkoutUrl) {
-            const result = await WebBrowser.openAuthSessionAsync(
-              data.checkoutUrl,
-              'mjmaps://billing/success',
-            );
-            // Even if user cancels, proceed to app
+          const { url } = await checkoutRes.json() as { url?: string };
+          if (url) {
+            const result = await WebBrowser.openAuthSessionAsync(url, 'mjmaps://billing/success');
             void result;
           }
         }

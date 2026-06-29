@@ -42,17 +42,25 @@ interface AuthUser {
 export async function registerBillingRoutes(server: FastifyInstance): Promise<void> {
 
   // ── POST /api/v1/billing/checkout ─────────────────────────────────────────
+  // Body fields are all optional — server falls back to env vars so the mobile
+  // app can call this without needing to know the Stripe price ID.
   server.post<{
-    Body: { priceId: string; successUrl: string; cancelUrl: string };
+    Body: { priceId?: string; successUrl?: string; cancelUrl?: string };
   }>(
     '/api/v1/billing/checkout',
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const authUser = (request as any).authUser as AuthUser;
-      const { priceId, successUrl, cancelUrl } = request.body;
+      const appUrl = process.env.APP_URL ?? 'mjmaps://';
+      const priceId    = request.body?.priceId    ?? process.env.STRIPE_PRO_PRICE_ID;
+      const successUrl = request.body?.successUrl ?? `${appUrl}billing/success`;
+      const cancelUrl  = request.body?.cancelUrl  ?? `${appUrl}billing/cancel`;
 
       if (!stripe) {
         return reply.status(503).send({ error: 'Stripe is not configured.' });
+      }
+      if (!priceId) {
+        return reply.status(503).send({ error: 'STRIPE_PRO_PRICE_ID is not configured.' });
       }
 
       try {

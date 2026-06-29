@@ -37,20 +37,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     await secureSet(REFRESH_KEY, refreshToken);
     await secureSet(USER_KEY,    JSON.stringify(user));
     set({ token, user, isReady: true });
-
-    try {
-      const res = await fetch(`${BASE}/api/v1/driver/me/today-route`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const json = await res.json() as { ok: boolean; data: { routeId: string } | null };
-        if (json.ok && json.data?.routeId) {
-          await secureSet(ROUTE_KEY, json.data.routeId);
-        }
-      }
-    } catch {
-      // Non-fatal
-    }
   },
 
   loadStored: async () => {
@@ -64,6 +50,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    const refreshToken = await secureGet(REFRESH_KEY);
+    if (refreshToken) {
+      fetch(`${BASE}/api/v1/auth/logout`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
     await Promise.all([
       secureDel(TOKEN_KEY),
       secureDel(REFRESH_KEY),
