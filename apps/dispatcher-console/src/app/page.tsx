@@ -24,6 +24,12 @@ export default function DispatcherDashboard() {
   const [rightPanel, setRightPanel] = useState<RightPanel>('alerts');
   const [authChecked, setAuthChecked] = useState(false);
 
+  // All hooks must be called unconditionally before any early return
+  const { routes, isLoading: routesLoading, refresh: refreshRoutes } = useActiveRoutes();
+  const { stats, isLoading: statsLoading } = useFleetStats();
+  const { route: selectedRoute } = useRouteDetail(selectedRouteId);
+  const { alerts, connected, dismiss, undismissedCount } = useAlerts();
+
   useEffect(() => {
     if (!isLoggedIn()) {
       window.location.href = '/dispatcher/login';
@@ -39,11 +45,6 @@ export default function DispatcherDashboard() {
       </div>
     );
   }
-
-  const { routes, isLoading: routesLoading, refresh: refreshRoutes } = useActiveRoutes();
-  const { stats, isLoading: statsLoading } = useFleetStats();
-  const { route: selectedRoute } = useRouteDetail(selectedRouteId);
-  const { alerts, connected, dismiss, undismissedCount } = useAlerts();
 
   const handleSelectRoute = useCallback((routeId: string) => {
     setSelectedRouteId(routeId);

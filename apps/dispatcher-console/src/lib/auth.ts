@@ -19,12 +19,19 @@ export function clearTokens(): void {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const part = token.split('.')[1]!;
+  const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+  const padded  = base64 + '=='.slice(0, (4 - base64.length % 4) % 4);
+  return JSON.parse(atob(padded));
+}
+
 export function isLoggedIn(): boolean {
   const token = getToken();
   if (!token) return false;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]!));
-    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now() + 30_000;
+    const payload = decodeJwtPayload(token);
+    return typeof payload.exp === 'number' && (payload.exp as number) * 1000 > Date.now() + 30_000;
   } catch {
     return false;
   }
@@ -34,8 +41,8 @@ export function getUserRole(): string | null {
   const token = getToken();
   if (!token) return null;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]!));
-    return payload.role ?? null;
+    const payload = decodeJwtPayload(token);
+    return typeof payload.role === 'string' ? payload.role : null;
   } catch {
     return null;
   }
