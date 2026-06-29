@@ -5,7 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Static export for Docker/Railway builds (output: 'export' forbids rewrites)
   ...(isStaticExport
-    ? { output: 'export', distDir: 'dist', basePath: '/dispatcher' }
+    ? { output: 'export', distDir: 'dist', basePath: '/dispatcher', trailingSlash: true }
     : {
         // Dev only: proxy /api/* to local backend so no CORS issues
         async rewrites() {

@@ -192,7 +192,21 @@ export async function serveSpaWithAssets(
       }
     }
 
-    // 2. Directory index — Next.js static export writes /login → login/index.html
+    // 2. Flat HTML — Next.js static export without trailingSlash writes /login → login.html
+    const flatHtml = resolveSafePath(`${sub}.html`, rootDir);
+    if (flatHtml && fileExists(flatHtml)) {
+      const content = readFileSafe(flatHtml);
+      if (content) {
+        reply
+          .header('Content-Type', 'text/html; charset=utf-8')
+          .header('Cache-Control', 'public, max-age=60')
+          .header('X-Content-Type-Options', 'nosniff')
+          .code(200).send(content);
+        return;
+      }
+    }
+
+    // 3. Directory index — Next.js static export with trailingSlash writes /login → login/index.html
     const dirIndex = resolveSafePath(`${sub}/index.html`, rootDir);
     if (dirIndex && fileExists(dirIndex)) {
       const content = readFileSafe(dirIndex);
