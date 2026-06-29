@@ -39,6 +39,7 @@ export async function fetchNavRoute(
   toLat:   number, toLng:   number,
   vehicleId: string,
   customHeightM?: number | null,
+  address?: string,   // full address string — server uses it to look up community-verified pin
 ): Promise<NavRoute | null> {
   const token = await SecureStore.getItemAsync('mj_jwt');
 
@@ -51,6 +52,7 @@ export async function fetchNavRoute(
     body: JSON.stringify({
       fromLat, fromLng, toLat, toLng, vehicleId,
       ...(customHeightM != null ? { customHeightM } : {}),
+      ...(address ? { address } : {}),
     }),
   });
 

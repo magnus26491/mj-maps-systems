@@ -30,6 +30,8 @@ interface LocalStop {
   lng:          number;
   parcelCount:  number;
   notes?:       string;
+  uprn?:        string;   // UPRN from OS Places — carried to navigation for pin precision
+  pinSource?:   string;   // 'os_places' | 'nominatim' | 'community_verified' etc.
 }
 
 interface PafAddress {
@@ -40,6 +42,9 @@ interface PafAddress {
   fullAddress: string;
   lat?:        number;
   lng?:        number;
+  uprn?:       string;   // from OS Places — UPRN key for door-pin precision
+  confidence?: number;   // 0.92 = OS Places UPRN, 0.55 = Nominatim centroid
+  source?:     string;
 }
 
 const normalisePC  = (q: string) => q.toUpperCase().replace(/\s+/g, '');
@@ -103,6 +108,7 @@ export default function RouteBuilderScreen() {
     setStops(prev => [...prev, {
       id: `paf-${Date.now()}-${Math.random()}`,
       address: addr.fullAddress, lat: addr.lat ?? 0, lng: addr.lng ?? 0, parcelCount: 1,
+      uprn: addr.uprn, pinSource: addr.source,
     }]);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
@@ -113,6 +119,7 @@ export default function RouteBuilderScreen() {
       ...pafResults.map((addr, i) => ({
         id: `paf-all-${Date.now()}-${i}`,
         address: addr.fullAddress, lat: addr.lat ?? 0, lng: addr.lng ?? 0, parcelCount: 1,
+        uprn: addr.uprn, pinSource: addr.source,
       })),
     ]);
     setPafResults([]);

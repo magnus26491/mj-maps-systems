@@ -54,7 +54,7 @@ interface UseNavigationResult {
   userLng:        number | null;
   bearing:        number;
   guardWarnings:  NavGuardWarning[];
-  startNav:       (toLat: number, toLng: number) => void;
+  startNav:       (toLat: number, toLng: number, address?: string) => void;
   stopNav:        () => void;
   speakStep:      (step: NavStep) => void;
 }
@@ -71,8 +71,9 @@ export function useNavigation(): UseNavigationResult {
   const [bearing,  setBearing]    = useState(0);
   const [guardWarnings, setGuardWarnings] = useState<NavGuardWarning[]>([]);
   const lastSpokenStep = useRef(-1);
-  const destLat = useRef<number | null>(null);
-  const destLng = useRef<number | null>(null);
+  const destLat     = useRef<number | null>(null);
+  const destLng     = useRef<number | null>(null);
+  const destAddress = useRef<string | undefined>(undefined);
   // Keep a mutable ref to current route for use in the location callback
   const routeRef = useRef<NavRoute | null>(null);
   const isReroutingRef = useRef(false);
@@ -109,7 +110,7 @@ export function useNavigation(): UseNavigationResult {
     }
   }, [userLat, userLng, route, stepIndex, speakStep]);
 
-  const startNav = useCallback(async (toLat: number, toLng: number) => {
+  const startNav = useCallback(async (toLat: number, toLng: number, address?: string) => {
     setIsLoading(true);
     setError(null);
     setStepIndex(0);
@@ -129,6 +130,7 @@ export function useNavigation(): UseNavigationResult {
       toLat, toLng,
       vehicleId ?? 'lwb_van',
       customHeightM,
+      address,
     );
 
     if (!navRoute) {
@@ -140,8 +142,9 @@ export function useNavigation(): UseNavigationResult {
     setRoute(navRoute);
     routeRef.current = navRoute;
     setGuardWarnings(navRoute.guardWarnings ?? []);
-    destLat.current = toLat;
-    destLng.current = toLng;
+    destLat.current     = toLat;
+    destLng.current     = toLng;
+    destAddress.current = address;
     setIsLoading(false);
     if (navRoute.steps[0]) speakStep(navRoute.steps[0]);
 
@@ -168,6 +171,7 @@ export function useNavigation(): UseNavigationResult {
             destLat.current!, destLng.current!,
             vehicleId ?? 'lwb_van',
             customHeightM,
+            destAddress.current,
           ).then(newRoute => {
             if (newRoute) {
               routeRef.current = newRoute;
@@ -190,8 +194,9 @@ export function useNavigation(): UseNavigationResult {
     Speech.stop();
     setRoute(null);
     routeRef.current = null;
-    destLat.current = null;
-    destLng.current = null;
+    destLat.current     = null;
+    destLng.current     = null;
+    destAddress.current = undefined;
     setStepIndex(0);
     setError(null);
     setGuardWarnings([]);

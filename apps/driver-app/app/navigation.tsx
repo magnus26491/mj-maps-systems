@@ -54,7 +54,7 @@ export default function NavigationScreen() {
       );
       return;
     }
-    startNav(stop.lat, stop.lng);
+    startNav(stop.lat, stop.lng, stop.address);
   }, [stopId, stops, startNav]);
 
   const stop = stops.find(s => s.id === stopId);

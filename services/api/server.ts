@@ -217,6 +217,9 @@ const start = async () => {
           fullAddress: c.address,
           lat:         c.lat,
           lng:         c.lng,
+          uprn:        c.uprn ?? c.id,          // UPRN for door-pin cache key
+          confidence:  c.confidence,             // so app can show precision badge
+          source:      c.source,                 // 'os_places' | 'nominatim' | 'plus_code'
         };
       });
       return reply.send({ ok: true, addresses });
