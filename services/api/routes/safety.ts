@@ -61,7 +61,7 @@ export const safetyRoutes: FastifyPluginAsync = async (fastify) => {
       const parsed = EventBodySchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ ok: false, error: parsed.error.message });
 
-      const driverId = (request as any).user?.id ?? null;
+      const driverId = (request as any).authUser?.id ?? null;
       const { type, lat, lng, note, routeId, stopId, severity } = parsed.data;
 
       const { rows } = await pool.query<{ id: string }>(
@@ -124,7 +124,7 @@ export const safetyRoutes: FastifyPluginAsync = async (fastify) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
         return reply.code(400).send({ ok: false, error: 'Invalid eventId' });
       }
-      const resolverId = (request as any).user?.id ?? null;
+      const resolverId = (request as any).authUser?.id ?? null;
       try {
         await pool.query(
           `UPDATE safety_events SET resolved_at = NOW(), resolved_by = $1 WHERE id = $2`,

@@ -13,7 +13,7 @@ export async function driverRoutes(server: FastifyInstance): Promise<void> {
    * Returns current driver's profile and status.
    */
   server.get('/api/v1/drivers/me', { preHandler: [requireAuth] }, async (request, reply) => {
-    const driverId = (request as any).authUser?.sub;
+    const driverId = (request as any).authUser?.id;
     // TODO: fetch driver profile from DB
     return reply.send({ ok: true, data: { id: driverId } });
   });

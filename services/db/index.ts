@@ -49,9 +49,10 @@ export function getPool(): PoolType {
       );
       return _pool;
     }
+    // 50 connections — supports ~200 concurrent req/s; add PgBouncer before scaling further.
     _pool = new Pool({
       connectionString: url,
-      max: 20,
+      max: 50,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
       ssl: { rejectUnauthorized: false },

@@ -31,10 +31,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RegisterSchema = {
   type: 'object',
   properties: {
-    email:            { type: 'string' },
-    password:         { type: 'string' },
-    role:             { type: 'string' },
-    organisation_id:  { type: 'string' },
+    email:           { type: 'string' },
+    password:        { type: 'string' },
+    role:            { type: 'string' },
+    organisation_id: { type: 'string' },
   },
   required: ['email', 'password'],
 };
@@ -82,7 +82,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       schema: { body: RegisterSchema },
     },
     async (request, reply) => {
-      const { email, password, role = 'driver', organisation_id } = request.body ?? {};
+      const { email, password, role, organisation_id } = request.body ?? {};
 
       // Validate email format
       if (!email || !EMAIL_RE.test(email)) {
@@ -94,11 +94,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send({ error: 'Password must be at least 8 characters' });
       }
 
-      // Validate role
-      const validRoles: UserRole[] = ['driver', 'dispatcher', 'admin'];
-      if (role && !validRoles.includes(role as UserRole)) {
-        return reply.code(400).send({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+      // Self-registration is restricted to drivers only — no privilege escalation.
+      if (role && role !== 'driver') {
+        return reply.code(400).send({
+          error: 'Self-registration is only available for drivers. Contact your fleet admin for dispatcher or admin access.',
+        });
       }
+      const FORCED_ROLE = 'driver' as const;
 
       let passwordHash: string;
       try {
@@ -112,7 +114,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           `INSERT INTO users (email, password_hash, role, organisation_id)
            VALUES ($1, $2, $3, $4)
            RETURNING id, email, role, subscription_tier as tier`,
-          [email, passwordHash, role ?? 'driver', organisation_id ?? null],
+          [email, passwordHash, FORCED_ROLE, organisation_id ?? null],
         );
 
         const user = rows[0] as { id: string; email: string; role: string; tier: string };
@@ -384,6 +386,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           role:            user.role,
           tier:            user.tier,
           planId:          user.plan_id,
+          isOwner:         user.is_owner ?? false,
           organisationId:  user.organisation_id,
           createdAt:       user.created_at,
           lastLogin:       user.last_login,

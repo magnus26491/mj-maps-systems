@@ -23,7 +23,7 @@ export async function fcmTokenRoutes(server: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { fcmToken } = request.body;
       if (!fcmToken) return reply.code(400).send({ ok: false, error: 'fcmToken required' });
-      const driverId = (request as any).authUser?.sub;
+      const driverId = (request as any).authUser?.id;
       await pool.query(
         `UPDATE drivers SET fcm_token = $1, updated_at = NOW() WHERE id = $2`,
         [fcmToken, driverId],

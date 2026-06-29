@@ -112,7 +112,7 @@ export const pinCorrectionRoute: FastifyPluginAsync = async (fastify) => {
       }
       const stop = stopRows[0];
 
-      const driverId = (request as any).user?.id ?? null;
+      const driverId = (request as any).authUser?.id ?? null;
 
       try {
         await pool.query(
