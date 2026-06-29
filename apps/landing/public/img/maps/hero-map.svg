@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800">
+  <defs>
+    <linearGradient id="route" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2ee6ce"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="800" fill="#0a0e14"/>
+  <!-- City block grid -->
+  <rect x="0" y="0" width="300" height="180" fill="#111b27" rx="2"/>
+  <rect x="340" y="0" width="240" height="180" fill="#111b27" rx="2"/>
+  <rect x="620" y="0" width="300" height="180" fill="#111b27" rx="2"/>
+  <rect x="960" y="0" width="320" height="180" fill="#111b27" rx="2"/>
+  <rect x="0" y="220" width="200" height="260" fill="#111b27" rx="2"/>
+  <rect x="240" y="220" width="180" height="260" fill="#111b27" rx="2"/>
+  <rect x="460" y="220" width="220" height="260" fill="#111b27" rx="2"/>
+  <rect x="720" y="220" width="260" height="260" fill="#111b27" rx="2"/>
+  <rect x="1020" y="220" width="260" height="260" fill="#111b27" rx="2"/>
+  <rect x="0" y="520" width="280" height="280" fill="#111b27" rx="2"/>
+  <rect x="320" y="520" width="200" height="280" fill="#111b27" rx="2"/>
+  <rect x="560" y="520" width="300" height="280" fill="#111b27" rx="2"/>
+  <rect x="900" y="520" width="380" height="280" fill="#111b27" rx="2"/>
+  <!-- Roads -->
+  <rect x="300" y="0" width="40" height="800" fill="#131b26"/>
+  <rect x="620" y="0" width="40" height="800" fill="#131b26"/>
+  <rect x="960" y="0" width="40" height="800" fill="#131b26"/>
+  <rect x="0" y="195" width="1280" height="36" fill="#131b26"/>
+  <rect x="0" y="490" width="1280" height="36" fill="#131b26"/>
+  <!-- Route path -->
+  <polyline
+    points="100,720 100,520 100,213 320,213 320,100 660,100 660,213 980,213 980,350 1280,350"
+    stroke="url(#route)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <!-- Stop pips -->
+  <circle cx="100" cy="720" r="8" fill="#3b82f6"/>
+  <circle cx="100" cy="213" r="6" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="660" cy="100" r="6" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="980" cy="213" r="6" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="1240" cy="350" r="10" fill="#22c55e"/>
+  <circle cx="1240" cy="350" r="18" fill="#22c55e" opacity="0.2"/>
+</svg>

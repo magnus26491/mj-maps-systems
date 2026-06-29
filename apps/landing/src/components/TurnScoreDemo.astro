@@ -1,0 +1,305 @@
+---
+// TurnScoreDemo — interactive turn-score chip demo
+// Uses turn-score-night.webp as background when the photo is present.
+// Falls back to a CSS gradient + SVG if the photo isn't placed yet.
+---
+
+<section class="tsd-section below-fold" aria-labelledby="tsd-heading">
+  <div class="container">
+    <div class="tsd-eyebrow reveal">Driver safety</div>
+    <h2 id="tsd-heading" class="reveal">Know what's coming before you reach it</h2>
+    <p class="tsd-sub text-muted reveal">Every junction scored green, amber, or red — 300 metres before you arrive. Tight turns, blind bends, and low-clearance roads flagged before you're committed.</p>
+
+    <div class="tsd-demo-wrap reveal">
+      <!-- Photo background with gradient scrim -->
+      <div class="tsd-photo-wrap">
+        <picture>
+          <source srcset="/img/photos/turn-score-night.avif" type="image/avif">
+          <source srcset="/img/photos/turn-score-night.webp" type="image/webp">
+          <img
+            class="tsd-photo"
+            src="/img/photos/turn-score-night.jpg"
+            alt="Van approaching a junction at night with turn-score warning visible on the device"
+            loading="lazy"
+            width="1200"
+            height="675"
+            onerror="this.parentElement.classList.add('no-photo')"
+          />
+        </picture>
+        <div class="tsd-scrim"></div>
+      </div>
+
+      <!-- HUD overlay -->
+      <div class="tsd-hud glass">
+        <!-- State selector -->
+        <div class="tsd-tabs" role="tablist" aria-label="Turn score states">
+          <button class="tsd-tab active" role="tab" data-score="green"
+                  aria-selected="true" aria-controls="tsd-panel">
+            <span class="tsd-dot green"></span> Green
+          </button>
+          <button class="tsd-tab" role="tab" data-score="amber"
+                  aria-selected="false" aria-controls="tsd-panel">
+            <span class="tsd-dot amber"></span> Amber
+          </button>
+          <button class="tsd-tab" role="tab" data-score="red"
+                  aria-selected="false" aria-controls="tsd-panel">
+            <span class="tsd-dot red"></span> Red
+          </button>
+        </div>
+
+        <!-- Score display -->
+        <div id="tsd-panel" class="tsd-panel">
+          <div class="tsd-badge" id="tsd-badge" data-state="green">
+            <span class="tsd-badge-icon" id="tsd-icon">✓</span>
+            <span class="tsd-badge-text" id="tsd-text">Route clear for your vehicle</span>
+          </div>
+          <div class="tsd-detail">
+            <div class="tsd-street mono" id="tsd-street">Long Lane North</div>
+            <div class="tsd-dist mono" id="tsd-dist">in 0.3 mi</div>
+          </div>
+          <p class="tsd-why text-muted" id="tsd-why">Wide approach, clear sightlines. Your van fits comfortably.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- How scores are computed -->
+    <div class="tsd-explainer">
+      {[
+        { score: 'green', label: 'Green', desc: 'Wide, clear approach. No restrictions for your vehicle class.' },
+        { score: 'amber', label: 'Amber', desc: 'Tight turn or reduced width. Proceed carefully — you can pass.' },
+        { score: 'red',   label: 'Red',   desc: 'Do not attempt. Turning circle or width will trap your vehicle.' },
+      ].map(s => (
+        <div class="tsd-card reveal">
+          <div class={`tsd-indicator ${s.score}`}></div>
+          <div>
+            <strong class="tsd-card-label">{s.label}</strong>
+            <p class="tsd-card-desc text-muted">{s.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .tsd-section { padding-block: var(--section-py); }
+
+  .tsd-eyebrow {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--brand-bright);
+    margin-bottom: 12px;
+  }
+
+  .tsd-section h2 { margin-bottom: 12px; }
+
+  .tsd-sub {
+    max-width: 560px;
+    margin-bottom: 40px;
+    font-size: 1.0625rem;
+  }
+
+  /* Demo area */
+  .tsd-demo-wrap {
+    position: relative;
+    border-radius: var(--r-panel);
+    overflow: hidden;
+    aspect-ratio: 16 / 7;
+    min-height: 320px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    background: linear-gradient(135deg, #0a1520 0%, #0f1c2e 60%, #0a1015 100%);
+  }
+
+  .tsd-photo-wrap {
+    position: absolute;
+    inset: 0;
+  }
+
+  .tsd-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+
+  .tsd-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(10,14,20,0.85) 0%, rgba(10,14,20,0.4) 60%, rgba(10,14,20,0.2) 100%),
+                linear-gradient(to top, rgba(10,14,20,0.7) 0%, transparent 50%);
+  }
+
+  /* Grain texture */
+  .tsd-photo-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* HUD */
+  .tsd-hud {
+    position: relative;
+    z-index: 2;
+    margin: 24px;
+    border-radius: var(--r-card);
+    padding: 0;
+    overflow: hidden;
+    min-width: 280px;
+    max-width: 320px;
+  }
+
+  .tsd-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--glass-brd);
+    background: var(--surface-2);
+  }
+
+  .tsd-tab {
+    flex: 1;
+    padding: 10px 4px;
+    border: none;
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-family: inherit;
+    transition: color var(--dur-micro) ease-out, background var(--dur-micro) ease-out;
+  }
+
+  .tsd-tab.active { color: var(--ink); background: rgba(255,255,255,0.04); }
+
+  @media (hover: hover) {
+    .tsd-tab:not(.active):hover { background: rgba(255,255,255,0.03); color: var(--ink); }
+  }
+
+  .tsd-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .tsd-dot.green { background: var(--green); }
+  .tsd-dot.amber { background: var(--amber); }
+  .tsd-dot.red   { background: var(--red);   }
+
+  .tsd-panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .tsd-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: background var(--dur-micro) ease-out;
+  }
+  .tsd-badge[data-state="green"] { background: rgba(34,197,94,0.12);  }
+  .tsd-badge[data-state="amber"] { background: rgba(245,158,11,0.12); }
+  .tsd-badge[data-state="red"]   { background: rgba(239,68,68,0.12);  }
+
+  .tsd-badge-icon { font-size: 1.125rem; }
+  .tsd-badge-text { font-size: 0.875rem; font-weight: 600; color: var(--ink); }
+
+  .tsd-badge[data-state="green"] .tsd-badge-text { color: var(--green); }
+  .tsd-badge[data-state="amber"] .tsd-badge-text { color: var(--amber); }
+  .tsd-badge[data-state="red"]   .tsd-badge-text { color: var(--red);   }
+
+  .tsd-detail { display: flex; flex-direction: column; gap: 2px; }
+  .tsd-street { font-size: 0.875rem; color: var(--ink); font-weight: 600; }
+  .tsd-dist   { font-size: 0.8125rem; color: var(--ink-muted); }
+
+  .tsd-why { font-size: 0.8125rem; line-height: 1.5; margin: 0; }
+
+  /* Explainer cards */
+  .tsd-explainer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  @media (min-width: 640px) { .tsd-explainer { grid-template-columns: repeat(3, 1fr); } }
+
+  .tsd-card {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px;
+    border-radius: var(--r-card);
+    background: var(--surface);
+    border: 1px solid var(--glass-brd);
+  }
+
+  .tsd-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .tsd-indicator.green { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+  .tsd-indicator.amber { background: var(--amber); box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+  .tsd-indicator.red   { background: var(--red);   box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+
+  .tsd-card-label { font-size: 0.9375rem; font-weight: 600; color: var(--ink); display: block; margin-bottom: 4px; }
+  .tsd-card-desc  { font-size: 0.875rem; margin: 0; line-height: 1.5; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tsd-badge { transition: none; }
+  }
+</style>
+
+<script>
+  const states = {
+    green: {
+      icon: '✓', text: 'Route clear for your vehicle',
+      street: 'Long Lane North', dist: 'in 0.3 mi',
+      why: 'Wide approach, clear sightlines. Your van fits comfortably.',
+    },
+    amber: {
+      icon: '⚠', text: 'Tight access — proceed with care',
+      street: 'Mill End Road', dist: 'in 0.2 mi',
+      why: 'Narrow entrance and a 170° turn. Reduce speed and keep left.',
+    },
+    red: {
+      icon: '✗', text: 'Do not enter with your vehicle',
+      street: 'Farm Track (Gated)', dist: 'ahead',
+      why: 'Track width 1.8m — not suitable for vans or lorries. Use alternate.',
+    },
+  } as const;
+
+  const tabs   = document.querySelectorAll<HTMLButtonElement>('.tsd-tab');
+  const badge  = document.getElementById('tsd-badge');
+  const icon   = document.getElementById('tsd-icon');
+  const text   = document.getElementById('tsd-text');
+  const street = document.getElementById('tsd-street');
+  const dist   = document.getElementById('tsd-dist');
+  const why    = document.getElementById('tsd-why');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const score = tab.dataset.score as keyof typeof states;
+      const s = states[score];
+      tabs.forEach(t => {
+        t.classList.toggle('active', t === tab);
+        t.setAttribute('aria-selected', String(t === tab));
+      });
+      if (badge) badge.dataset.state = score;
+      if (icon)   icon.textContent   = s.icon;
+      if (text)   text.textContent   = s.text;
+      if (street) street.textContent = s.street;
+      if (dist)   dist.textContent   = s.dist;
+      if (why)    why.textContent    = s.why;
+    });
+  });
+</script>

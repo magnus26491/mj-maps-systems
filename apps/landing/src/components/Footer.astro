@@ -80,6 +80,7 @@ const year = new Date().getFullYear();
       <p class="footer-contact">
         <a href="mailto:hello@mjmaps.app">hello@mjmaps.app</a> · UK support, responds within 1 business day
       </p>
+      <a href="/admin" class="footer-admin-link" aria-label="Admin portal">Admin</a>
     </div>
   </div>
 </footer>
@@ -154,9 +155,20 @@ const year = new Date().getFullYear();
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--ink-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     margin-bottom: 16px;
+  }
+
+  .footer-admin-link {
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    text-decoration: none;
+    opacity: 0.45;
+    transition: opacity var(--dur-micro) ease-out;
+    align-self: center;
+  }
+
+  @media (hover: hover) {
+    .footer-admin-link:hover { opacity: 0.85; }
   }
 
   .footer-links {

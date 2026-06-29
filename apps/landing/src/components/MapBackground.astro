@@ -1,0 +1,106 @@
+---
+// MapBackground — a section with a baked static map PNG as background
+// Primary: /img/maps/{mapSrc}.png  (created by fetch-maps.mjs)
+// Fallback: /img/maps/{mapSrc}.svg  (committed placeholder, never empty)
+// All colouring via MAPTILER_KEY (build-time only, never in client bundle)
+interface Props {
+  mapName?: string;    // filename without extension, e.g. "hero-map"
+  overlay?: boolean;   // whether to add dark scrim (default true)
+  height?: string;     // CSS height value (default "480px")
+  class?: string;
+}
+const {
+  mapName    = 'hero-map',
+  overlay    = true,
+  height     = '480px',
+  class: extraClass = '',
+} = Astro.props;
+
+const pngSrc = `/img/maps/${mapName}.png`;
+const svgFallback = `/img/maps/${mapName}.svg`;
+---
+
+<div class={`mapbg ${extraClass}`} style={`--mapbg-h:${height}`} aria-hidden="true">
+  <!-- Static map image layer -->
+  <img
+    class="mapbg-img"
+    src={pngSrc}
+    alt=""
+    loading="lazy"
+    width="1280"
+    height="800"
+    onerror={`this.onerror=null;this.src='${svgFallback}'`}
+  />
+  {overlay && <div class="mapbg-scrim"></div>}
+  <!-- SVG route overlay — decorative, works with any map -->
+  <svg class="mapbg-route" viewBox="0 0 1280 480" fill="none" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="mapbg-grad" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="#2ee6ce" stop-opacity="0.9"/>
+      </linearGradient>
+    </defs>
+    <polyline
+      points="80,400 80,280 240,280 240,160 480,160 480,280 720,280 720,120 960,120 960,280 1200,280"
+      stroke="url(#mapbg-grad)"
+      stroke-width="3"
+      fill="none"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      opacity="0.7"
+    />
+    <circle cx="80"  cy="400" r="7"  fill="#3b82f6" opacity="0.9"/>
+    <circle cx="480" cy="160" r="5"  fill="#3b82f6" opacity="0.7"/>
+    <circle cx="960" cy="120" r="5"  fill="#3b82f6" opacity="0.7"/>
+    <circle cx="1200" cy="280" r="9" fill="#22c55e" opacity="0.9"/>
+    <circle cx="1200" cy="280" r="18" fill="#22c55e" opacity="0.2"/>
+  </svg>
+  <slot />
+</div>
+
+<style>
+  .mapbg {
+    position: relative;
+    width: 100%;
+    height: var(--mapbg-h, 480px);
+    overflow: hidden;
+    border-radius: var(--r-card);
+    background: var(--void);
+  }
+
+  .mapbg-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+
+  .mapbg-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(10,14,20,0.3) 0%,
+      rgba(10,14,20,0.15) 40%,
+      rgba(10,14,20,0.5) 100%
+    );
+    z-index: 1;
+  }
+
+  .mapbg-route {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .mapbg > :global(:not(.mapbg-img):not(.mapbg-scrim):not(.mapbg-route)) {
+    position: relative;
+    z-index: 3;
+  }
+</style>

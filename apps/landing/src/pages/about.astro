@@ -47,6 +47,27 @@ const breadcrumb = {
           </ul>
         </div>
 
+        <!-- Founder voice — warm tonal break -->
+        <div class="about-founder reveal">
+          <picture>
+            <source srcset="/img/photos/founder-portrait.avif" type="image/avif">
+            <source srcset="/img/photos/founder-portrait.webp" type="image/webp">
+            <img
+              class="about-founder-photo"
+              src="/img/photos/founder-portrait.jpg"
+              alt="MJ Maps founder"
+              loading="lazy"
+              width="96"
+              height="96"
+              onerror="this.parentElement.classList.add('no-photo')"
+            />
+          </picture>
+          <blockquote class="about-quote">
+            <p>"Every driver we've spoken to has the same story — they know the route, they know the tight turns, they know the gates that don't match the postcode. We built MJ Maps to capture that knowledge and give it to every driver, on every shift, from their first day."</p>
+            <footer class="about-quote-attr">Marcus J &mdash; Founder, MJ Maps Systems</footer>
+          </blockquote>
+        </div>
+
         <div class="about-block reveal">
           <h2>Our principles</h2>
           <ul class="about-list">
@@ -136,6 +157,48 @@ const breadcrumb = {
     position: absolute;
     left: 0;
     color: var(--brand-bright);
+  }
+
+  /* Founder quote — warm tonal break */
+  .about-founder {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px solid rgba(245, 158, 11, 0.12);
+    border-left: 3px solid rgba(245, 158, 11, 0.5);
+    border-radius: var(--r-card);
+    padding: 28px 24px;
+  }
+
+  .about-founder-photo {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid rgba(245, 158, 11, 0.2);
+  }
+
+  /* When portrait photo fails, hide it — quote still reads fine */
+  .about-founder picture.no-photo { display: none; }
+
+  .about-quote {
+    margin: 0;
+  }
+
+  .about-quote p {
+    color: var(--ink);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    margin-bottom: 12px !important;
+    font-style: italic;
+  }
+
+  .about-quote-attr {
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+    font-style: normal;
   }
   .about-list strong { color: var(--ink); }
 

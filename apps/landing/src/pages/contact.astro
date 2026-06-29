@@ -145,6 +145,24 @@ const breadcrumb = {
               <p class="text-muted">No demo needed — just install the app and start a free trial. You'll be routing in under 5 minutes.</p>
               <a href="/register?plan=navigation" class="btn btn-secondary">Start free trial</a>
             </div>
+
+            <!-- POD supporting image -->
+            <div class="contact-pod-wrap">
+              <picture>
+                <source srcset="/img/photos/pod-signature.avif" type="image/avif">
+                <source srcset="/img/photos/pod-signature.webp" type="image/webp">
+                <img
+                  class="contact-pod-img"
+                  src="/img/photos/pod-signature.jpg"
+                  alt="Driver capturing proof-of-delivery signature on device"
+                  loading="lazy"
+                  width="480"
+                  height="320"
+                  onerror="this.parentElement.parentElement.classList.add('no-photo')"
+                />
+              </picture>
+              <p class="contact-pod-caption text-muted">Photo POD and digital signatures captured in one tap — stored and exportable.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -320,6 +338,28 @@ const breadcrumb = {
     left: 0;
     color: var(--green);
     font-weight: 700;
+  }
+
+  .contact-pod-wrap {
+    border-radius: var(--r-card);
+    overflow: hidden;
+    border: 1px solid var(--glass-brd);
+  }
+  .contact-pod-wrap.no-photo { display: none; }
+
+  .contact-pod-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+
+  .contact-pod-caption {
+    font-size: 0.8125rem;
+    padding: 10px 14px;
+    margin: 0;
+    background: var(--surface);
   }
 
   /* FAQ */

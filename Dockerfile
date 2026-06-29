@@ -49,6 +49,11 @@ RUN npm run build
 # ── Stage 4: Build Landing Page (Astro static site) ───────────
 FROM node:20-alpine AS landing-builder
 WORKDIR /landing
+# MAPTILER_KEY: BUILD-TIME ONLY — fetches static map PNGs for the landing page.
+# The key NEVER ships to the client bundle. Set Allowed Origins = https://mjmapsystems.com
+# in the MapTiler dashboard.
+ARG MAPTILER_KEY
+ENV MAPTILER_KEY=$MAPTILER_KEY
 # Copy the plans package (imported via Vite alias in astro.config.mjs)
 COPY packages/plans/ /packages/plans/
 # Install and build
@@ -57,6 +62,14 @@ RUN npm install --legacy-peer-deps
 COPY apps/landing/ .
 # Make packages available at the resolved path
 COPY packages/ /packages/
+# Copy the map-baking script
+COPY scripts/fetch-maps.mjs ./scripts/fetch-maps.mjs
+# Fetch real static map PNGs when key is present; SVG fallbacks used otherwise
+RUN if [ -n "$MAPTILER_KEY" ]; then \
+      node scripts/fetch-maps.mjs || echo "[docker] fetch-maps failed, using SVG fallbacks"; \
+    else \
+      echo "[docker] No MAPTILER_KEY — using committed SVG fallbacks"; \
+    fi
 RUN npm run build
 
 # ── Stage 5: Runtime ──────────────────────────────────────────

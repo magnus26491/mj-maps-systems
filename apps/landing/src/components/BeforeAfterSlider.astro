@@ -1,0 +1,212 @@
+---
+// BeforeAfterSlider — drag to compare before/after map views
+// Primary: baked PNG from MapTiler (fetch-maps.mjs)
+// Fallback: committed SVG placeholders (onerror swap, never empty)
+interface Props {
+  beforeSrc?: string;
+  afterSrc?: string;
+  beforeAlt?: string;
+  afterAlt?: string;
+  beforeLabel?: string;
+  afterLabel?: string;
+  class?: string;
+}
+
+const {
+  beforeSrc    = '/img/maps/before-postcode-centroid.png',
+  afterSrc     = '/img/maps/after-gate-pin.png',
+  beforeAlt    = 'Before: Postcode centroid — driver sent 50 metres from the actual gate',
+  afterAlt     = 'After: Exact gate pin — driver routed to the real entrance',
+  beforeLabel  = 'Postcode centroid',
+  afterLabel   = 'Exact gate pin',
+  class: extraClass = '',
+} = Astro.props;
+
+// SVG fallback paths if PNGs not present
+const beforeFallback = '/img/maps/before-postcode-centroid.svg';
+const afterFallback  = '/img/maps/after-gate-pin.svg';
+---
+
+<div class={`bas-wrap ${extraClass}`} role="group" aria-label="Before and after comparison">
+  <div class="bas-container" id="bas-container">
+    <!-- After (bottom layer — full width) -->
+    <div class="bas-layer bas-after">
+      <img
+        src={afterSrc}
+        alt={afterAlt}
+        loading="lazy"
+        width="640"
+        height="400"
+        onerror={`this.onerror=null;this.src='${afterFallback}'`}
+      />
+      <div class="bas-chip bas-chip-after chip chip-green">{afterLabel}</div>
+    </div>
+
+    <!-- Before (top layer — clipped by handle) -->
+    <div class="bas-layer bas-before" id="bas-before">
+      <img
+        src={beforeSrc}
+        alt={beforeAlt}
+        loading="lazy"
+        width="640"
+        height="400"
+        onerror={`this.onerror=null;this.src='${beforeFallback}'`}
+      />
+      <div class="bas-chip bas-chip-before chip chip-red">{beforeLabel}</div>
+    </div>
+
+    <!-- Drag handle -->
+    <div class="bas-handle" id="bas-handle" aria-hidden="true">
+      <div class="bas-line"></div>
+      <div class="bas-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M7 5l-4 5 4 5M13 5l4 5-4 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="bas-line"></div>
+    </div>
+  </div>
+
+  <!-- Accessible range input behind handle -->
+  <label class="sr-only" for="bas-range">Drag to compare before and after</label>
+  <input
+    type="range"
+    id="bas-range"
+    class="bas-range"
+    min="5"
+    max="95"
+    value="50"
+    step="1"
+    aria-label="Slide to compare before (postcode centroid) and after (exact gate pin)"
+  />
+</div>
+
+<style>
+  .bas-wrap {
+    position: relative;
+    border-radius: var(--r-card);
+    overflow: hidden;
+    user-select: none;
+    touch-action: pan-y;
+    background: var(--surface);
+  }
+
+  .bas-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+  }
+
+  .bas-layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .bas-layer img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .bas-before {
+    clip-path: inset(0 50% 0 0);
+    z-index: 2;
+  }
+
+  .bas-chip {
+    position: absolute;
+    top: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .bas-chip-before { left: 12px; }
+  .bas-chip-after  { right: 12px; }
+
+  /* Handle */
+  .bas-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    gap: 0;
+  }
+
+  .bas-line {
+    flex: 1;
+    width: 2px;
+    background: rgba(255,255,255,0.6);
+  }
+
+  .bas-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.95);
+    color: #0a0e14;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+  }
+
+  /* Range input overlaid for drag interaction */
+  .bas-range {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: ew-resize;
+    z-index: 5;
+    margin: 0;
+    -webkit-appearance: none;
+  }
+</style>
+
+<script>
+  (function () {
+    const wrap    = document.getElementById('bas-container');
+    const before  = document.getElementById('bas-before') as HTMLElement | null;
+    const handle  = document.getElementById('bas-handle') as HTMLElement | null;
+    const range   = document.getElementById('bas-range') as HTMLInputElement | null;
+    if (!wrap || !before || !handle || !range) return;
+
+    function setPos(pct: number) {
+      const clamped = Math.max(5, Math.min(95, pct));
+      before.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
+      handle.style.left = `${clamped}%`;
+    }
+
+    range.addEventListener('input', () => setPos(Number(range.value)));
+
+    // Touch / pointer drag on the container
+    let dragging = false;
+    wrap.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      wrap.setPointerCapture(e.pointerId);
+    });
+    wrap.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const rect = wrap.getBoundingClientRect();
+      const pct  = ((e.clientX - rect.left) / rect.width) * 100;
+      setPos(pct);
+      range.value = String(Math.round(pct));
+    });
+    wrap.addEventListener('pointerup', () => { dragging = false; });
+
+    // Respect prefers-reduced-motion by not animating, but always work
+    setPos(50);
+  })();
+</script>
