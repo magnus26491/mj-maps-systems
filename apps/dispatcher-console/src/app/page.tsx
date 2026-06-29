@@ -26,7 +26,7 @@ export default function DispatcherDashboard() {
 
   useEffect(() => {
     if (!isLoggedIn()) {
-      window.location.href = '/dispatcher/login';
+      window.location.href = '/login';
     } else {
       setAuthChecked(true);
     }

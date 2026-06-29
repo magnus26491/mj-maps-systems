@@ -11,7 +11,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isLoggedIn()) {
-      window.location.href = '/dispatcher';
+      window.location.href = '/';
     }
   }, []);
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
       if (role !== 'dispatcher' && role !== 'admin') {
         throw new Error('Dispatcher or admin access required.');
       }
-      window.location.href = '/dispatcher';
+      window.location.href = '/';
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

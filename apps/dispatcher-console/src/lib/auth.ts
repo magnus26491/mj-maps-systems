@@ -54,7 +54,7 @@ export async function authFetch(url: string, init: RequestInit = {}): Promise<Re
   if (res.status === 401) {
     clearTokens();
     if (typeof window !== 'undefined') {
-      window.location.href = '/dispatcher/login';
+      window.location.href = '/login';
     }
   }
 
@@ -78,6 +78,6 @@ export async function login(email: string, password: string): Promise<{ role: st
 export function logout(): void {
   clearTokens();
   if (typeof window !== 'undefined') {
-    window.location.href = '/dispatcher/login';
+    window.location.href = '/login';
   }
 }
