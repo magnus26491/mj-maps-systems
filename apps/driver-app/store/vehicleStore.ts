@@ -6,7 +6,7 @@
  * computes turn.alertLevel correctly for that vehicle.
  */
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
+import { ssGet, ssSet } from '../lib/auth';
 
 export type VehicleProfile =
   | 'car'
@@ -53,7 +53,7 @@ export const useVehicleStore = create<VehicleState>((set) => ({
 
   loadVehicleProfile: async () => {
     try {
-      const stored = await SecureStore.getItemAsync(STORAGE_KEY);
+      const stored = await ssGet(STORAGE_KEY);
       if (stored && VEHICLE_OPTIONS.some(v => v.key === stored)) {
         set({ vehicleProfile: stored as VehicleProfile, isLoaded: true });
       } else {
@@ -66,7 +66,7 @@ export const useVehicleStore = create<VehicleState>((set) => ({
 
   setVehicleProfile: async (profile) => {
     try {
-      await SecureStore.setItemAsync(STORAGE_KEY, profile);
+      await ssSet(STORAGE_KEY, profile);
       set({ vehicleProfile: profile });
     } catch (err) {
       console.error('[vehicleStore] Failed to persist:', err);

@@ -8,6 +8,7 @@
  * Also starts the background task for backend GPS pings when the app is backgrounded.
  */
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { publishLocation } from '../lib/shared-location';
 
@@ -34,18 +35,20 @@ export function useDriverLocation(): DriverLocation | null {
         return;
       }
 
-      const bg = await Location.requestBackgroundPermissionsAsync();
-      if (bg.status === 'granted') {
-        await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
-          accuracy:         Location.Accuracy.Balanced,
-          timeInterval:     10_000, // 10s — battery efficient
-          distanceInterval: 15,     // or every 15m
-          foregroundService: {
-            notificationTitle: 'MJ Maps — Shift Active',
-            notificationBody:  'Tracking your location for route guidance.',
-            notificationColor: '#4fc3f7',
-          },
-        }).catch(() => {});
+      if (Platform.OS !== 'web') {
+        const bg = await Location.requestBackgroundPermissionsAsync();
+        if (bg.status === 'granted') {
+          await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
+            accuracy:         Location.Accuracy.Balanced,
+            timeInterval:     10_000,
+            distanceInterval: 15,
+            foregroundService: {
+              notificationTitle: 'MJ Maps — Shift Active',
+              notificationBody:  'Tracking your location for route guidance.',
+              notificationColor: '#4fc3f7',
+            },
+          }).catch(() => {});
+        }
       }
 
       sub = await Location.watchPositionAsync(

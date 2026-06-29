@@ -14,14 +14,20 @@ config.resolver.nodeModulesPaths = [
 const reactNativeWebPath = path.resolve(__dirname, 'node_modules/react-native-web');
 
 config.resolver.extraNodeModules = {
-  'react-native': reactNativeWebPath,
-  'expo-keep-awake':      path.resolve(__dirname, 'shims/expo-keep-awake.web.ts'),
-  'expo-notifications':   path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
-  'expo-speech':          path.resolve(__dirname, 'shims/expo-speech.web.ts'),
-  'expo-sqlite':          path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
-  'expo-location':        path.resolve(__dirname, 'shims/expo-location.web.ts'),
-  'expo-camera':          path.resolve(__dirname, 'shims/expo-camera.web.ts'),
-  'react-native-maps':    path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
+  'react-native':                   reactNativeWebPath,
+  'expo-keep-awake':                path.resolve(__dirname, 'shims/expo-keep-awake.web.ts'),
+  'expo-notifications':             path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
+  'expo-speech':                    path.resolve(__dirname, 'shims/expo-speech.web.ts'),
+  'expo-sqlite':                    path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
+  'expo-location':                  path.resolve(__dirname, 'shims/expo-location.web.ts'),
+  'expo-camera':                    path.resolve(__dirname, 'shims/expo-camera.web.ts'),
+  'expo-av':                        path.resolve(__dirname, 'shims/expo-av.web.ts'),
+  'expo-haptics':                   path.resolve(__dirname, 'shims/expo-haptics.web.ts'),
+  'expo-image-picker':              path.resolve(__dirname, 'shims/expo-image-picker.web.ts'),
+  'expo-task-manager':              path.resolve(__dirname, 'shims/expo-task-manager.web.ts'),
+  'expo-document-picker':           path.resolve(__dirname, 'shims/expo-document-picker.web.ts'),
+  'react-native-widget-extension':  path.resolve(__dirname, 'shims/react-native-widget-extension.web.ts'),
+  'react-native-maps':              path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
   '@maplibre/maplibre-react-native': path.resolve(__dirname, 'shims/maplibre-react-native.web.tsx'),
 };
 

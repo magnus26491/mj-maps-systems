@@ -43,7 +43,50 @@ import { useTheme } from '../lib/theme';
 /** OpenFreeMap — free vector tiles, no API key, OSM data */
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
+// ── Web fallback — text-based navigation (no MapLibre) ───────────────────────
+
+function WebNavigationScreen() {
+  const { stopId } = useLocalSearchParams<{ stopId: string }>();
+  const { stops }  = useShiftStore();
+  const stop = stops.find(s => s.id === stopId);
+
+  const lat = stop?.pin?.lat ?? stop?.lat ?? 0;
+  const lng = stop?.pin?.lng ?? stop?.lng ?? 0;
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#030712', padding: 24, paddingTop: 60 }}>
+      <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 24 }}>
+        <Text style={{ color: '#60a5fa', fontSize: 16 }}>← Back</Text>
+      </TouchableOpacity>
+      <Text style={{ color: '#9ca3af', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 8 }}>
+        Navigating to
+      </Text>
+      <Text style={{ color: '#f9fafb', fontSize: 20, fontWeight: '700', marginBottom: 24, lineHeight: 28 }}>
+        {stop?.address ?? 'Unknown address'}
+      </Text>
+      {stop?.access_notes ? (
+        <View style={{ backgroundColor: '#1f2937', borderRadius: 12, padding: 16, marginBottom: 24 }}>
+          <Text style={{ color: '#fbbf24', fontSize: 12, fontWeight: '600', marginBottom: 4 }}>ACCESS NOTES</Text>
+          <Text style={{ color: '#d1d5db', fontSize: 14, lineHeight: 20 }}>{stop.access_notes}</Text>
+        </View>
+      ) : null}
+      <TouchableOpacity
+        style={{ backgroundColor: '#3b82f6', borderRadius: 14, paddingVertical: 18, alignItems: 'center', marginBottom: 12 }}
+        onPress={() => Linking.openURL(mapsUrl)}
+      >
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>🗺️ Open in Google Maps</Text>
+      </TouchableOpacity>
+      <Text style={{ color: '#4b5563', fontSize: 12, textAlign: 'center' }}>
+        Turn-by-turn navigation requires the mobile app
+      </Text>
+    </View>
+  );
+}
+
 export default function NavigationScreen() {
+  if (Platform.OS === 'web') return <WebNavigationScreen />;
+
   const { stopId } = useLocalSearchParams<{ stopId: string }>();
   const { stops }  = useShiftStore();
   const { isDriving } = useDrivingMode();

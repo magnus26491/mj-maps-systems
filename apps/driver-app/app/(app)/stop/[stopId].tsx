@@ -6,7 +6,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
-import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import { apiGetApproach, apiUploadPod, apiDriverEvent } from '../../../lib/api';
 import { enqueue } from '../../../lib/offline-queue';

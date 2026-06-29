@@ -105,9 +105,53 @@ export async function hasServicesEnabledAsync(): Promise<boolean> {
 
 export async function enableNetworkProviderAsync(): Promise<void> {}
 
+// Background tasks — no-ops on web (no background execution)
+export async function startLocationUpdatesAsync(
+  _taskName: string,
+  _options?: object,
+): Promise<void> {}
+
+export async function stopLocationUpdatesAsync(_taskName: string): Promise<void> {}
+
+export async function hasStartedLocationUpdatesAsync(_taskName: string): Promise<boolean> {
+  return false;
+}
+
+// Geofencing — no-ops on web
+export enum GeofencingEventType {
+  Enter = 1,
+  Exit  = 2,
+}
+
+export const LocationGeofencingEventType = GeofencingEventType;
+
+export async function startGeofencingAsync(
+  _taskName: string,
+  _regions: object[],
+): Promise<void> {}
+
+export async function stopGeofencingAsync(_taskName: string): Promise<void> {}
+
+export async function hasStartedGeofencingAsync(_taskName: string): Promise<boolean> {
+  return false;
+}
+
+// Provider status
+export async function getProviderStatusAsync() {
+  return {
+    locationServicesEnabled: typeof navigator !== 'undefined' && 'geolocation' in navigator,
+    backgroundModeEnabled: false,
+    gpsAvailable: true,
+    networkAvailable: typeof navigator !== 'undefined' && navigator.onLine,
+    passiveAvailable: false,
+  };
+}
+
 export default {
   Accuracy,
   PermissionStatus,
+  GeofencingEventType,
+  LocationGeofencingEventType,
   requestForegroundPermissionsAsync,
   requestBackgroundPermissionsAsync,
   getForegroundPermissionsAsync,
@@ -115,4 +159,11 @@ export default {
   watchPositionAsync,
   hasServicesEnabledAsync,
   enableNetworkProviderAsync,
+  startLocationUpdatesAsync,
+  stopLocationUpdatesAsync,
+  hasStartedLocationUpdatesAsync,
+  startGeofencingAsync,
+  stopGeofencingAsync,
+  hasStartedGeofencingAsync,
+  getProviderStatusAsync,
 };

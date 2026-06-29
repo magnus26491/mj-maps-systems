@@ -17,17 +17,17 @@ const ROUTE_KEY   = 'mj_route_id';
 // In-memory fallback for web platform
 const memStore = new Map<string, string>();
 
-async function ssGet(key: string): Promise<string | null> {
+export async function ssGet(key: string): Promise<string | null> {
   if (Platform.OS === 'web') return memStore.get(key) ?? null;
   return SecureStore.getItemAsync(key);
 }
 
-async function ssSet(key: string, value: string): Promise<void> {
+export async function ssSet(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') { memStore.set(key, value); return; }
   return SecureStore.setItemAsync(key, value);
 }
 
-async function ssDel(key: string): Promise<void> {
+export async function ssDel(key: string): Promise<void> {
   if (Platform.OS === 'web') { memStore.delete(key); return; }
   return SecureStore.deleteItemAsync(key);
 }

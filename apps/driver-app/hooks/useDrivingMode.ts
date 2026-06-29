@@ -14,6 +14,7 @@
  * Uses the shared location singleton — no own GPS watcher.
  */
 import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import type { StopPoint } from '../store/deliveryStore';
@@ -75,19 +76,23 @@ function getDeliveryStore() {
   return store.useDeliveryStore.getState();
 }
 
-TaskManager.defineTask(GEOFENCE_TASK, ({ data, error }) => {
-  if (error) return;
-  const { eventType, region } = data as { eventType: Location.LocationGeofencingEventType; region: { identifier: string } };
-  if (eventType === Location.GeofencingEventType.Enter) {
-    getDeliveryStore().onApproachingStop(region.identifier);
-  }
-});
+if (Platform.OS !== 'web') {
+  TaskManager.defineTask(GEOFENCE_TASK, ({ data, error }: any) => {
+    if (error) return;
+    const { eventType, region } = data as { eventType: Location.LocationGeofencingEventType; region: { identifier: string } };
+    if (eventType === Location.GeofencingEventType.Enter) {
+      getDeliveryStore().onApproachingStop(region.identifier);
+    }
+  });
+}
 
 /**
  * Register geofence regions for the next N stops from current position.
  * iOS limits to 20 regions; we register only the next 20 to respect that limit.
  */
 export async function startStopGeofences(stops: StopPoint[]): Promise<void> {
+  if (Platform.OS === 'web') return;
+
   const regions = stops.slice(0, 20).map(stop => ({
     identifier:  stop.id,
     latitude:    stop.pin?.lat ?? stop.lat,
@@ -110,6 +115,7 @@ export async function startStopGeofences(stops: StopPoint[]): Promise<void> {
  * Call this when the shift ends.
  */
 export async function stopStopGeofences(): Promise<void> {
+  if (Platform.OS === 'web') return;
   try {
     const isRunning = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
     if (isRunning) {

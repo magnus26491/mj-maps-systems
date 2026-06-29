@@ -13,8 +13,7 @@
  * Falls back to enqueue() for send if WS not open.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { refreshAccessToken } from './auth';
+import { refreshAccessToken, ssGet } from './auth';
 import { enqueue } from './offline-queue';
 import { ServerMessageType, DriverEventType } from '../constants/events';
 import type { ServerMessage } from './types';
@@ -58,7 +57,7 @@ export function useDriverWs({
     async function connect() {
       if (cancelled || !driverId || !routeId) return;
 
-      let token = await SecureStore.getItemAsync('mj_jwt');
+      let token = await ssGet('mj_jwt');
       if (!token) token = await refreshAccessToken();
       if (cancelled || !token) return;
 

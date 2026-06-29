@@ -1,9 +1,24 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 
+function WebScanFallback() {
+  return (
+    <View style={[styles.container, styles.center]}>
+      <Text style={{ fontSize: 40, marginBottom: 16 }}>📷</Text>
+      <Text style={[styles.permText, { fontWeight: '700', fontSize: 17, color: '#f9fafb' }]}>
+        Camera scanning requires the mobile app
+      </Text>
+      <Text style={styles.permText}>
+        Download the MJ Maps app on iOS or Android to scan delivery barcodes with your device camera.
+      </Text>
+    </View>
+  );
+}
+
 export default function ScanScreen() {
+  if (Platform.OS === 'web') return <WebScanFallback />;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned]           = useState(false);
   const [result, setResult]             = useState<string | null>(null);
