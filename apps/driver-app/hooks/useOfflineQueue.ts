@@ -22,6 +22,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 
 export type QueuedEvent = {
   type:       'STOP_COMPLETE' | 'STOP_FAIL' | 'LOCATION_PING' | 'DIFFICULTY_REPORT';
@@ -47,10 +48,10 @@ const BATCH_SIZE = 20;
 export function useOfflineQueue() {
   const queue     = useRef<QueuedEvent[]>([]);
   const flushing  = useRef(false);
-  const token     = useShiftStore(s => s.token);
+  const token     = useAuthStore(s => s.token);
   const shift     = useShiftStore(s => s.shift);
 
-  const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app';
+  const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
   // ── Enqueue an event ──────────────────────────────────────────────────────
   const enqueue = useCallback((event: Omit<QueuedEvent, 'ts'>) => {

@@ -32,7 +32,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useShiftStore } from '../store/shift';
 import { useTheme } from '../components/ThemeContext';
 
-const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmapsystems.com';
+const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
 interface ParsedStop {
   id: string;

@@ -11,7 +11,10 @@ import type {
   AuthResponse, RouteDetail, Vehicle, Alert, AccessBrief, User,
 } from './types';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
+
+/** Exported for hooks that build URLs directly (e.g. useGuardian). */
+export const API_BASE = BASE;
 
 async function apiFetch<T>(
   path: string,

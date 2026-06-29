@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE } from '../lib/api';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import type { DriverGuardianResult, NotificationDecision, NotificationPriority } from '../../services/driver-guardian/types';
 
 interface UseGuardianResult {
@@ -29,45 +30,58 @@ export function useGuardian(): UseGuardianResult {
   
   const shift = useShiftStore(s => s.shift);
   const currentStop = useShiftStore(s => s.currentStop);
-  
+  const token = useAuthStore(s => s.token);
+
   const fetchGuardian = useCallback(async () => {
     if (!shift || !currentStop) {
       setGuardianResult(null);
       setNotification(null);
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${API_BASE}/guardian/stop/${currentStop.id}`, {
         headers: {
-          'Authorization': `Bearer ${shift.driverToken}`,
+          'Authorization': `Bearer ${token ?? ''}`,
           'Content-Type': 'application/json',
         },
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch guardian assessment');
+
+      // Guardian endpoint may not exist yet — treat 404 as non-fatal empty result
+      if (response.status === 404) {
+        setGuardianResult(null);
+        setNotification(null);
+        return;
       }
-      
+
+      if (!response.ok) {
+        // Non-fatal — guardian is optional; swallow the error silently
+        setGuardianResult(null);
+        setNotification(null);
+        return;
+      }
+
       const data = await response.json();
-      
+
       if (data.ok && data.data) {
         setGuardianResult(data.data.result);
         setNotification(data.data.notification);
+      } else {
+        setGuardianResult(null);
+        setNotification(null);
       }
     } catch (err) {
-      // Non-fatal - guardian is optional
-      console.log('[guardian] Assessment failed:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      // Non-fatal - guardian is optional; network errors are silenced
+      console.log('[guardian] Assessment unavailable:', err);
       setGuardianResult(null);
       setNotification(null);
     } finally {
       setIsLoading(false);
     }
-  }, [shift, currentStop]);
+  }, [shift, currentStop, token]);
   
   // Fetch on mount and when stop changes
   useEffect(() => {

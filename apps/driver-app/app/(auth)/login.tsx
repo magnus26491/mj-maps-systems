@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../lib/auth';
 import { apiLogin } from '../../lib/api';
+import { useShiftStore } from '../../store/shift';
 
 export default function LoginScreen() {
   const router  = useRouter();
@@ -22,6 +23,7 @@ export default function LoginScreen() {
       const res = await apiLogin(email.trim(), password);
       const user = { ...res.user, name: res.user.name ?? res.user.email };
       await setAuth(res.accessToken, res.refreshToken, user);
+      useShiftStore.getState().setAuth(res.accessToken, res.user.id);
       router.replace('/(app)/');
     } catch (e: any) {
       setError(e.message ?? 'Login failed. Check your credentials.');

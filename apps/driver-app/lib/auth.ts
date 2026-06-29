@@ -32,7 +32,7 @@ async function ssDel(key: string): Promise<void> {
   return SecureStore.deleteItemAsync(key);
 }
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3100';
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
 interface AuthState {
   token:   string | null;

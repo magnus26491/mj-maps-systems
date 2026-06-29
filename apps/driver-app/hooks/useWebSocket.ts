@@ -18,9 +18,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import { useOfflineQueue } from './useOfflineQueue';
 
-const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app')
+const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk')
   .replace(/^https/, 'wss')
   .replace(/^http/, 'ws');
 
@@ -32,7 +33,7 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
   const mountedRef   = useRef(true);
   const retryTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const token              = useShiftStore(s => s.token);
+  const token              = useAuthStore(s => s.token);
   const applyReorder       = useShiftStore(s => s.applyReorder);
   const applyStopUpdate    = useShiftStore(s => s.applyStopUpdate);
   const applyEtaUpdate     = useShiftStore(s => s.applyEtaUpdate);
