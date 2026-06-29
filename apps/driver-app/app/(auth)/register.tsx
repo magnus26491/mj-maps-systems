@@ -106,7 +106,8 @@ export default function RegisterScreen() {
 
       // Step 3 — Auto-login (same as login.tsx)
       const loginRes = await apiLogin(email.trim(), password);
-      await setAuth(loginRes.data.token, loginRes.data.refreshToken, loginRes.data.user);
+      const loginUser = { ...loginRes.user, name: loginRes.user.name ?? name.trim() };
+      await setAuth(loginRes.accessToken, loginRes.refreshToken, loginUser);
 
       // Step 4 — Open Stripe Checkout
       const token = useAuthStore.getState().token;

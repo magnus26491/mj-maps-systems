@@ -20,7 +20,8 @@ export default function LoginScreen() {
     setError('');
     try {
       const res = await apiLogin(email.trim(), password);
-      await setAuth(res.data.token, res.data.refreshToken, res.data.user);
+      const user = { ...res.user, name: res.user.name ?? res.user.email };
+      await setAuth(res.accessToken, res.refreshToken, user);
       router.replace('/(app)/');
     } catch (e: any) {
       setError(e.message ?? 'Login failed. Check your credentials.');

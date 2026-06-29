@@ -107,14 +107,12 @@ export async function refreshAccessToken(): Promise<string | null> {
       body:    JSON.stringify({ refreshToken }),
     });
     if (!res.ok) return null;
-    const data = await res.json() as { ok: boolean; data: { token: string } };
-    if (!data.ok) return null;
-    const userRaw = await ssGet(USER_KEY);
-    const user    = userRaw ? (JSON.parse(userRaw) as User) : null;
-    if (!user) return null;
-    await ssSet(TOKEN_KEY, data.data.token);
-    useAuthStore.setState({ token: data.data.token });
-    return data.data.token;
+    const data = await res.json() as { accessToken: string; refreshToken: string };
+    if (!data.accessToken) return null;
+    await ssSet(TOKEN_KEY, data.accessToken);
+    if (data.refreshToken) await ssSet(REFRESH_KEY, data.refreshToken);
+    useAuthStore.setState({ token: data.accessToken });
+    return data.accessToken;
   } catch {
     return null;
   }
