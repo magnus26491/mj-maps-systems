@@ -74,6 +74,7 @@ interface ShiftState {
   updateStopAlert: (stopId: string, alert: 'GREEN' | 'AMBER' | 'RED') => void;
   setStagedStops:   (stops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[]) => void;
   clearStagedStops: () => void;
+  addStop:         (stop: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel' | 'index'>) => void;
 
   // ── Live update actions (from WebSocket) ─────────────────────────────────
   applyReorder:     (orderedStops: DeliveryStop[]) => void;
@@ -244,4 +245,24 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   // ── stagedStops actions ────────────────────────────────────────────────────
   setStagedStops: (stops) => set({ stagedStops: stops }),
   clearStagedStops: () => set({ stagedStops: [] }),
+
+  // ── addStop ── append a single stop mid-shift ──────────────────────────────
+  addStop: (stop) => set(s => {
+    const newStop: DeliveryStop = {
+      etaLabel: null, distanceM: null, alertLevel: null,
+      turnScore: null, turnReason: null,
+      ...stop,
+      index: s.stops.length,
+      status: 'pending' as const,
+    };
+    const updated = [...s.stops, newStop];
+    const current = s.currentStop ?? nextPending(updated);
+    const next    = afterPending(updated, current?.id);
+    return {
+      stops:       updated,
+      currentStop: current,
+      nextStop:    next,
+      shift: s.shift ? { ...s.shift, totalStops: updated.length } : null,
+    };
+  }),
 }));

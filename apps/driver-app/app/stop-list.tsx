@@ -98,7 +98,14 @@ export default function StopListScreen() {
           <Text style={styles.backText}>‹ HUD</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{shift?.totalStops ?? 0} Stops</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity
+          style={styles.addStopBtn}
+          onPress={() => router.push({ pathname: '/route-builder', params: { addMode: '1' } })}
+          accessibilityRole="button"
+          accessibilityLabel="Add more stops to route"
+        >
+          <Text style={styles.addStopText}>＋ Add</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -135,6 +142,8 @@ const styles = StyleSheet.create({
   backBtn:            { minWidth: 60, minHeight: 44, justifyContent: 'center' },
   backText:           { color: '#4fc3f7', fontSize: 17, fontWeight: '600' },
   title:              { color: '#e0eaf4', fontSize: 17, fontWeight: '700' },
+  addStopBtn:         { minWidth: 60, minHeight: 44, justifyContent: 'center', alignItems: 'flex-end' },
+  addStopText:        { color: '#4fc3f7', fontSize: 15, fontWeight: '700' },
   list:               { paddingVertical: 8 },
   stopRow: {
     flexDirection: 'row', alignItems: 'center',
