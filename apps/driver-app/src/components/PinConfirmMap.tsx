@@ -18,6 +18,9 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '../../lib/auth';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
 export interface PinConfirmMapProps {
   stop: { address: string; lat: number; lng: number };
@@ -52,10 +55,14 @@ export function PinConfirmMap({ stop, onConfirm, onSkip }: PinConfirmMapProps) {
 
   const handleConfirm = useCallback(async () => {
     setConfirming(true);
+    const token = useAuthStore.getState().token;
     try {
-      const res = await fetch('/api/v1/pins/confirm', {
+      const res = await fetch(`${API_BASE}/api/v1/pins/confirm`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           address: stop.address,
           lat: markerPos.lat,

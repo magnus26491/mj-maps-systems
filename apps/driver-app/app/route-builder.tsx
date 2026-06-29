@@ -99,11 +99,13 @@ export default function RouteBuilderScreen() {
     } else {
       try {
         const geo = await Location.geocodeAsync(query);
-        setPafResults(geo.map(() => ({
+        setPafResults(geo.map(g => ({
           line1:       query.toUpperCase(),
           postTown:    '',
           postcode:    '',
           fullAddress: query,
+          lat:         g.latitude,
+          lng:         g.longitude,
         })));
       } catch { setPafResults([]); }
     }

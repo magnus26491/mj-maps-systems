@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { useDeliveryStore, StopPoint, FailureReason } from '../../store/deliveryStore';
+import { useAuthStore } from '../../lib/auth';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { ShiftProgressBar } from '../../components/ShiftProgressBar';
 import { isPodAvailable, PodCaptureSection } from '../pod';
@@ -234,14 +235,18 @@ export function PinCorrectionScreen({ stop, onSave, onCancel }: PinCorrectionPro
 
 // ─── Helper: Call confirm-pin API ──────────────────────────────────────────────
 
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
+
 async function confirmPin(stopId: string, confirmed: boolean) {
   if (!stopId) return;
 
+  const token = useAuthStore.getState().token;
   try {
-    const response = await fetch(`/api/v1/stops/${stopId}/confirm-pin`, {
+    const response = await fetch(`${API_BASE}/api/v1/stops/${stopId}/confirm-pin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ confirmed }),
     });

@@ -107,30 +107,41 @@ export const apiDriverEvent = (payload: Record<string, unknown>) =>
 
 // ── POD Photo ─────────────────────────────────────────────────────────────────
 /**
- * Upload POD photo as multipart/form-data.
- * Uses fetch directly — no Content-Type header, browser sets boundary.
+ * Upload POD photo using the presigned S3 URL flow:
+ *  1. POST /api/v1/stops/:stopId/pod/upload-url  → { uploadUrl, objectKey }
+ *  2. PUT photo blob directly to the presigned S3 URL
+ *  3. POST /api/v1/stops/:stopId/pod/confirm     → { proofPhotoUrl }
  */
 export async function apiUploadPod(
   stopId:   string,
   photoUri: string,
 ): Promise<{ podPhotoUrl: string }> {
-  const token   = await SecureStore.getItemAsync('mj_jwt');
-  const formData = new FormData();
-  formData.append('photo', {
-    uri:  photoUri,
-    name: `pod-${stopId}.jpg`,
-    type: 'image/jpeg',
-  } as any);
+  // Step 1: Get presigned upload URL
+  const urlRes = await apiFetch<{ ok: boolean; data: { uploadUrl: string; objectKey: string; expiresAt: string } }>(
+    `/api/v1/stops/${stopId}/pod/upload-url`,
+    { method: 'POST' },
+  );
+  const { uploadUrl, objectKey } = urlRes.data;
 
-  const res = await fetch(`${BASE}/api/v1/stops/${stopId}/pod`, {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body:    formData,
+  // Step 2: Read photo as blob from local file URI and PUT to S3
+  const photoRes = await fetch(photoUri);
+  const photoBlob = await photoRes.blob();
+  const s3Res = await fetch(uploadUrl, {
+    method:  'PUT',
+    headers: { 'Content-Type': 'image/jpeg' },
+    body:    photoBlob,
   });
+  if (!s3Res.ok) throw new Error(`S3 upload failed: ${s3Res.status}`);
 
-  if (!res.ok) throw new Error(`POD upload failed: ${res.status}`);
-  const data = await res.json() as { ok: boolean; data: { podPhotoUrl: string } };
-  return data.data;
+  // Step 3: Confirm upload with backend
+  const confirmRes = await apiFetch<{ ok: boolean; data: { proofPhotoUrl: string } }>(
+    `/api/v1/stops/${stopId}/pod/confirm`,
+    {
+      method: 'POST',
+      body:   JSON.stringify({ objectKey }),
+    },
+  );
+  return { podPhotoUrl: confirmRes.data.proofPhotoUrl };
 }
 
 // ── Driver Route Discovery ───────────────────────────────────────────────────
