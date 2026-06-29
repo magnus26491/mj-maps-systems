@@ -387,13 +387,14 @@ const start = async () => {
 
     const hash = await hashPassword(password);
     const { rows } = await getPool().query(
-      `INSERT INTO users (email, password_hash, role, plan_id, is_active)
-       VALUES ($1, $2, 'admin', 'custom', true)
+      `INSERT INTO users (email, password_hash, role, plan_id, is_active, is_owner)
+       VALUES ($1, $2, 'admin', 'custom', true, true)
        ON CONFLICT (email) DO UPDATE SET
          password_hash = EXCLUDED.password_hash,
          role          = 'admin',
          plan_id       = 'custom',
-         is_active     = true
+         is_active     = true,
+         is_owner      = true
        RETURNING id, email, role, plan_id`,
       [email, hash],
     );
