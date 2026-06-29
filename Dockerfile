@@ -34,7 +34,9 @@ RUN npx expo export --platform web --clear
 # public/polyfill.js is copied to dist/ by expo export.
 # Inject the <script src> into the generated index.html so it loads
 # synchronously (no defer) before the deferred Expo bundle.
-RUN sed -i 's|<link rel="shortcut icon"|<script src="/driver/polyfill.js"></script><link rel="shortcut icon"|' dist/index.html
+# Inject polyfill script synchronously before </head> so it executes before the
+# deferred Metro bundle. Works regardless of which <link rel> pattern Expo uses.
+RUN sed -i 's|</head>|<script src="/driver/polyfill.js"></script></head>|' dist/index.html
 RUN ls -la dist/ 2>/dev/null || echo "Driver dist empty"
 
 # ── Stage 3: Build Dispatcher Console ───────────────────────

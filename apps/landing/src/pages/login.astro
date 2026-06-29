@@ -1,0 +1,268 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<BaseLayout
+  title="Sign in — MJ Maps"
+  description="Sign in to MJ Maps as a driver or as a dispatcher / fleet manager."
+>
+  <Nav activePage="/login" />
+  <main id="main-content" class="portal-wrap">
+    <div class="portal-header">
+      <h1 class="portal-title">Welcome back</h1>
+      <p class="portal-sub">Choose how you're signing in today</p>
+    </div>
+
+    <div class="portal-cards">
+
+      <!-- Driver portal -->
+      <a href="/driver" class="portal-card portal-card--driver" aria-label="Sign in as a driver">
+        <div class="portal-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="14" fill="url(#dg)"/>
+            <path d="M24 14c-3.31 0-6 2.69-6 6 0 4.5 6 12 6 12s6-7.5 6-12c0-3.31-2.69-6-6-6zm0 8.25a2.25 2.25 0 110-4.5 2.25 2.25 0 010 4.5z" fill="white"/>
+            <defs>
+              <linearGradient id="dg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#3B82F6"/>
+                <stop offset="1" stop-color="#06B6D4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h2 class="portal-card-title">I'm a Driver</h2>
+        <p class="portal-card-body">
+          Access your routes, start navigation, and manage your deliveries.
+          Best experienced on the mobile app.
+        </p>
+        <div class="portal-card-actions">
+          <span class="portal-btn portal-btn--primary">Open driver app</span>
+          <span class="portal-hint">or download for iOS&nbsp;/&nbsp;Android</span>
+        </div>
+        <div class="app-badges">
+          <img src="/img/app-store-badge.svg" alt="Download on the App Store" class="app-badge" width="120" height="36" onerror="this.style.display='none'" />
+          <img src="/img/google-play-badge.svg" alt="Get it on Google Play" class="app-badge" width="120" height="36" onerror="this.style.display='none'" />
+        </div>
+      </a>
+
+      <!-- Dispatcher / Admin portal -->
+      <a href="/dispatcher/login" class="portal-card portal-card--dispatcher" aria-label="Sign in as a dispatcher or admin">
+        <div class="portal-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="14" fill="url(#ag)"/>
+            <rect x="12" y="16" width="24" height="18" rx="3" stroke="white" stroke-width="2"/>
+            <path d="M18 16v-2a6 6 0 0112 0v2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="24" cy="25" r="3" fill="white"/>
+            <defs>
+              <linearGradient id="ag" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#8B5CF6"/>
+                <stop offset="1" stop-color="#EC4899"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h2 class="portal-card-title">I'm a Dispatcher&nbsp;/ Admin</h2>
+        <p class="portal-card-body">
+          Manage your fleet, assign routes, view live tracking and analytics.
+          Company admins get full control over their drivers and organisation.
+        </p>
+        <div class="portal-card-actions">
+          <span class="portal-btn portal-btn--secondary">Open dashboard</span>
+        </div>
+        <div class="portal-role-chips">
+          <span class="role-chip">Dispatcher</span>
+          <span class="role-chip role-chip--admin">Company Admin</span>
+        </div>
+      </a>
+
+    </div>
+
+    <p class="portal-footer-note">
+      New to MJ Maps?&nbsp;
+      <a href="/register?plan=navigation" class="portal-link">Start a free trial</a>
+      &nbsp;— no credit card required.
+    </p>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .portal-wrap {
+    min-height: calc(100vh - 56px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px var(--gutter) 60px;
+    gap: 2rem;
+  }
+
+  .portal-header {
+    text-align: center;
+  }
+
+  .portal-title {
+    font-family: 'Space Grotesk Variable', sans-serif;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .portal-sub {
+    font-size: 1rem;
+    color: var(--ink-muted);
+    margin: 0;
+  }
+
+  .portal-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 720px;
+  }
+
+  .portal-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem 1.75rem;
+    border-radius: 20px;
+    border: 1px solid var(--glass-brd, rgba(255,255,255,0.08));
+    background: var(--surface-1, rgba(255,255,255,0.04));
+    text-decoration: none;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    cursor: pointer;
+  }
+
+  .portal-card:hover,
+  .portal-card:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+    outline: none;
+  }
+
+  .portal-card--driver:hover,
+  .portal-card--driver:focus-visible {
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 16px 40px rgba(59, 130, 246, 0.15);
+  }
+
+  .portal-card--dispatcher:hover,
+  .portal-card--dispatcher:focus-visible {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 16px 40px rgba(139, 92, 246, 0.15);
+  }
+
+  .portal-icon {
+    flex-shrink: 0;
+  }
+
+  .portal-card-title {
+    font-family: 'Space Grotesk Variable', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .portal-card-body {
+    font-size: 0.9375rem;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    margin: 0;
+    flex: 1;
+  }
+
+  .portal-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .portal-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .portal-btn--primary {
+    background: linear-gradient(135deg, #3B82F6, #06B6D4);
+    color: #fff;
+  }
+
+  .portal-btn--secondary {
+    background: linear-gradient(135deg, #8B5CF6, #EC4899);
+    color: #fff;
+  }
+
+  .portal-hint {
+    font-size: 0.8125rem;
+    color: var(--ink-muted);
+  }
+
+  .app-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .app-badge {
+    height: 36px;
+    width: auto;
+    opacity: 0.7;
+  }
+
+  .portal-role-chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .role-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+  }
+
+  .role-chip--admin {
+    background: rgba(236, 72, 153, 0.12);
+    color: #f472b6;
+    border-color: rgba(236, 72, 153, 0.25);
+  }
+
+  .portal-footer-note {
+    font-size: 0.9375rem;
+    color: var(--ink-muted);
+    text-align: center;
+    margin: 0;
+  }
+
+  .portal-link {
+    color: var(--brand-bright, #2EE6CE);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .portal-link:hover {
+    text-decoration: underline;
+  }
+</style>

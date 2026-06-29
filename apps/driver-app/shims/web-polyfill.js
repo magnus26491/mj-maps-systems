@@ -73,16 +73,30 @@
     };
   }
 
-  // 3 — Pin browser timers so RN runtime cannot overwrite them
+  // 3 — Pin browser timers so RN runtime cannot overwrite them.
+  // configurable:false + no-op setter: assignment in strict mode won't throw,
+  // and Object.defineProperty attempts to redefine will fail silently (caught below).
   if (typeof window !== 'undefined' && window.setTimeout) {
     var _setTimeout   = window.setTimeout.bind(window);
     var _clearTimeout  = window.clearTimeout.bind(window);
     var _setInterval   = window.setInterval.bind(window);
     var _clearInterval = window.clearInterval.bind(window);
-    Object.defineProperty(global, 'setTimeout',   { get: function () { return _setTimeout; },   configurable: true });
-    Object.defineProperty(global, 'clearTimeout',  { get: function () { return _clearTimeout; },  configurable: true });
-    Object.defineProperty(global, 'setInterval',   { get: function () { return _setInterval; },   configurable: true });
-    Object.defineProperty(global, 'clearInterval', { get: function () { return _clearInterval; }, configurable: true });
+    var _nop = function () {};
+    [
+      ['setTimeout',   _setTimeout],
+      ['clearTimeout',  _clearTimeout],
+      ['setInterval',   _setInterval],
+      ['clearInterval', _clearInterval],
+    ].forEach(function (pair) {
+      try {
+        Object.defineProperty(global, pair[0], {
+          get: function () { return pair[1]; },
+          set: _nop,
+          configurable: false,
+          enumerable: true,
+        });
+      } catch (_) {}
+    });
   }
 
   // 4 — Legacy bridge safety net
