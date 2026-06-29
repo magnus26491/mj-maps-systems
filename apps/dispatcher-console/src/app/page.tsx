@@ -32,6 +32,21 @@ export default function DispatcherDashboard() {
   const { route: selectedRoute } = useRouteDetail(selectedRouteId);
   const { alerts, connected, dismiss, undismissedCount } = useAlerts();
 
+  const handleSelectRoute = useCallback((routeId: string) => {
+    setSelectedRouteId(routeId);
+    setRightPanel('route');
+    setMobileView('panel');
+  }, []);
+
+  const handleReplan = useCallback(async (routeId: string) => {
+    await fetch(`/api/replan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ routeId }),
+    });
+    refreshRoutes();
+  }, [refreshRoutes]);
+
   useEffect(() => {
     if (!isLoggedIn()) {
       window.location.href = '/dispatcher/login';
@@ -47,21 +62,6 @@ export default function DispatcherDashboard() {
       </div>
     );
   }
-
-  const handleSelectRoute = useCallback((routeId: string) => {
-    setSelectedRouteId(routeId);
-    setRightPanel('route');
-    setMobileView('panel');
-  }, []);
-
-  const handleReplan = useCallback(async (routeId: string) => {
-    await fetch(`/api/replan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ routeId }),
-    });
-    refreshRoutes();
-  }, [refreshRoutes]);
 
   return (
     <div className="flex flex-col h-full bg-[#171614] overflow-hidden">
