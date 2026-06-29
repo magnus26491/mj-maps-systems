@@ -22,7 +22,7 @@ export default function LoginPage() {
     try {
       const { role, planId } = await login(email, password);
       if (role !== 'dispatcher' && role !== 'admin') {
-        throw new Error('Dispatcher or admin access required.');
+        throw new Error('This account does not have dispatcher access. Ask your admin to set your role to dispatcher, or log in with an admin account.');
       }
       window.location.href = '/dispatcher';
     } catch (err: unknown) {
