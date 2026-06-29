@@ -69,6 +69,7 @@ export function requireAuth(
 /**
  * Returns a Fastify onRequest hook that checks the user's plan has the feature.
  * Must be used after requireAuth.
+ * Admin users and platform owners bypass all feature gates.
  */
 export function requireFeature(feature: FeatureKey) {
   return function featureGuard(
@@ -79,6 +80,11 @@ export function requireFeature(feature: FeatureKey) {
     const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
     if (!authUser) {
       reply.code(401).send({ error: 'Unauthorized' });
+      done();
+      return;
+    }
+    // Admins and platform owners have unrestricted access to all features
+    if (authUser.role === 'admin' || authUser.isOwner) {
       done();
       return;
     }
@@ -144,6 +150,11 @@ export function requireTier(...tiers: string[]) {
       done();
       return;
     }
+    // Admins and platform owners bypass tier gates
+    if (authUser.role === 'admin' || authUser.isOwner) {
+      done();
+      return;
+    }
     if (!tiers.includes(authUser.tier)) {
       reply.code(403).send({ error: 'Plan upgrade required' });
       done();
@@ -168,6 +179,11 @@ export function requireEnterprise(
   const authUser = (request as unknown as { authUser?: AuthUser }).authUser;
   if (!authUser) {
     reply.code(401).send({ error: 'Unauthorized' });
+    done();
+    return;
+  }
+  // Admins and platform owners bypass the enterprise gate
+  if (authUser.role === 'admin' || authUser.isOwner) {
     done();
     return;
   }
