@@ -1,8 +1,9 @@
 User-agent: *
 Allow: /
 
+# Block app/auth pages from indexing
+Disallow: /login
+Disallow: /register
+
 # Sitemap
 Sitemap: https://mjmapsystems.com/sitemap.xml
-
-# Crawl-delay for polite crawling
-Crawl-delay: 1
