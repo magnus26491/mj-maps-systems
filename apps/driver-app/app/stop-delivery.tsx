@@ -16,7 +16,7 @@
 import { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, TextInput, Modal,
+  ScrollView, TextInput, Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -57,7 +57,22 @@ function StopDeliveryInner() {
     // Attempt POD capture if B2B tier — silently skips on individual builds
     let pod: { photoUri?: string; signature?: string; parcelId?: string } | null = null;
     if (isPodAvailable()) {
-      pod = await capturePod(stop.id).catch(() => null);
+      try {
+        pod = await capturePod(stop.id);
+      } catch (e) {
+        const proceed = await new Promise<boolean>(resolve => {
+          Alert.alert(
+            'Photo Failed',
+            'Could not capture delivery photo. Continue without photo?',
+            [
+              { text: 'Try Again', onPress: () => resolve(false) },
+              { text: 'Continue', style: 'destructive', onPress: () => resolve(true) },
+            ],
+          );
+        });
+        if (!proceed) return; // abort delivery — driver will retry
+        pod = null;
+      }
     }
 
     enqueue({

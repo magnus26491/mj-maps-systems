@@ -67,7 +67,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@company.com"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl text-zinc-100 text-sm px-3.5 py-2.5 outline-none focus:border-[#00c2a8] transition-colors placeholder:text-zinc-600"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl text-zinc-100 text-base px-3.5 py-3 min-h-[44px] outline-none focus:border-[#00c2a8] transition-colors placeholder:text-zinc-600"
               />
             </div>
 
@@ -83,7 +83,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl text-zinc-100 text-sm px-3.5 py-2.5 outline-none focus:border-[#00c2a8] transition-colors placeholder:text-zinc-600"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl text-zinc-100 text-base px-3.5 py-3 min-h-[44px] outline-none focus:border-[#00c2a8] transition-colors placeholder:text-zinc-600"
               />
             </div>
 
@@ -96,7 +96,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#00c2a8] hover:bg-[#009e88] disabled:opacity-60 text-[#0d1117] font-bold text-sm rounded-xl py-2.5 transition-colors"
+              className="w-full bg-[#00c2a8] hover:bg-[#009e88] disabled:opacity-60 text-[#0d1117] font-bold text-sm rounded-xl py-3 min-h-[44px] transition-colors"
             >
               {loading ? 'Signing in…' : 'Sign in to Dashboard'}
             </button>

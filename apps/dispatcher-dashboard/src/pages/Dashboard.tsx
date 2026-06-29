@@ -108,6 +108,7 @@ export default function Dashboard() {
             padding: '0.25rem 0.75rem',
             cursor: 'pointer',
             fontFamily: 'var(--font-body)',
+            minHeight: 44,
           }}>
             Sign out
           </button>
@@ -127,8 +128,8 @@ export default function Dashboard() {
       {/* KPI bar */}
       <KpiBar stats={stats} isLoading={statsLoading} />
 
-      {/* 2-col grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1rem' }}>
+      {/* Responsive 2-col grid — stacks to 1-col on mobile */}
+      <div className="dashboard-grid">
         {/* Left: map + route list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <FleetMap routes={routes} />

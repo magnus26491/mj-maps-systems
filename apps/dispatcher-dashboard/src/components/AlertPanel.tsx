@@ -32,8 +32,8 @@ export default function AlertPanel() {
                 onClick={() => dismiss(a.alertId)}
                 style={{
                   background: 'transparent', border: '1px solid #334155', borderRadius: 4,
-                  color: '#94a3b8', fontSize: '0.75rem', padding: '0.25rem 0.5rem',
-                  cursor: 'pointer', marginTop: '0.5rem',
+                  color: '#94a3b8', fontSize: '0.75rem', padding: '0.625rem 0.75rem',
+                  cursor: 'pointer', marginTop: '0.5rem', minHeight: 44,
                 }}
               >
                 Dismiss

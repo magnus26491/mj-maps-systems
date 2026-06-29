@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert, Keyboard, Platform, FlatList, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -30,6 +30,8 @@ interface LocalStop {
   lng:          number;
   parcelCount:  number;
   notes?:       string;
+  uprn?:        string;
+  pinSource?:   string;
 }
 
 interface PafAddress {
@@ -38,6 +40,11 @@ interface PafAddress {
   postTown:    string;
   postcode:    string;
   fullAddress: string;
+  lat?:        number;
+  lng?:        number;
+  uprn?:       string;
+  confidence?: number;
+  source?:     string;
 }
 
 const normalisePC  = (q: string) => q.toUpperCase().replace(/\s+/g, '');
@@ -46,8 +53,12 @@ const isPostcode   = (q: string) => UK_PC.test(normalisePC(q));
 const formatPC     = (q: string) => normalisePC(q).replace(UK_PC, '$1 $2');
 
 export default function RouteBuilderScreen() {
+  const { addMode } = useLocalSearchParams<{ addMode?: string }>();
+  const isAddMode = addMode === '1';
+
   const [query,          setQuery]          = useState('');
   const [pafResults,     setPafResults]     = useState<PafAddress[]>([]);
+  const [pafCounts,      setPafCounts]      = useState<Record<number, number>>({});
   const [pafLoading,     setPafLoading]     = useState(false);
   const [stops,          setStops]          = useState<LocalStop[]>([]);
   const [optimising,     setOptimising]     = useState(false);
@@ -64,6 +75,7 @@ export default function RouteBuilderScreen() {
   const handlePafSearch = useCallback(async (q: string) => {
     const formatted = formatPC(q);
     setPafLoading(true);
+    setPafCounts({});
     try {
       const res = await fetch(
         `${API}/api/v1/paf/lookup?postcode=${encodeURIComponent(formatted)}`,
@@ -87,36 +99,59 @@ export default function RouteBuilderScreen() {
     } else {
       try {
         const geo = await Location.geocodeAsync(query);
-        setPafResults(geo.map(() => ({
+        setPafResults(geo.map(g => ({
           line1:       query.toUpperCase(),
           postTown:    '',
           postcode:    '',
           fullAddress: query,
+          lat:         g.latitude,
+          lng:         g.longitude,
         })));
       } catch { setPafResults([]); }
     }
   }, [query, handlePafSearch]);
 
-  const handleAddPafStop = useCallback((addr: PafAddress) => {
-    setStops(prev => [...prev, {
-      id: `paf-${Date.now()}-${Math.random()}`,
-      address: addr.fullAddress, lat: 0, lng: 0, parcelCount: 1,
-    }]);
+  const handleSelectAll = useCallback(() => {
+    const all: Record<number, number> = {};
+    pafResults.forEach((_, i) => { all[i] = 1; });
+    setPafCounts(all);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [pafResults]);
+
+  const handlePafCountChange = useCallback((index: number, delta: number) => {
+    setPafCounts(prev => {
+      const cur  = prev[index] ?? 0;
+      const next = Math.max(0, cur + delta);
+      if (next === 0) {
+        const { [index]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [index]: next };
+    });
   }, []);
 
-  const handleAddAllPaf = useCallback(() => {
+  const handleAddSelected = useCallback(() => {
+    const selected = pafResults
+      .map((addr, i) => ({ addr, count: pafCounts[i] ?? 0 }))
+      .filter(({ count }) => count > 0);
+    if (!selected.length) return;
     setStops(prev => [
       ...prev,
-      ...pafResults.map((addr, i) => ({
-        id: `paf-all-${Date.now()}-${i}`,
-        address: addr.fullAddress, lat: 0, lng: 0, parcelCount: 1,
+      ...selected.map(({ addr, count }, i) => ({
+        id:         `paf-${Date.now()}-${i}`,
+        address:    addr.fullAddress,
+        lat:        addr.lat ?? 0,
+        lng:        addr.lng ?? 0,
+        parcelCount: count,
+        uprn:       addr.uprn,
+        pinSource:  addr.source,
       })),
     ]);
     setPafResults([]);
+    setPafCounts({});
     setQuery('');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [pafResults]);
+  }, [pafResults, pafCounts]);
 
   const handleFilePick = useCallback(async () => {
     try {
@@ -134,10 +169,12 @@ export default function RouteBuilderScreen() {
       setStops(prev => [
         ...prev,
         ...parsed.map((s, i) => ({
-          id: `csv-${Date.now()}-${i}`,
-          address: s.address, lat: 0, lng: 0,
+          id:         `csv-${Date.now()}-${i}`,
+          address:    s.address,
+          lat:        0,
+          lng:        0,
           parcelCount: s.parcelCount ?? 1,
-          notes: s.notes,
+          notes:      s.notes,
         })),
       ]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -211,18 +248,23 @@ export default function RouteBuilderScreen() {
 
   const handleContinue = useCallback(() => {
     if (!stops.length) return;
+    if (isAddMode) {
+      const { addStop } = useShiftStore.getState();
+      stops.forEach(stop => addStop(stop));
+      router.back();
+      return;
+    }
     useShiftStore.getState().setStagedStops(stops as any);
     router.push({
       pathname: '/route-review',
       params: { departureEpochMs: String(departureTime.getTime()) },
     });
-  }, [stops, departureTime]);
+  }, [stops, departureTime, isAddMode]);
 
   const handleSaveRoute = useCallback(async () => {
     const name = saveName.trim();
     if (!name || !stops.length) return;
 
-    // Pro plan limit: 10 saved routes
     const count = await countSavedRoutes();
     if (plan !== 'enterprise' && count >= 10) {
       Alert.alert(
@@ -252,6 +294,9 @@ export default function RouteBuilderScreen() {
     Alert.alert('Route saved!', `"${name}" has been saved to your routes.`);
   }, [stops, saveName, plan]);
 
+  // Computed
+  const selectedPafCount = Object.values(pafCounts).filter(c => c > 0).length;
+
   interface StopRowProps {
     item: LocalStop;
     drag: () => void;
@@ -266,7 +311,7 @@ export default function RouteBuilderScreen() {
       <Swipeable
         renderRightActions={() => (
           <TouchableOpacity
-            style={[styles.swipeRemove]}
+            style={styles.swipeRemove}
             onPress={onRemove}
             accessibilityRole="button"
             accessibilityLabel={`Remove ${item.address}`}
@@ -320,8 +365,10 @@ export default function RouteBuilderScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={[styles.backText, { color: colors.green }]}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Plan Route</Text>
-        {stops.length > 0 && (
+        <Text style={[styles.title, { color: colors.text }]}>
+          {isAddMode ? 'Add Stops' : 'Plan Route'}
+        </Text>
+        {!isAddMode && stops.length > 0 && (
           <TouchableOpacity
             onPress={() => { setSaveName(''); setSaveModalVisible(true); }}
             style={styles.saveBtn}
@@ -329,13 +376,6 @@ export default function RouteBuilderScreen() {
             accessibilityLabel="Save route"
           >
             <Text style={[styles.saveText, { color: colors.green }]}>💾</Text>
-          </TouchableOpacity>
-        )}
-        {stops.length >= 2 && (
-          <TouchableOpacity onPress={handleOptimise} disabled={optimising} style={styles.optimiseBtn}>
-            {optimising
-              ? <ActivityIndicator color={colors.green} size="small" />
-              : <Text style={[styles.optimiseText, { color: colors.green }]}>Optimise ✦</Text>}
           </TouchableOpacity>
         )}
       </View>
@@ -374,38 +414,85 @@ export default function RouteBuilderScreen() {
           )}
           {pafResults.length > 0 && (
             <>
-              <TouchableOpacity
-                style={[styles.addAllBtn, { backgroundColor: colors.green }]}
-                onPress={handleAddAllPaf}
-                accessibilityRole="button"
-                accessibilityLabel={`Add all ${pafResults.length} addresses`}
-              >
-                <Text style={styles.addAllText}>+ Add all {pafResults.length} addresses</Text>
-              </TouchableOpacity>
+              {/* Panel header row */}
+              <View style={styles.pafHeader}>
+                <Text style={[styles.pafHeaderText, { color: colors.subtext }]}>
+                  {pafResults.length} address{pafResults.length !== 1 ? 'es' : ''}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleSelectAll}
+                  accessibilityRole="button"
+                  accessibilityLabel="Select all addresses"
+                >
+                  <Text style={[styles.pafSelectAll, { color: colors.green }]}>Select all</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Per-address rows with +/- stepper */}
               <FlatList
                 data={pafResults}
                 keyExtractor={(_, i) => String(i)}
-                style={{ maxHeight: 200 }}
-                renderItem={({ item }) => (
+                style={{ maxHeight: 240 }}
+                renderItem={({ item, index }) => {
+                  const count = pafCounts[index] ?? 0;
+                  return (
+                    <View style={[
+                      styles.pafRow,
+                      { borderBottomColor: colors.border },
+                      count > 0 && styles.pafRowSelected,
+                    ]}>
+                      <View style={styles.pafRowContent}>
+                        <Text style={[styles.pafLine1, { color: colors.text }]}>{item.line1}</Text>
+                        {item.line2 ? (
+                          <Text style={[styles.pafLine2, { color: colors.subtext }]}>{item.line2}</Text>
+                        ) : null}
+                        <Text style={[styles.pafLine2, { color: colors.subtext }]}>
+                          {item.postTown}  {item.postcode}
+                        </Text>
+                      </View>
+                      <View style={styles.stepper}>
+                        <TouchableOpacity
+                          onPress={() => handlePafCountChange(index, -1)}
+                          style={styles.stepBtn}
+                          accessibilityLabel={`Remove ${item.line1}`}
+                        >
+                          <Text style={[styles.stepText, { color: colors.text }]}>−</Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.stepCount, { color: colors.text }]}>{count}</Text>
+                        <TouchableOpacity
+                          onPress={() => handlePafCountChange(index, 1)}
+                          style={styles.stepBtn}
+                          accessibilityLabel={`Add ${item.line1}`}
+                        >
+                          <Text style={[styles.stepText, { color: colors.text }]}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                }}
+              />
+
+              {/* Panel footer */}
+              <View style={styles.pafFooter}>
+                <TouchableOpacity
+                  onPress={() => { setPafResults([]); setPafCounts({}); }}
+                  style={styles.pafDismissBtn}
+                >
+                  <Text style={{ color: colors.subtext }}>✕ Dismiss</Text>
+                </TouchableOpacity>
+                {selectedPafCount > 0 && (
                   <TouchableOpacity
-                    style={[styles.pafRow, { borderBottomColor: colors.border }]}
-                    onPress={() => handleAddPafStop(item)}
+                    style={[styles.pafAddSelectedBtn, { backgroundColor: colors.green }]}
+                    onPress={handleAddSelected}
                     accessibilityRole="button"
-                    accessibilityLabel={`Add stop: ${item.fullAddress}`}
+                    accessibilityLabel={`Add ${selectedPafCount} selected address${selectedPafCount !== 1 ? 'es' : ''}`}
                   >
-                    <Text style={[styles.pafLine1, { color: colors.text }]}>{item.line1}</Text>
-                    {item.line2 ? (
-                      <Text style={[styles.pafLine2, { color: colors.subtext }]}>{item.line2}</Text>
-                    ) : null}
-                    <Text style={[styles.pafLine2, { color: colors.subtext }]}>
-                      {item.postTown}  {item.postcode}
+                    <Text style={styles.pafAddSelectedText}>
+                      Add {selectedPafCount} selected
                     </Text>
                   </TouchableOpacity>
                 )}
-              />
-              <TouchableOpacity onPress={() => setPafResults([])} style={styles.pafDismiss}>
-                <Text style={{ color: colors.subtext }}>✕ Dismiss</Text>
-              </TouchableOpacity>
+              </View>
             </>
           )}
         </View>
@@ -418,7 +505,9 @@ export default function RouteBuilderScreen() {
             <Text style={styles.emptyIcon}>📦</Text>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>No stops yet</Text>
             <Text style={[styles.emptyBody, { color: colors.subtext }]}>
-              Enter a postcode to see all houses on that street, or tap 📂 to import a CSV
+              {isAddMode
+                ? 'Search a postcode to add more stops to your active route'
+                : 'Enter a postcode to see all houses on that street, or tap 📂 to import a CSV'}
             </Text>
           </View>
         ) : (
@@ -435,64 +524,109 @@ export default function RouteBuilderScreen() {
                 onParcelChange={delta => handleParcelCount(item.id, delta)}
               />
             )}
-            contentContainerStyle={{ paddingBottom: 240 }}
+            contentContainerStyle={{ paddingBottom: 260 }}
           />
         )}
       </View>
 
-      {/* DEPARTURE TIME */}
-      <View style={[styles.timeSection, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.timeLabel, { color: colors.subtext }]}>DEPARTURE TIME</Text>
-        <View style={styles.chipRow}>
-          {(['now', '30', '60', 'custom'] as const).map(c => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.chip, { backgroundColor: timeChip === c ? colors.green : '#1c2a37' }]}
-              onPress={() => handleTimeChip(c)}
-              accessibilityRole="button"
-              accessibilityLabel={
-                c === 'now' ? 'Depart now' :
-                c === '30'  ? 'Depart in 30 minutes' :
-                c === '60'  ? 'Depart in 1 hour' : 'Choose custom time'
-              }
-            >
-              <Text style={[styles.chipText, { color: timeChip === c ? '#fff' : colors.subtext }]}>
-                {c === 'now' ? 'Now' : c === '30' ? '+30 min' : c === '60' ? '+1 hr' : 'Custom'}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      {/* DEPARTURE TIME — hidden in add mode */}
+      {!isAddMode && (
+        <View style={[styles.timeSection, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.timeLabel, { color: colors.subtext }]}>DEPARTURE TIME</Text>
+          <View style={styles.chipRow}>
+            {(['now', '30', '60', 'custom'] as const).map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[styles.chip, { backgroundColor: timeChip === c ? colors.green : '#1c2a37' }]}
+                onPress={() => handleTimeChip(c)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  c === 'now' ? 'Depart now' :
+                  c === '30'  ? 'Depart in 30 minutes' :
+                  c === '60'  ? 'Depart in 1 hour' : 'Choose custom time'
+                }
+              >
+                <Text style={[styles.chipText, { color: timeChip === c ? '#fff' : colors.subtext }]}>
+                  {c === 'now' ? 'Now' : c === '30' ? '+30 min' : c === '60' ? '+1 hr' : 'Custom'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[styles.timeDisplay, { color: colors.text }]}>
+            Departing at {departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          {showTimePicker && (
+            <DateTimePicker
+              value={departureTime}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleTimeChange}
+              minuteInterval={5}
+            />
+          )}
         </View>
-        <Text style={[styles.timeDisplay, { color: colors.text }]}>
-          Departing at {departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-        {showTimePicker && (
-          <DateTimePicker
-            value={departureTime}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleTimeChange}
-            minuteInterval={5}
-          />
-        )}
-      </View>
+      )}
 
       {/* CTA FOOTER */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <TouchableOpacity
-          style={[styles.ctaBtn, {
-            backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
-          }]}
-          onPress={handleContinue}
-          disabled={stops.length === 0}
-          accessibilityRole="button"
-          accessibilityLabel={`Continue to review with ${stops.length} stops`}
-        >
-          <Text style={styles.ctaBtnText}>
-            {stops.length > 0
-              ? `Review ${stops.length} Stop${stops.length !== 1 ? 's' : ''}  →`
-              : 'Add stops to continue'}
-          </Text>
-        </TouchableOpacity>
+        {isAddMode ? (
+          /* Add mode: single button — appends stops to active shift */
+          <TouchableOpacity
+            style={[styles.ctaBtn, {
+              backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
+            }]}
+            onPress={handleContinue}
+            disabled={stops.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${stops.length} stop${stops.length !== 1 ? 's' : ''} to route`}
+          >
+            <Text style={styles.ctaBtnText}>
+              {stops.length > 0
+                ? `Add ${stops.length} Stop${stops.length !== 1 ? 's' : ''} to Route`
+                : 'Select stops to add'}
+            </Text>
+          </TouchableOpacity>
+        ) : stops.length >= 2 ? (
+          /* Normal mode with stops: two side-by-side buttons */
+          <View style={styles.footerDual}>
+            <TouchableOpacity
+              style={[styles.ctaBtnHalf, { backgroundColor: '#1c2a37' }]}
+              onPress={handleOptimise}
+              disabled={optimising}
+              accessibilityRole="button"
+              accessibilityLabel="Optimise route order"
+            >
+              {optimising
+                ? <ActivityIndicator color={colors.green} size="small" />
+                : <Text style={[styles.ctaBtnText, { color: colors.green }]}>Optimise ✦</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.ctaBtnHalf, { backgroundColor: colors.green }]}
+              onPress={handleContinue}
+              accessibilityRole="button"
+              accessibilityLabel={`Review ${stops.length} stops`}
+            >
+              <Text style={styles.ctaBtnText}>Start Route →</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Normal mode, 0–1 stops: single button */
+          <TouchableOpacity
+            style={[styles.ctaBtn, {
+              backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
+            }]}
+            onPress={handleContinue}
+            disabled={stops.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel={`Continue to review with ${stops.length} stops`}
+          >
+            <Text style={styles.ctaBtnText}>
+              {stops.length > 0
+                ? `Review ${stops.length} Stop  →`
+                : 'Add stops to continue'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* SAVE ROUTE MODAL */}
@@ -548,67 +682,88 @@ export default function RouteBuilderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:       { flex: 1 },
-  header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
-                     paddingVertical: 14, borderBottomWidth: 1 },
-  backBtn:         { paddingRight: 12 },
-  backText:        { fontSize: 18, fontWeight: '500' },
-  title:           { flex: 1, fontSize: 18, fontWeight: '700' },
-  optimiseBtn:     { paddingLeft: 12 },
-  optimiseText:    { fontSize: 15, fontWeight: '700' },
-  saveBtn:         { paddingLeft: 12 },
-  saveText:        { fontSize: 18 },
-  searchRow:       { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  searchInput:     { flex: 1, height: 56, borderRadius: 12, paddingHorizontal: 16,
-                     fontSize: 16, borderWidth: 1 },
-  fileBtn:         { width: 56, height: 56, borderRadius: 12, justifyContent: 'center',
-                     alignItems: 'center' },
-  pafPanel:        { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', marginBottom: 8 },
-  addAllBtn:       { paddingVertical: 14, alignItems: 'center' },
-  addAllText:      { color: '#fff', fontWeight: '700', fontSize: 15 },
-  pafRow:          { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1 },
-  pafLine1:        { fontSize: 15, fontWeight: '600' },
-  pafLine2:        { fontSize: 12, marginTop: 2 },
-  pafDismiss:      { padding: 12, alignItems: 'center' },
-  listSection:     { flex: 1 },
-  emptyState:      { flex: 1, alignItems: 'center', justifyContent: 'center',
-                     paddingHorizontal: 40, paddingTop: 60 },
-  emptyIcon:       { fontSize: 48, marginBottom: 12 },
-  emptyTitle:      { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  emptyBody:       { fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  stopRow:         { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16,
-                     marginVertical: 4, padding: 14, borderRadius: 10, minHeight: 64 },
-  handle:          { fontSize: 20, marginRight: 12, width: 24, textAlign: 'center' },
-  stopContent:     { flex: 1 },
-  stopAddress:     { fontSize: 15, fontWeight: '600' },
-  stepper:         { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  stepBtn:         { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1c2a37',
-                     justifyContent: 'center', alignItems: 'center' },
-  stepText:        { fontSize: 18, fontWeight: '700', lineHeight: 20 },
-  stepCount:       { fontSize: 15, fontWeight: '700', minWidth: 24, textAlign: 'center' },
-  swipeRemove:     { backgroundColor: '#c62828', justifyContent: 'center',
-                     alignItems: 'center', width: 80, marginVertical: 4, borderRadius: 10 },
-  swipeRemoveText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  timeSection:     { marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 12 },
-  timeLabel:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 10 },
-  chipRow:         { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  chip:            { flex: 1, paddingVertical: 10, borderRadius: 20, alignItems: 'center' },
-  chipText:        { fontSize: 13, fontWeight: '700' },
-  timeDisplay:     { fontSize: 13, fontWeight: '500' },
-  footer:          { paddingHorizontal: 16, paddingTop: 10 },
-  ctaBtn:          { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  ctaBtnText:      { color: '#fff', fontSize: 17, fontWeight: '800' },
-  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center',
-                     alignItems: 'center', padding: 24 },
-  modalCard:       { width: '100%', maxWidth: 400, borderRadius: 16, padding: 24 },
-  modalTitle:      { fontSize: 20, fontWeight: '700', marginBottom: 16 },
-  modalInput:      { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, height: 48,
-                     fontSize: 15, marginBottom: 16 },
-  modalActions:    { flexDirection: 'row', gap: 12 },
-  modalCancelBtn:  { flex: 1, height: 48, borderRadius: 10, borderWidth: 1,
-                     justifyContent: 'center', alignItems: 'center' },
-  modalCancelText: { fontSize: 15, fontWeight: '600' },
-  modalSaveBtn:    { flex: 1, height: 48, borderRadius: 10,
-                     justifyContent: 'center', alignItems: 'center' },
-  modalSaveText:   { fontSize: 15, fontWeight: '700' },
+  container:         { flex: 1 },
+  header:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
+                       paddingVertical: 14, borderBottomWidth: 1 },
+  backBtn:           { paddingRight: 12 },
+  backText:          { fontSize: 18, fontWeight: '500' },
+  title:             { flex: 1, fontSize: 18, fontWeight: '700' },
+  saveBtn:           { paddingLeft: 12 },
+  saveText:          { fontSize: 18 },
+  searchRow:         { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  searchInput:       { flex: 1, height: 56, borderRadius: 12, paddingHorizontal: 16,
+                       fontSize: 16, borderWidth: 1 },
+  fileBtn:           { width: 56, height: 56, borderRadius: 12, justifyContent: 'center',
+                       alignItems: 'center' },
+
+  // PAF panel
+  pafPanel:          { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', marginBottom: 8 },
+  pafHeader:         { flexDirection: 'row', alignItems: 'center',
+                       justifyContent: 'space-between',
+                       paddingHorizontal: 16, paddingVertical: 12 },
+  pafHeaderText:     { fontSize: 13, fontWeight: '600' },
+  pafSelectAll:      { fontSize: 13, fontWeight: '700' },
+  pafRow:            { flexDirection: 'row', alignItems: 'center',
+                       paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1 },
+  pafRowSelected:    { backgroundColor: '#1a2f1a' },
+  pafRowContent:     { flex: 1, marginRight: 12 },
+  pafLine1:          { fontSize: 15, fontWeight: '600' },
+  pafLine2:          { fontSize: 12, marginTop: 2 },
+  pafFooter:         { flexDirection: 'row', alignItems: 'center',
+                       justifyContent: 'space-between',
+                       paddingHorizontal: 12, paddingVertical: 10 },
+  pafDismissBtn:     { padding: 8 },
+  pafAddSelectedBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  pafAddSelectedText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Stop list
+  listSection:       { flex: 1 },
+  emptyState:        { flex: 1, alignItems: 'center', justifyContent: 'center',
+                       paddingHorizontal: 40, paddingTop: 60 },
+  emptyIcon:         { fontSize: 48, marginBottom: 12 },
+  emptyTitle:        { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  emptyBody:         { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  stopRow:           { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16,
+                       marginVertical: 4, padding: 14, borderRadius: 10, minHeight: 64 },
+  handle:            { fontSize: 20, marginRight: 12, width: 24, textAlign: 'center' },
+  stopContent:       { flex: 1 },
+  stopAddress:       { fontSize: 15, fontWeight: '600' },
+  stepper:           { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  stepBtn:           { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1c2a37',
+                       justifyContent: 'center', alignItems: 'center' },
+  stepText:          { fontSize: 18, fontWeight: '700', lineHeight: 20 },
+  stepCount:         { fontSize: 15, fontWeight: '700', minWidth: 24, textAlign: 'center' },
+  swipeRemove:       { backgroundColor: '#c62828', justifyContent: 'center',
+                       alignItems: 'center', width: 80, marginVertical: 4, borderRadius: 10 },
+  swipeRemoveText:   { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Departure time
+  timeSection:       { marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 12 },
+  timeLabel:         { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 10 },
+  chipRow:           { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  chip:              { flex: 1, paddingVertical: 10, borderRadius: 20, alignItems: 'center' },
+  chipText:          { fontSize: 13, fontWeight: '700' },
+  timeDisplay:       { fontSize: 13, fontWeight: '500' },
+
+  // Footer
+  footer:            { paddingHorizontal: 16, paddingTop: 10 },
+  footerDual:        { flexDirection: 'row', gap: 10 },
+  ctaBtn:            { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  ctaBtnHalf:        { flex: 1, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  ctaBtnText:        { color: '#fff', fontSize: 17, fontWeight: '800' },
+
+  // Modal
+  modalOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center',
+                       alignItems: 'center', padding: 24 },
+  modalCard:         { width: '100%', maxWidth: 400, borderRadius: 16, padding: 24 },
+  modalTitle:        { fontSize: 20, fontWeight: '700', marginBottom: 16 },
+  modalInput:        { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, height: 48,
+                       fontSize: 15, marginBottom: 16 },
+  modalActions:      { flexDirection: 'row', gap: 12 },
+  modalCancelBtn:    { flex: 1, height: 48, borderRadius: 10, borderWidth: 1,
+                       justifyContent: 'center', alignItems: 'center' },
+  modalCancelText:   { fontSize: 15, fontWeight: '600' },
+  modalSaveBtn:      { flex: 1, height: 48, borderRadius: 10,
+                       justifyContent: 'center', alignItems: 'center' },
+  modalSaveText:     { fontSize: 15, fontWeight: '700' },
 });

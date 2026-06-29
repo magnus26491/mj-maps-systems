@@ -14,7 +14,7 @@ const inputStyle: React.CSSProperties = {
 };
 const actionBtnStyle: React.CSSProperties = {
   background: 'transparent', border: '1px solid #334155', color: '#94a3b8',
-  borderRadius: 4, padding: '0.25rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer',
+  borderRadius: 4, padding: '0.5rem 0.75rem', fontSize: '0.75rem', cursor: 'pointer', minHeight: 44,
 };
 
 function roleBadgeStyle(role: string): React.CSSProperties {
@@ -96,8 +96,8 @@ export default function DriversPanel() {
           {actionError}
         </div>
       )}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
+      <div className="table-scroll">
+        <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
           <thead>
             <tr style={{ background: '#1e293b' }}>
               <th style={thStyle}>Name / Email</th>
@@ -218,8 +218,9 @@ export default function DriversPanel() {
                             border: '1px solid #ef4444',
                             color: '#ef4444',
                             borderRadius: 4,
-                            padding: '0.25rem 0.5rem',
+                            padding: '0.5rem 0.75rem',
                             fontSize: '0.75rem',
+                            minHeight: 44,
                             cursor: isDeleting ? 'not-allowed' : 'pointer',
                             opacity: isDeleting ? 0.5 : 1,
                           }}

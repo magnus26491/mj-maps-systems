@@ -12,7 +12,6 @@
  *  · FIFO processing — oldest entries first
  */
 import * as SQLite from 'expo-sqlite';
-import * as FileSystem from 'expo-file-system';
 
 const DB_NAME = 'mj_pod_outbox.db';
 const TABLE   = 'pod_outbox';
@@ -120,39 +119,61 @@ export async function drainOutbox(apiBaseUrl: string): Promise<void> {
 }
 
 /**
- * Upload a single POD entry as multipart/form-data using expo/fetch.
- * Uses File objects from expo-file-system — NOT base64.
- * The server endpoint is POST /api/v1/pod
+ * Upload a single POD entry using the presigned S3 URL flow:
+ *  1. POST /api/v1/stops/:stopId/pod/upload-url  → { uploadUrl, objectKey }
+ *  2. PUT photo blob directly to the presigned S3 URL
+ *  3. POST /api/v1/stops/:stopId/pod/confirm     → confirms in DB
+ *
+ * Requires the auth token from SecureStore for the authenticated API calls.
+ * If no photoUri is present the entry is a metadata-only record — skipped here
+ * since the presigned flow requires a photo object to confirm.
  */
 async function uploadPodEntry(entry: OutboxEntry, apiBaseUrl: string): Promise<void> {
-  const form = new FormData();
-  form.append('stopId',         entry.stopId);
-  form.append('idempotencyKey', entry.idempotencyKey);
-  form.append('outcome',        entry.outcome);
-  form.append('capturedAt',     String(entry.capturedAt));
-  if (entry.failureReason) form.append('failureReason', entry.failureReason);
-  if (entry.barcodeValue)  form.append('barcodeValue',  entry.barcodeValue);
-  if (entry.signatureSvg)  form.append('signatureSvg',  entry.signatureSvg);
-
-  if (entry.photoUri) {
-    // Append photo as a blob using the URI
-    const photoData = await FileSystem.readAsStringAsync(entry.photoUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    form.append('photo', {
-      uri:  entry.photoUri,
-      name: `pod_${entry.stopId}.jpg`,
-      type: 'image/jpeg',
-    } as unknown as Blob);
+  if (!entry.photoUri) {
+    // No photo to upload — presigned flow requires a photo; nothing to do
+    return;
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/pod`, {
-    method:  'POST',
-    body:    form,
-  });
+  const token = await import('expo-secure-store').then(m => m.getItemAsync('mj_jwt'));
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
-  if (!response.ok) {
-    throw new Error(`POD upload failed: ${response.status}`);
+  // Step 1: Get presigned upload URL
+  const urlRes = await fetch(
+    `${apiBaseUrl}/api/v1/stops/${entry.stopId}/pod/upload-url`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+    },
+  );
+  if (!urlRes.ok) {
+    throw new Error(`Failed to get upload URL: ${urlRes.status}`);
+  }
+  const urlData = await urlRes.json() as { ok: boolean; data: { uploadUrl: string; objectKey: string } };
+  const { uploadUrl, objectKey } = urlData.data;
+
+  // Step 2: Read photo as blob from local file URI and PUT directly to S3
+  const photoRes = await fetch(entry.photoUri);
+  const photoBlob = await photoRes.blob();
+  const s3Res = await fetch(uploadUrl, {
+    method:  'PUT',
+    headers: { 'Content-Type': 'image/jpeg' },
+    body:    photoBlob,
+  });
+  if (!s3Res.ok) {
+    throw new Error(`S3 upload failed: ${s3Res.status}`);
+  }
+
+  // Step 3: Confirm upload with backend
+  const confirmRes = await fetch(
+    `${apiBaseUrl}/api/v1/stops/${entry.stopId}/pod/confirm`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body:    JSON.stringify({ objectKey }),
+    },
+  );
+  if (!confirmRes.ok) {
+    throw new Error(`POD confirm failed: ${confirmRes.status}`);
   }
 }
 

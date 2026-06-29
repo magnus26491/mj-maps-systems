@@ -73,7 +73,17 @@ async function detectOffRoute(
 export async function locationRoute(server: FastifyInstance): Promise<void> {
   server.post(
     '/api/v1/location',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      // max 30 pings per minute per driver (one every 2 seconds)
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: (req: any) => (req as any).authUser?.id ?? req.ip,
+        },
+      },
+    },
     async (request, reply) => {
       const body = request.body as {
         lat?: unknown;

@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList, StyleSheet,
+  View, Text, TouchableOpacity, FlatList, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -18,12 +18,29 @@ const ITEM_HEIGHT = 88;
 export default function StopListScreen() {
   const shift      = useShiftStore(s => s.shift);
   const stops      = useShiftStore(s => s.stops);
+  const isActive   = useShiftStore(s => s.isActive);
+  const endShift   = useShiftStore(s => s.endShift);
   const currentIdx = useShiftStore(s => s.currentStop?.index ?? 0);
   const { isDriving } = useDrivingMode();
 
   useEffect(() => {
     if (currentIdx > 0) Haptics.selectionAsync();
   }, []);
+
+  const handleEndShift = useCallback(() => {
+    Alert.alert(
+      'End shift?',
+      'This will close your current route. All completed stops are saved.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Shift',
+          style: 'destructive',
+          onPress: () => { endShift(); router.replace('/'); },
+        },
+      ],
+    );
+  }, [endShift]);
 
   const renderStop = useCallback(({ item, index }: any) => {
     const isDone    = index < currentIdx;
@@ -114,6 +131,20 @@ export default function StopListScreen() {
         maxToRenderPerBatch={12}
         windowSize={5}
       />
+
+      {/* FIX 6: End Shift footer — visible only when shift is active */}
+      {isActive && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.endShiftBtn}
+            onPress={handleEndShift}
+            accessibilityRole="button"
+            accessibilityLabel="End shift"
+          >
+            <Text style={styles.endShiftBtnText}>End shift</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -164,4 +195,15 @@ const styles = StyleSheet.create({
   alertPillAmber:     { backgroundColor: '#3b2a0d' },
   alertPillText:      { fontSize: 13, fontWeight: '700', color: '#ffe082' },
   metaText:           { fontSize: 12, color: '#607080' },
+
+  // FIX 6: End Shift footer
+  footer: {
+    borderTopWidth: 1, borderTopColor: '#1c2a37',
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  endShiftBtn: {
+    borderWidth: 1, borderColor: '#EF4444', borderRadius: 12,
+    height: 52, alignItems: 'center', justifyContent: 'center',
+  },
+  endShiftBtnText: { color: '#EF4444', fontWeight: '700', fontSize: 16 },
 });

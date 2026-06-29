@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { requireAuth, requireTier } from '../middleware/auth.js';
 import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index.js';
 import { getRoadContext } from '../../osm/overpass-client.js';
+import { pool } from '../../db/index.js';
 
 const BodySchema = z.object({
   fromLat:       z.number(),
@@ -28,7 +29,12 @@ const BodySchema = z.object({
   toLng:         z.number(),
   vehicleId:     z.string().default('lwb_van'),
   customHeightM: z.number().min(1.0).max(6.0).optional(),
+  address:       z.string().optional(), // full stop address — used to look up verified door pin
 });
+
+function normaliseAddr(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 interface NavStep {
   instruction:  string;
@@ -265,7 +271,25 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send({ ok: false, error: parsed.error.message });
       }
 
-      const { fromLat, fromLng, toLat, toLng, vehicleId, customHeightM } = parsed.data;
+      const { fromLat, fromLng, vehicleId, customHeightM, address } = parsed.data;
+      let { toLat, toLng } = parsed.data;
+
+      // Override destination with community-verified door pin when available.
+      // This is the "last metre" fix: drivers who previously corrected the pin
+      // give future drivers front-door precision automatically.
+      if (address) {
+        try {
+          const norm = normaliseAddr(address);
+          const { rows } = await pool.query<{ lat: number; lng: number }>(
+            `SELECT lat, lng FROM geocode_pins WHERE normalised_address = $1 AND confidence >= 1 LIMIT 1`,
+            [norm],
+          );
+          if (rows[0]) {
+            toLat = rows[0].lat;
+            toLng = rows[0].lng;
+          }
+        } catch { /* non-fatal — proceed with original coords */ }
+      }
 
       const route =
         (await routeViaValhalla(fromLat, fromLng, toLat, toLng, vehicleId)) ??

@@ -1,61 +1,83 @@
 /**
  * useOfflineQueue — persists driver events when the device has no signal.
  *
- * Why this matters:
- *  UK rural routes commonly lose signal for 2-15 minutes at a time.
- *  Without this, completed/failed stop events are silently lost, meaning
- *  dispatcher dashboards show stale data and drivers have to re-confirm.
- *
- * How it works:
- *  · Events (STOP_COMPLETE, STOP_FAIL, LOCATION_PING) are written to an
- *    in-memory queue (React ref — no AsyncStorage, avoids sandboxing issues)
- *  · NetInfo monitors connectivity
- *  · When connection is restored, flush() sends all queued events to
- *    POST /api/v1/driver/event in batches of 20, retrying failed batches
- *  · Events are timestamped at queue time (not flush time) so server
- *    can reconstruct correct event ordering
- *
- * B2B note:
- *  For dispatcher-tier subscribers, events also include parcelId and
- *  photoUri (populated by the POD module when feature flag is enabled).
+ * Events survive app restarts: the queue is written to AsyncStorage on every
+ * change and restored on mount. This matters because UK rural routes lose signal
+ * for 2-15 minutes; without persistence a background-killed app loses all
+ * queued STOP_COMPLETE / STOP_FAIL events, leaving dispatcher dashboards stale.
  */
 import { useRef, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 
 export type QueuedEvent = {
   type:       'STOP_COMPLETE' | 'STOP_FAIL' | 'LOCATION_PING' | 'DIFFICULTY_REPORT';
   stopId?:    string;
   driverId:   string;
   routeId:    string;
-  ts:         number;          // Unix ms — time event occurred
+  ts:         number;
   lat?:       number;
   lng?:       number;
-  reason?:    string;          // For STOP_FAIL
+  reason?:    string;
   notes?:     string;
-  // For DIFFICULTY_REPORT
   address?:   string;
   categories?: string[];
-  // B2B feature-flagged fields (populated by POD module if enabled)
   parcelId?:  string;
   photoUri?:  string;
   signature?: string;
 };
 
-const BATCH_SIZE = 20;
+const STORAGE_KEY = 'mj_offline_queue_v1';
+const BATCH_SIZE  = 20;
+
+async function persist(events: QueuedEvent[]) {
+  try {
+    if (events.length === 0) {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    }
+  } catch {
+    // Storage failure is non-fatal; events remain in memory
+  }
+}
+
+async function load(): Promise<QueuedEvent[]> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as QueuedEvent[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 export function useOfflineQueue() {
-  const queue     = useRef<QueuedEvent[]>([]);
-  const flushing  = useRef(false);
-  const token     = useShiftStore(s => s.token);
-  const shift     = useShiftStore(s => s.shift);
+  const queue    = useRef<QueuedEvent[]>([]);
+  const flushing = useRef(false);
+  const loaded   = useRef(false);
+  const token    = useAuthStore(s => s.token);
+  const shift    = useShiftStore(s => s.shift);
 
-  const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app';
+  const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
+
+  // ── Restore persisted queue on mount ─────────────────────────────────────
+  useEffect(() => {
+    load().then(events => {
+      if (events.length > 0) queue.current = events;
+      loaded.current = true;
+    });
+  }, []);
+
+  // ── Persist helper ────────────────────────────────────────────────────────
+  const save = useCallback(() => persist(queue.current), []);
 
   // ── Enqueue an event ──────────────────────────────────────────────────────
   const enqueue = useCallback((event: Omit<QueuedEvent, 'ts'>) => {
     queue.current.push({ ...event, ts: Date.now() });
-  }, []);
+    save();
+  }, [save]);
 
   // ── Flush queue to server ─────────────────────────────────────────────────
   const flush = useCallback(async () => {
@@ -67,32 +89,31 @@ export function useOfflineQueue() {
     for (const ev of difficulties) {
       try {
         const res = await fetch(`${API}/api/v1/stops/${ev.stopId}/difficulty`, {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ categories: ev.categories ?? [], note: ev.notes, address: ev.address ?? '' }),
+          body:    JSON.stringify({ categories: ev.categories ?? [], note: ev.notes, address: ev.address ?? '' }),
         });
         if (res.ok) {
           queue.current = queue.current.filter(e => e !== ev);
+          save();
         }
       } catch {
         // Network still down — leave in queue
       }
     }
 
-    // Flush remaining events to driver event endpoint
+    // Flush remaining events in batches
     while (queue.current.filter(e => e.type !== 'DIFFICULTY_REPORT').length > 0) {
       const batch = queue.current.filter(e => e.type !== 'DIFFICULTY_REPORT').slice(0, BATCH_SIZE);
       try {
         const res = await fetch(`${API}/api/v1/driver/event`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ events: batch }),
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body:    JSON.stringify({ events: batch }),
         });
         if (res.ok) {
           queue.current = queue.current.filter(e => !batch.includes(e));
+          save();
         } else {
           break;
         }
@@ -102,7 +123,7 @@ export function useOfflineQueue() {
     }
 
     flushing.current = false;
-  }, [token]);
+  }, [token, save]);
 
   // ── Auto-flush on connectivity restored ──────────────────────────────────
   useEffect(() => {

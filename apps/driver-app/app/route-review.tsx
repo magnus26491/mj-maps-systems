@@ -73,12 +73,14 @@ export default function RouteReviewScreen() {
         }),
       });
       const data = res.ok ? await res.json() : null;
+      const routeId = data?.routeId ?? `offline-${Date.now()}`;
       useShiftStore.getState().startShift(
         data?.optimized?.orderedStops ?? stops,
         vehicleId,
+        routeId,
       );
     } catch {
-      useShiftStore.getState().startShift(stops as any, vehicleId);
+      useShiftStore.getState().startShift(stops as any, vehicleId, `offline-${Date.now()}`);
     } finally {
       useShiftStore.getState().clearStagedStops();
       setStarting(false);

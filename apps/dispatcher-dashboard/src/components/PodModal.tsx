@@ -86,6 +86,7 @@ export default function PodModal({ stopId, onClose }: Props) {
 const overlayStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
   display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+  padding: '1rem', overflowY: 'auto',
 };
 
 const modalStyle: React.CSSProperties = {
@@ -95,16 +96,18 @@ const modalStyle: React.CSSProperties = {
   padding: '1.5rem',
   width: '100%',
   maxWidth: 700,
+  maxHeight: '90vh',
+  overflowY: 'auto',
   position: 'relative',
   boxShadow: 'var(--elevation-xl)',
 };
 
 const closeBtn: React.CSSProperties = {
-  position: 'absolute', top: 12, right: 16,
+  position: 'absolute', top: 4, right: 4,
   background: 'transparent', border: 'none',
   color: 'var(--color-text-secondary)', fontSize: '1.5rem',
-  cursor: 'pointer', lineHeight: 1, padding: 4,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer', lineHeight: 1,
+  minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
 const titleStyle: React.CSSProperties = {

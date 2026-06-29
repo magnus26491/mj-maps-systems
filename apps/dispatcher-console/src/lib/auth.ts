@@ -43,7 +43,7 @@ export function getUserRole(): string | null {
   if (!token) return null;
   try {
     const payload = decodeJwtPayload(token);
-    return (payload.role as string) ?? null;
+    return typeof payload.role === 'string' ? payload.role : null;
   } catch {
     return null;
   }

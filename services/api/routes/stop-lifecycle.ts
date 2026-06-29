@@ -166,7 +166,7 @@ export const stopLifecycleRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) return reply.code(400).send({ ok: false, error: parsed.error.message });
 
       const { items } = parsed.data;
-      const driverId = (request as any).user?.id ?? null;
+      const driverId = (request as any).authUser?.id ?? null;
       const results: { endpoint: string; ok: boolean; error?: string }[] = [];
 
       for (const item of items) {

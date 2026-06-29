@@ -41,8 +41,8 @@ export default function RouteDetailModal({ routeId, onClose }: Props) {
   if (!routeId) return null;
 
   return (
-    <div style={overlayStyle} onClick={onClose}>
-      <div style={{ ...modalStyle, maxWidth: 800 }} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" style={{ zIndex: 1010 }} onClick={onClose}>
+      <div className="modal-box modal-box-lg" style={{ maxWidth: 800 }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={closeBtn}>&times;</button>
 
         <h2 style={titleStyle}>
@@ -62,11 +62,8 @@ export default function RouteDetailModal({ routeId, onClose }: Props) {
 
         {routeData && (
           <div>
-            {/* Summary row */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem',
-              marginBottom: '1rem', padding: '0.75rem', background: '#1e293b', borderRadius: 8,
-            }}>
+            {/* Summary row — 2 cols on mobile, 4 cols on wider screens */}
+            <div className="driver-summary-grid">
               <div>
                 <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Vehicle</div>
                 <div style={{ color: '#f1f5f9', fontSize: '0.875rem' }}>{routeData.route.vehicleLabel ?? '—'}</div>
@@ -102,7 +99,7 @@ export default function RouteDetailModal({ routeId, onClose }: Props) {
             </div>
 
             {/* Stop list */}
-            <div style={{ overflow: 'auto', maxHeight: '60vh' }}>
+            <div className="table-scroll" style={{ maxHeight: '60vh' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: '#f1f5f9' }}>
                 <thead>
                   <tr style={{ background: '#1e293b', color: '#94a3b8' }}>
@@ -150,15 +147,7 @@ export default function RouteDetailModal({ routeId, onClose }: Props) {
   );
 }
 
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-};
-
-const modalStyle: React.CSSProperties = {
-  background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12,
-  padding: '1.5rem', width: '100%', maxWidth: 700, position: 'relative',
-};
+// overlayStyle and modalStyle replaced by CSS classes — see globals.css .modal-overlay / .modal-box
 
 const closeBtn: React.CSSProperties = {
   position: 'absolute', top: 12, right: 16, background: 'transparent', border: 'none',

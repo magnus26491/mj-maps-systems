@@ -135,7 +135,7 @@ export const deliveryDifficultyRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { stopId } = request.params;
       const { categories, note, address } = parsed.data;
-      const driverId = (request as any).user?.id ?? null;
+      const driverId = (request as any).authUser?.id ?? null;
       const addressHash = normaliseAddress(address);
 
       await pool.query(

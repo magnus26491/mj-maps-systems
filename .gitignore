@@ -46,3 +46,4 @@ data/
 apps/landing/.astro/
 apps/landing/dist/
 apps/landing/node_modules/
+.claude/

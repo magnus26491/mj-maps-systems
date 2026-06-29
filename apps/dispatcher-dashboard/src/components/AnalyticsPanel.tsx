@@ -85,8 +85,8 @@ export default function AnalyticsPanel() {
       </div>
 
       {/* Route history table */}
-      <div className="d-card" style={{ overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>
+      <div className="d-card table-scroll">
+        <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: '0.875rem', color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>
           <thead>
             <tr style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
               <th style={thStyle}>Driver</th>

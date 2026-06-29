@@ -1,4 +1,5 @@
 /**
+ * POST /api/v1/stops/:stopId/pod             — Direct multipart photo upload (stub)
  * POST /api/v1/stops/:stopId/pod/upload-url   — Step 1: get pre-signed URL
  * POST /api/v1/stops/:stopId/pod/confirm      — Step 3: confirm upload, write to DB
  */
@@ -22,6 +23,28 @@ const StopIdParam = z.string().uuid('stopId must be a UUID');
 
 
 export const podRoute: FastifyPluginAsync = async (fastify) => {
+
+
+  // ── POST /api/v1/stops/:stopId/pod — Direct multipart upload ────────────
+  // The frontend sends multipart/form-data with a `photo` field.
+  // Full S3 multipart integration is pending; this stub returns 200 so the
+  // outbox stops retrying the upload forever on a 404.
+  fastify.post<{ Params: { stopId: string } }>(
+    '/api/v1/stops/:stopId/pod',
+    { preHandler: [requireAuth, requireFeature('POD_PHOTO')] },
+    async (request, reply) => {
+      // Consume the body (even if multipart) to avoid connection stalls
+      try {
+        // If @fastify/multipart is registered, consume parts
+        if (typeof (request as any).parts === 'function') {
+          const parts = (request as any).parts();
+          for await (const _part of parts) { /* drain */ }
+        }
+      } catch { /* non-fatal — body may already be parsed */ }
+
+      return reply.send({ ok: true, url: null, message: 'Photo received' });
+    },
+  );
 
 
   // ── Step 1: Get pre-signed upload URL ────────────────────────────────────

@@ -14,12 +14,13 @@ export async function vehiclesRoutes(server: FastifyInstance): Promise<void> {
    * Public — no auth required (no sensitive data).
    */
   server.get('/api/v1/vehicles', async (_request, reply) => {
+    const makes     = getMakes();
+    const catalogue = VEHICLE_CATALOGUE;
     return reply.send({
       ok: true,
-      data: {
-        makes: getMakes(),
-        catalogue: VEHICLE_CATALOGUE,
-      },
+      data: catalogue,   // Vehicle[] array — matches frontend lib/api.ts expectation
+      makes,             // kept for any caller that reads makes separately
+      catalogue,         // alias for backward compatibility
     });
   });
 
@@ -37,7 +38,7 @@ export async function vehiclesRoutes(server: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth] },
     async (request, reply) => {
       const { make, model, year } = request.body;
-      const driverId = (request as any).authUser?.sub;
+      const driverId = (request as any).authUser?.id;
 
 
       if (!make || !model || !year) {
@@ -93,6 +94,41 @@ export async function vehiclesRoutes(server: FastifyInstance): Promise<void> {
           hgv:              spec.hgv,
         },
       });
+    },
+  );
+
+
+  /**
+   * PATCH /api/v1/drivers/me/vehicle
+   * Driver selects their vehicle by profile key (e.g. 'TRANSIT_LWB_GB').
+   * Used by the frontend which sends {vehicleId: string} — a routing profile key.
+   */
+  server.patch<{
+    Body: { vehicleId: string };
+  }>(
+    '/api/v1/drivers/me/vehicle',
+    { preHandler: [requireAuth] },
+    async (request, reply) => {
+      const { vehicleId } = request.body ?? {};
+      const driverId = (request as any).authUser?.id;
+
+      if (!vehicleId || typeof vehicleId !== 'string') {
+        return reply.code(400).send({ ok: false, error: 'vehicleId is required' });
+      }
+
+      if (!driverId) {
+        return reply.code(401).send({ ok: false, error: 'Not authenticated' });
+      }
+
+      await pool.query(
+        `UPDATE users SET
+           vehicle_id  = $1,
+           updated_at  = NOW()
+         WHERE id = $2`,
+        [vehicleId, driverId],
+      );
+
+      return reply.send({ ok: true, vehicleId });
     },
   );
 }

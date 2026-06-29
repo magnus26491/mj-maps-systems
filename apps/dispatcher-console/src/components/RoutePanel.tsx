@@ -94,7 +94,7 @@ export function RoutePanel({ route, onClose }: RoutePanelProps) {
             <div className="text-sm font-semibold text-zinc-200">{route.driverName}</div>
             <div className="text-xs text-zinc-500">{route.vehicleLabel}</div>
           </div>
-          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors">
+          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors p-3 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center">
             <ChevronRight size={18} />
           </button>
         </div>

@@ -8,10 +8,11 @@
  * stopNav() unsubscribes.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Alert } from 'react-native';
 import * as Speech from 'expo-speech';
 import { fetchNavRoute, type NavRoute, type NavStep, type NavGuardWarning } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
-import { subscribeSharedLocation, type SharedLocation } from '../lib/shared-location';
+import { subscribeSharedLocation, getLatestLocation, type SharedLocation } from '../lib/shared-location';
 
 const DEVIATION_THRESHOLD_M = 250;  // metres — if user is this far off route, re-route
 
@@ -43,20 +44,36 @@ function isOffRoute(
   return minDist > thresholdM;
 }
 
+// Find the polyline index closest to a given lat/lng
+function nearestPolylineIndex(
+  polyline: { lat: number; lng: number }[],
+  lat: number,
+  lng: number,
+): number {
+  let bestIdx = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < polyline.length; i++) {
+    const d = distanceM(lat, lng, polyline[i].lat, polyline[i].lng);
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
 interface UseNavigationResult {
-  route:          NavRoute | null;
-  currentStep:    NavStep | null;
-  stepIndex:      number;
-  distanceToNext: number;
-  isLoading:      boolean;
-  error:          string | null;
-  userLat:        number | null;
-  userLng:        number | null;
-  bearing:        number;
-  guardWarnings:  NavGuardWarning[];
-  startNav:       (toLat: number, toLng: number) => void;
-  stopNav:        () => void;
-  speakStep:      (step: NavStep) => void;
+  route:               NavRoute | null;
+  currentStep:         NavStep | null;
+  stepIndex:           number;
+  distanceToNext:      number;
+  isNearDestination:   boolean;
+  isLoading:           boolean;
+  error:               string | null;
+  userLat:             number | null;
+  userLng:             number | null;
+  bearing:             number;
+  guardWarnings:       NavGuardWarning[];
+  startNav:            (toLat: number, toLng: number, address?: string) => void;
+  stopNav:             () => void;
+  speakStep:           (step: NavStep) => void;
 }
 
 export function useNavigation(): UseNavigationResult {
@@ -70,9 +87,16 @@ export function useNavigation(): UseNavigationResult {
   const [userLng,  setUserLng]    = useState<number | null>(null);
   const [bearing,  setBearing]    = useState(0);
   const [guardWarnings, setGuardWarnings] = useState<NavGuardWarning[]>([]);
+  // Live distance to the next maneuver point (updated every GPS tick)
+  const [liveDistanceToNext, setLiveDistanceToNext] = useState(0);
+  // True when driver is within 30m of destination on the last step
+  const [isNearDestination, setIsNearDestination] = useState(false);
+  const arrivedRef = useRef(false);
+
   const lastSpokenStep = useRef(-1);
-  const destLat = useRef<number | null>(null);
-  const destLng = useRef<number | null>(null);
+  const destLat     = useRef<number | null>(null);
+  const destLng     = useRef<number | null>(null);
+  const destAddress = useRef<string | undefined>(undefined);
   // Keep a mutable ref to current route for use in the location callback
   const routeRef = useRef<NavRoute | null>(null);
   const isReroutingRef = useRef(false);
@@ -94,25 +118,79 @@ export function useNavigation(): UseNavigationResult {
     const step = route.steps[stepIndex];
     if (!step) return;
 
-    const segmentEnd = route.polyline[Math.min(stepIndex + 1, route.polyline.length - 1)];
-    if (!segmentEnd) return;
+    // FIX 2: Use the step's endpoint to find the correct polyline point rather
+    // than assuming one polyline point per step.  We look at the next step's
+    // start (which equals the current step's end maneuver point).  If there is
+    // no next step we use the last polyline point (destination).
+    let targetLat: number;
+    let targetLng: number;
 
-    const distM = distanceM(userLat, userLng, segmentEnd.lat, segmentEnd.lng);
+    const nextStep = route.steps[stepIndex + 1];
+    if (nextStep == null) {
+      // Last step — head for the destination / last polyline point
+      const lastPt = route.polyline[route.polyline.length - 1];
+      targetLat = lastPt?.lat ?? (destLat.current ?? 0);
+      targetLng = lastPt?.lng ?? (destLng.current ?? 0);
+    } else {
+      // Find the polyline point closest to where the next step begins.
+      // The next step begins at the maneuver point that concludes the current
+      // step, which we approximate by finding the nearest polyline point to
+      // the midpoint between the two steps' accumulated distance markers.
+      // Since NavStep has no explicit end-coord we use the nearest polyline
+      // point to the next step's own distanceM offset as a heuristic — but
+      // the simplest robust approach is: take the polyline point nearest to
+      // the user that is *ahead* of the current nearest point.  For now we
+      // use the polyline point index nearest to the accumulated route
+      // distance of the next step's start.
+      //
+      // Practical approach that works well: find the nearest polyline point
+      // to the user position, then look forward from there.  But even
+      // simpler: sum step distances to estimate the polyline index of the
+      // current step's end and clamp.
+      let accumulated = 0;
+      for (let i = 0; i <= stepIndex; i++) {
+        accumulated += route.steps[i]?.distanceM ?? 0;
+      }
+      // Estimate which polyline point corresponds to `accumulated` metres
+      const totalDist = route.totalDistanceM || 1;
+      const fraction  = Math.min(accumulated / totalDist, 1);
+      const ptIndex   = Math.round(fraction * (route.polyline.length - 1));
+      const pt = route.polyline[ptIndex];
+      targetLat = pt?.lat ?? 0;
+      targetLng = pt?.lng ?? 0;
+    }
 
-    if (distM < 200 && lastSpokenStep.current !== stepIndex) {
+    const dist = distanceM(userLat, userLng, targetLat, targetLng);
+
+    // FIX 1: update live distance state so the hook consumer gets a real-time value
+    setLiveDistanceToNext(dist);
+
+    if (dist < 200 && lastSpokenStep.current !== stepIndex) {
       lastSpokenStep.current = stepIndex;
       speakStep(step);
     }
 
-    if (distM < 30 && stepIndex < route.steps.length - 1) {
+    if (dist < 30 && stepIndex < route.steps.length - 1) {
       setStepIndex(i => i + 1);
+    }
+
+    // FIX 3: Arrival detection — only on the last step
+    if (nextStep == null && destLat.current != null && destLng.current != null) {
+      const distToDest = distanceM(userLat, userLng, destLat.current, destLng.current);
+      if (distToDest < 30 && !arrivedRef.current) {
+        arrivedRef.current = true;
+        setIsNearDestination(true);
+      }
     }
   }, [userLat, userLng, route, stepIndex, speakStep]);
 
-  const startNav = useCallback(async (toLat: number, toLng: number) => {
+  const startNav = useCallback(async (toLat: number, toLng: number, address?: string) => {
     setIsLoading(true);
     setError(null);
     setStepIndex(0);
+    setLiveDistanceToNext(0);
+    setIsNearDestination(false);
+    arrivedRef.current = false;
     lastSpokenStep.current = -1;
 
     // Get current position for route calculation
@@ -129,6 +207,7 @@ export function useNavigation(): UseNavigationResult {
       toLat, toLng,
       vehicleId ?? 'lwb_van',
       customHeightM,
+      address,
     );
 
     if (!navRoute) {
@@ -140,8 +219,9 @@ export function useNavigation(): UseNavigationResult {
     setRoute(navRoute);
     routeRef.current = navRoute;
     setGuardWarnings(navRoute.guardWarnings ?? []);
-    destLat.current = toLat;
-    destLng.current = toLng;
+    destLat.current     = toLat;
+    destLng.current     = toLng;
+    destAddress.current = address;
     setIsLoading(false);
     if (navRoute.steps[0]) speakStep(navRoute.steps[0]);
 
@@ -152,7 +232,7 @@ export function useNavigation(): UseNavigationResult {
       setUserLng(loc.longitude);
       if (loc.heading !== null) setBearing(loc.heading);
 
-      // Off-route detection — re-fetch route if driver deviates
+      // Off-route detection — prompt driver before rerouting
       const currentRoute = routeRef.current;
       if (currentRoute && !isReroutingRef.current) {
         const offRoute = isOffRoute(
@@ -161,28 +241,49 @@ export function useNavigation(): UseNavigationResult {
           DEVIATION_THRESHOLD_M,
         );
         if (offRoute) {
-          isReroutingRef.current = true;
-          console.log('[useNavigation] Off route — re-routing...');
-          fetchNavRoute(
-            loc.latitude, loc.longitude,
-            destLat.current!, destLng.current!,
-            vehicleId ?? 'lwb_van',
-            customHeightM,
-          ).then(newRoute => {
-            if (newRoute) {
-              routeRef.current = newRoute;
-              setRoute(newRoute);
-              setStepIndex(0);
-              if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
-            }
-            isReroutingRef.current = false;
-          }).catch(() => {
-            isReroutingRef.current = false;
-          });
+          isReroutingRef.current = true; // prevent repeated prompts
+          Alert.alert(
+            '🔄 Off Route',
+            'You appear to be off your planned route. Reroute now?',
+            [
+              {
+                text: 'Keep Going',
+                style: 'cancel',
+                onPress: () => {
+                  // Re-arm after 90s so the prompt can fire again if still off-route
+                  setTimeout(() => { isReroutingRef.current = false; }, 90_000);
+                },
+              },
+              {
+                text: 'Reroute',
+                onPress: () => {
+                  const cur = getLatestLocation();
+                  fetchNavRoute(
+                    cur?.latitude ?? loc.latitude, cur?.longitude ?? loc.longitude,
+                    destLat.current!, destLng.current!,
+                    vehicleId ?? 'lwb_van',
+                    customHeightM,
+                    destAddress.current,
+                  ).then(newRoute => {
+                    if (newRoute) {
+                      routeRef.current = newRoute;
+                      setRoute(newRoute);
+                      setStepIndex(0);
+                      if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
+                    }
+                    isReroutingRef.current = false;
+                  }).catch(() => {
+                    isReroutingRef.current = false;
+                  });
+                },
+              },
+            ],
+            { cancelable: true, onDismiss: () => { isReroutingRef.current = false; } },
+          );
         }
       }
     });
-  }, [vehicleId, speakStep]);
+  }, [vehicleId, speakStep, customHeightM]);
 
   const stopNav = useCallback(() => {
     locUnsubRef.current?.();
@@ -190,9 +291,13 @@ export function useNavigation(): UseNavigationResult {
     Speech.stop();
     setRoute(null);
     routeRef.current = null;
-    destLat.current = null;
-    destLng.current = null;
+    destLat.current     = null;
+    destLng.current     = null;
+    destAddress.current = undefined;
     setStepIndex(0);
+    setLiveDistanceToNext(0);
+    setIsNearDestination(false);
+    arrivedRef.current = false;
     setError(null);
     setGuardWarnings([]);
   }, []);
@@ -202,11 +307,12 @@ export function useNavigation(): UseNavigationResult {
     Speech.stop();
   }, []);
 
-  const currentStep    = route?.steps[stepIndex] ?? null;
-  const distanceToNext = currentStep?.distanceM ?? 0;
+  const currentStep = route?.steps[stepIndex] ?? null;
 
   return {
-    route, currentStep, stepIndex, distanceToNext,
+    route, currentStep, stepIndex,
+    distanceToNext: liveDistanceToNext,
+    isNearDestination,
     isLoading, error, userLat, userLng, bearing,
     guardWarnings,
     startNav, stopNav, speakStep,
