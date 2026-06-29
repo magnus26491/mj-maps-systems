@@ -1,62 +1,74 @@
 /**
  * app/navigation.tsx
- * Full-screen turn-by-turn navigation.
+ * Full-screen turn-by-turn navigation using MapLibre React Native.
  *
- * Route params: { stopId: string }
- * Gets stop from shift store, starts nav automatically.
- *
- * Features:
- *  · Next Stop — completes current stop, immediately navigates to next
- *  · Hamburger menu — Skip, Google Maps, View Stops, Settings, End Shift
- *  · Skip Stop — marks stop as failed/skipped, moves to next
- *  · Reroute prompt — off-route detection asks driver before rerouting
- *  · Back button — resumes correctly (same stop) from HUD
+ * Key design decisions:
+ * - Uses MapLibre v10 (v10.4.2) declarative layer paint props — colours are
+ *   read from useTheme() so toggling the app theme recolours the map in-place
+ *   without any style reload or tile re-fetch.
+ * - OpenFreeMap vector tiles (free, no API key) as the base map source.
+ * - Route polyline overlaid via ShapeSource + GeoJSON so it never interferes
+ *   with the tile source.
+ * - 3D buildings via FillExtrusionLayer from the OSM building layer in the style.
+ * - Heading-up driving camera with pitch ~55°.
+ * - Routing/voice/reroute logic unchanged (hooks/useNavigation.ts).
  */
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Linking, Modal,
+  ActivityIndicator, Alert, Linking, Platform,
 } from 'react-native';
-import MapView, { Polyline, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import {
+  MapView,
+  Camera,
+  UserLocation,
+  ShapeSource,
+  LineLayer,
+  FillExtrusionLayer,
+  MarkerView,
+  UserTrackingMode,
+} from '@maplibre/maplibre-react-native';
 import { useNavigation } from '../hooks/useNavigation';
 import { useShiftStore } from '../store/shift';
 import { maneuverArrow, formatDistance, formatDuration } from '../lib/navigation';
 import { useDrivingMode } from '../hooks/useDrivingMode';
 import { useNearbyPOI } from '../hooks/useNearbyPOI';
 import { FuelMarker, EVMarker, POIToggle } from '../components/POIMarkers';
+import { useTheme } from '../lib/theme';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/** OpenFreeMap — free vector tiles, no API key, OSM data */
+const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export default function NavigationScreen() {
   const { stopId } = useLocalSearchParams<{ stopId: string }>();
-
-  const stops       = useShiftStore(s => s.stops);
-  const nextStop    = useShiftStore(s => s.nextStop);
-  const completeStop = useShiftStore(s => s.completeStop);
-  const failStop    = useShiftStore(s => s.failStop);
-  const endShift    = useShiftStore(s => s.endShift);
-
+  const { stops }  = useShiftStore();
   const { isDriving } = useDrivingMode();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [showFuel, setShowFuel] = useState(true);
-  const [showEV,   setShowEV]   = useState(true);
+  const { colors } = useTheme();
 
   const {
     route, currentStep, stepIndex, distanceToNext,
-    isLoading, error, userLat, userLng,
+    isNearDestination,
+    isLoading, error, userLat, userLng, bearing,
     guardWarnings,
     startNav, stopNav, speakStep,
   } = useNavigation();
 
+  const [showFuel, setShowFuel] = useState(true);
+  const [showEV,   setShowEV]   = useState(true);
   const { fuel, evCharging } = useNearbyPOI(userLat ?? null, userLng ?? null);
 
-  const stop    = stops.find(s => s.id === stopId);
-  const destLat = stop?.lat ?? 0;
-  const destLng = stop?.lng ?? 0;
+  // Map camera ref for programmatic control
+  const cameraRef = useRef<any>(null);
 
-  // Start navigation automatically when screen mounts
+  // Resolve stop from shift store and start navigation
   useEffect(() => {
     if (!stopId) return;
+    const stop = stops.find(s => s.id === stopId);
     if (!stop) {
       Alert.alert('Stop not found', 'This stop is no longer in your route.', [
         { text: 'OK', onPress: () => router.back() },
@@ -71,100 +83,84 @@ export default function NavigationScreen() {
       );
       return;
     }
-    startNav(stop.lat, stop.lng, stop.address);
-  }, [stopId]);  // eslint-disable-line react-hooks/exhaustive-deps
+    startNav(stop.lat, stop.lng);
+  }, [stopId, stops, startNav]);
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  const stop = stops.find(s => s.id === stopId);
+  const destLat = stop?.lat ?? 0;
+  const destLng = stop?.lng ?? 0;
 
-  const handleBack = useCallback(() => {
+  // FIX 3: Arrival auto-detection — fires once when isNearDestination becomes true
+  const arrivalAlertShownRef = useRef(false);
+  useEffect(() => {
+    if (!isNearDestination || arrivalAlertShownRef.current) return;
+    arrivalAlertShownRef.current = true;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const addressLabel = stop?.address ?? 'your destination';
     Alert.alert(
-      'Return to home screen?',
-      'Your current stop is saved. Tap "Navigate" on the home screen to resume from this stop.',
+      "You've arrived!",
+      `You've arrived at ${addressLabel}. Mark delivery as complete?`,
       [
-        { text: 'Stay', style: 'cancel' },
         {
-          text: 'Go back',
-          onPress: () => { stopNav(); router.back(); },
-        },
-      ],
-    );
-  }, [stopNav]);
-
-  const handleArrived = useCallback(() => {
-    stopNav();
-    router.replace(`/stop-delivery?stopId=${stopId}`);
-  }, [stopNav, stopId]);
-
-  // Complete current stop and begin navigation to the next one immediately
-  const handleNextStop = useCallback(() => {
-    completeStop();
-    // After completeStop() the store's currentStop advances — read it fresh
-    const newCurrent = useShiftStore.getState().currentStop;
-    stopNav();
-    if (newCurrent && newCurrent.lat != null && newCurrent.lng != null) {
-      router.replace({ pathname: '/navigation', params: { stopId: newCurrent.id } });
-    } else {
-      router.replace('/hud');
-    }
-  }, [completeStop, stopNav]);
-
-  // Skip this stop (mark as failed/skipped) and navigate to next
-  const handleSkip = useCallback(() => {
-    setMenuOpen(false);
-    Alert.alert(
-      'Skip this stop?',
-      'The stop will be marked as skipped and you'll move to the next one.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Skip',
-          style: 'destructive',
+          text: 'Mark Complete',
           onPress: () => {
-            failStop();
-            const newCurrent = useShiftStore.getState().currentStop;
             stopNav();
-            if (newCurrent && newCurrent.lat != null && newCurrent.lng != null) {
-              router.replace({ pathname: '/navigation', params: { stopId: newCurrent.id } });
-            } else {
-              router.replace('/hud');
-            }
+            router.replace(`/stop-delivery?stopId=${stopId}`);
           },
         },
-      ],
-    );
-  }, [failStop, stopNav]);
-
-  const handleEndShift = useCallback(() => {
-    setMenuOpen(false);
-    Alert.alert(
-      'End shift?',
-      'This will close your active route.',
-      [
-        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'End Shift',
-          style: 'destructive',
-          onPress: () => { stopNav(); endShift(); router.replace('/hud'); },
+          text: 'Dismiss',
+          style: 'cancel',
         },
       ],
     );
-  }, [stopNav, endShift]);
+  }, [isNearDestination, stop, stopId, stopNav]);
 
-  const openGoogleMaps = useCallback(() => {
-    setMenuOpen(false);
+  const handleBack = () => {
+    Alert.alert('Stop navigation?', 'Your progress will be lost.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Stop',
+        style: 'destructive',
+        onPress: () => { stopNav(); router.back(); },
+      },
+    ]);
+  };
+
+  const handleArrived = () => {
+    stopNav();
+    router.replace(`/stop-delivery?stopId=${stopId}`);
+  };
+
+  const openGoogleMaps = () => {
     if (stop) {
-      Linking.openURL(`https://maps.google.com/?daddr=${destLat},${destLng}`);
+      Linking.openURL(
+        `https://maps.google.com/?daddr=${destLat},${destLng}`,
+      );
     }
-  }, [stop, destLat, destLng]);
+  };
 
-  // ── Derived display values ───────────────────────────────────────────────────
+  // Build GeoJSON route geometry for ShapeSource
+  const routeGeoJson = route
+    ? {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: route.polyline.map(p => [p.lng, p.lat]),
+        },
+        properties: {},
+      }
+    : null;
+
+  // Build map colours from theme — these are reactive and update instantly on theme toggle
+  const map = colors.map;
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.app.background }]}>
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color="#4fc3f7" />
-          <Text style={styles.loadingText}>Getting route…</Text>
+          <ActivityIndicator size="large" color={colors.app.primary} />
+          <Text style={[styles.loadingText, { color: colors.app.textFaint }]}>Getting route…</Text>
         </View>
       </SafeAreaView>
     );
@@ -172,112 +168,188 @@ export default function NavigationScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.app.background }]}>
         <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.app.danger }]}>{error}</Text>
           <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={() => stop && startNav(stop.lat!, stop.lng!, stop.address)}
+            style={[styles.retryBtn, { backgroundColor: colors.app.primary }]}
+            onPress={() => stop && startNav(stop.lat!, stop.lng!)}
           >
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={[styles.retryText, { color: colors.app.white }]}>Retry</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={openGoogleMaps}>
-            <Text style={styles.gmapsLink}>Open in Google Maps ↗</Text>
+            <Text style={[styles.gmapsLink, { color: colors.app.primary }]}>Open in Google Maps</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const urgent   = distanceToNext < 50;
-  const etaStr   = route
+  const urgent = distanceToNext < 50;
+  const etaStr = route
     ? `${formatDuration(route.totalDurationSec)} · ${formatDistance(route.totalDistanceM)} remaining`
     : '';
-  const mapRegion = userLat && userLng
-    ? { latitude: userLat, longitude: userLng, latitudeDelta: 0.01, longitudeDelta: 0.01 }
-    : undefined;
 
-  const stopLabel = stop?.address
-    ? (stop.address.length > 40 ? stop.address.slice(0, 38) + '…' : stop.address)
-    : 'Navigate';
+  const hasUserLocation = userLat !== null && userLng !== null;
 
   return (
-    <SafeAreaView style={styles.safe}>
-
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} hitSlop={12} style={styles.headerSide}>
-          <Text style={styles.backBtn}>← Back</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.app.background }]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: colors.app.border }]}>
+        <TouchableOpacity onPress={handleBack} hitSlop={12}>
+          <Text style={[styles.backBtn, { color: colors.app.primary }]}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{stopLabel}</Text>
-        <TouchableOpacity
-          onPress={() => setMenuOpen(true)}
-          hitSlop={12}
-          style={styles.headerSide}
-          accessibilityLabel="Open menu"
-          accessibilityRole="button"
-        >
-          <Text style={styles.menuIcon}>☰</Text>
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.app.text }]}>Navigate</Text>
+        <View style={{ width: 50 }} />
       </View>
 
-      {/* ── Instruction banner ──────────────────────────────────── */}
-      <View style={[styles.banner, urgent && styles.bannerUrgent]}>
-        <Text style={styles.arrow}>{currentStep ? maneuverArrow(currentStep.maneuver) : '↑'}</Text>
+      {/* Instruction banner */}
+      <View
+        style={[
+          styles.banner,
+          { backgroundColor: colors.app.surface },
+          urgent && { backgroundColor: colors.app.dangerBg },
+        ]}
+      >
+        <Text style={[styles.arrow, { color: colors.app.primary }]}>
+          {currentStep ? maneuverArrow(currentStep.maneuver) : '→'}
+        </Text>
         <View style={styles.bannerText}>
-          <Text style={styles.instruction} numberOfLines={2}>
+          <Text
+            style={[styles.instruction, { color: colors.app.text }]}
+            numberOfLines={2}
+          >
             {currentStep?.instruction ?? 'Calculating route…'}
           </Text>
-          <Text style={styles.bannerDist}>
+          <Text style={[styles.bannerDist, { color: colors.app.textFaint }]}>
             {currentStep ? `in ${formatDistance(distanceToNext)}` : ''}
           </Text>
         </View>
       </View>
 
-      {/* ── Guard warnings ──────────────────────────────────────── */}
+      {/* Guard warnings */}
       {guardWarnings.filter(w => w.stepIndex === stepIndex).map((w, i) => (
         <View
           key={i}
           style={[
             styles.guardBanner,
-            w.severity === 'critical' ? styles.guardBannerCritical : styles.guardBannerWarning,
+            w.severity === 'critical'
+              ? { backgroundColor: colors.app.dangerBg }
+              : { backgroundColor: colors.app.warningBg },
           ]}
         >
-          <Text style={styles.guardTitle}>
-            {w.severity === 'critical' ? '🚫 ' : '⚠️ '}{w.title}
-          </Text>
-          <Text style={styles.guardMsg}>{w.message}</Text>
+          <Text style={[styles.guardTitle, { color: colors.app.danger }]}>{w.title}</Text>
+          <Text style={[styles.guardMsg, { color: colors.app.textFaint }]}>{w.message}</Text>
         </View>
       ))}
 
-      {/* ── Map ─────────────────────────────────────────────────── */}
+      {/* ── MapLibre Map ─────────────────────────────────────────────────── */}
       <View style={styles.mapWrap}>
-        {mapRegion && (
-          <MapView
-            style={styles.map}
-            provider={PROVIDER_DEFAULT}
-            region={mapRegion}
-            showsUserLocation
-            followsUserLocation
-            rotateEnabled
-          >
-            {route && (
-              <Polyline
-                coordinates={route.polyline.map(p => ({ latitude: p.lat, longitude: p.lng }))}
-                strokeColor="#4fc3f7"
-                strokeWidth={4}
-              />
-            )}
-            {destLat !== 0 && (
-              <Marker
-                coordinate={{ latitude: destLat, longitude: destLng }}
-                pinColor="green"
-              />
-            )}
-            {showFuel && fuel.map(s => <FuelMarker key={s.id} station={s} />)}
-            {showEV   && evCharging.map(c => <EVMarker key={c.id} charger={c} />)}
-          </MapView>
-        )}
+        {/* Use a fixed fallback centre if no GPS yet */}
+        <MapView
+          style={styles.map}
+          mapStyle={MAP_STYLE_URL}
+          logoEnabled={true}
+          compassEnabled={true}
+          attributionEnabled={true}
+        >
+          {/* Driving camera — pitch 55°, heading-up, zoom 17 */}
+          <Camera
+            defaultSettings={{
+              centerCoordinate: hasUserLocation
+                ? [userLng, userLat]
+                : (destLng && destLat ? [destLng, destLat] : [-0.1276, 51.5074]),
+              zoomLevel: 17,
+              pitch: 55,
+              heading: bearing,
+            }}
+            followUserLocation={hasUserLocation}
+            followUserMode={UserTrackingMode.FollowWithHeading}
+            followZoomLevel={17}
+            followPitch={55}
+          />
+
+          {/* User location dot */}
+          <UserLocation
+            visible={hasUserLocation}
+            animated={true}
+            showsUserHeadingIndicator={true}
+          />
+
+          {/* Route polyline — two layers: glow halo + crisp teal line */}
+          {routeGeoJson && (
+            <>
+              {/* Glow halo — wider, blurred teal */}
+              <ShapeSource id="route-source" shape={routeGeoJson}>
+                <LineLayer
+                  id="route-glow"
+                  style={{
+                    lineColor: map.routeGlow,
+                    lineWidth: 14,
+                    lineBlur: 6,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+                {/* Casing — dark border around route */}
+                <LineLayer
+                  id="route-casing"
+                  style={{
+                    lineColor: map.routeCasing,
+                    lineWidth: 7,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+                {/* Main route — bright teal */}
+                <LineLayer
+                  id="route-line"
+                  style={{
+                    lineColor: map.route,
+                    lineWidth: 5,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              </ShapeSource>
+            </>
+          )}
+
+          {/* 3D Buildings — FillExtrusionLayer from OSM building source */}
+          {/* Rendered only at zoom 14+ so they don't overwhelm at low zoom */}
+          <FillExtrusionLayer
+            id="buildings-3d"
+            sourceID="openfreemap"
+            minZoomLevel={14}
+            style={{
+              fillExtrusionColor: [
+                'interpolate',
+                ['linear'],
+                ['get', 'height'],
+                0,     map.buildingBase,
+                50,    map.buildingTop,
+                150,   map.buildingTop,
+              ],
+              fillExtrusionHeight: ['get', 'render_height'],
+              fillExtrusionBase:   ['get', 'render_min_height'],
+              fillExtrusionOpacity: 0.88,
+            }}
+          />
+
+          {/* Destination marker — custom teardrop pin via MarkerView */}
+          {destLat !== 0 && destLng !== 0 && (
+            <MarkerView
+              coordinate={[destLng, destLat]}
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <View style={[styles.destMarker, { backgroundColor: colors.app.success }]}>
+                <Text style={styles.destPinText}>📍</Text>
+              </View>
+            </MarkerView>
+          )}
+        </MapView>
+
+        {/* POI layer toggles */}
         <View style={styles.poiToggleWrap} pointerEvents="box-none">
           <POIToggle
             showFuel={showFuel}
@@ -288,207 +360,72 @@ export default function NavigationScreen() {
         </View>
       </View>
 
-      {/* ── Status bar ──────────────────────────────────────────── */}
-      <View style={styles.statusBar}>
-        <Text style={styles.etaText}>📍 {etaStr || 'Calculating…'}</Text>
-        <Text style={styles.stepCount}>
+      {/* Status bar */}
+      <View style={[styles.statusBar, { borderTopColor: colors.app.border, backgroundColor: colors.app.background }]}>
+        <Text style={[styles.etaText, { color: colors.app.textFaint }]}>ETA: {etaStr || '—'}</Text>
+        <Text style={[styles.stepCount, { color: colors.app.textFaint }]}>
           Step {stepIndex + 1} of {route?.steps.length ?? '—'}
         </Text>
       </View>
 
-      {/* ── Action buttons ──────────────────────────────────────── */}
-      <View style={styles.actions}>
+      {/* Action buttons */}
+      <View style={[styles.actions, { borderTopColor: colors.app.border }]}>
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.actionBtn, { backgroundColor: colors.app.surface }]}
           onPress={() => currentStep && speakStep(currentStep)}
           accessibilityLabel="Repeat navigation instruction"
         >
-          <Text style={styles.actionText}>🔊{'\n'}Repeat</Text>
+          <Text style={[styles.actionText, { color: colors.app.textFaint }]}>Repeat</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[styles.actionBtn, styles.actionPrimary]}
+          style={[styles.actionBtn, styles.actionPrimary, { backgroundColor: colors.app.primary }]}
           onPress={handleArrived}
           accessibilityLabel="Mark as arrived at stop"
         >
-          <Text style={styles.actionPrimaryText}>✓{'\n'}Arrived</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionBtn, nextStop ? styles.actionNext : styles.actionNextDisabled]}
-          onPress={nextStop ? handleNextStop : undefined}
-          disabled={!nextStop}
-          accessibilityLabel={nextStop ? 'Complete stop and navigate to next' : 'No more stops'}
-        >
-          <Text style={nextStop ? styles.actionNextText : styles.actionNextDisabledText}>
-            ⏭{'\n'}Next
-          </Text>
+          <Text style={[styles.actionPrimaryText, { color: colors.app.white }]}>Arrived</Text>
         </TouchableOpacity>
       </View>
-
-      {/* ── Hamburger menu (bottom sheet modal) ─────────────────── */}
-      <Modal
-        visible={menuOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setMenuOpen(false)}
-      >
-        <TouchableOpacity
-          style={styles.menuBackdrop}
-          onPress={() => setMenuOpen(false)}
-          activeOpacity={1}
-        >
-          <View style={styles.menuSheet}>
-            <View style={styles.menuHandle} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={handleSkip}>
-              <Text style={styles.menuItemText}>⏭  Skip this stop</Text>
-              <Text style={styles.menuItemSub}>Move to next stop without delivering</Text>
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={openGoogleMaps}>
-              <Text style={styles.menuItemText}>🗺  Open in Google Maps</Text>
-              <Text style={styles.menuItemSub}>Backup navigation</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => { setMenuOpen(false); router.push('/stop-list'); }}
-            >
-              <Text style={styles.menuItemText}>📋  View all stops</Text>
-              <Text style={styles.menuItemSub}>See your full route list</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => { setMenuOpen(false); router.push('/vehicle-select'); }}
-            >
-              <Text style={styles.menuItemText}>⚙️  Vehicle & settings</Text>
-              <Text style={styles.menuItemSub}>Change vehicle, height, preferences</Text>
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={handleEndShift}>
-              <Text style={styles.menuItemDangerText}>🔚  End shift</Text>
-              <Text style={styles.menuItemSub}>Close your active route</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuCancel} onPress={() => setMenuOpen(false)}>
-              <Text style={styles.menuCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#0f1923' },
+  safe:          { flex: 1 },
   loading:       { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText:   { color: '#8fa0b0', marginTop: 12, fontSize: 15 },
+  loadingText:   { marginTop: 12, fontSize: 15 },
   errorWrap:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText:     { color: '#f87171', fontSize: 16, textAlign: 'center', marginBottom: 16 },
-  retryBtn: {
-    backgroundColor: '#4fc3f7', borderRadius: 12,
-    paddingHorizontal: 24, paddingVertical: 12, marginBottom: 16,
-  },
-  retryText:     { color: '#0f1923', fontWeight: '700', fontSize: 15 },
-  gmapsLink:     { color: '#8fa0b0', fontSize: 13, textDecorationLine: 'underline' },
-
-  // Header
+  errorText:     { fontSize: 16, textAlign: 'center', marginBottom: 16 },
+  retryBtn:      { borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, marginBottom: 16 },
+  retryText:     { fontWeight: '700', fontSize: 15 },
+  gmapsLink:     { fontSize: 13, textDecorationLine: 'underline', fontWeight: '500' },
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    height: 52, paddingHorizontal: 12,
-    borderBottomWidth: 1, borderBottomColor: '#1c2a37',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    height: 44, paddingHorizontal: 16, borderBottomWidth: 1,
   },
-  headerSide:    { minWidth: 56, alignItems: 'flex-start' },
-  backBtn:       { color: '#4fc3f7', fontSize: 16 },
-  headerTitle: {
-    flex: 1, fontSize: 14, fontWeight: '600', color: '#c8d8e8',
-    textAlign: 'center', paddingHorizontal: 4,
-  },
-  menuIcon:      { color: '#4fc3f7', fontSize: 22, textAlign: 'right' },
-
-  // Instruction banner
+  backBtn:       { fontSize: 16, fontWeight: '500' },
+  headerTitle:   { fontSize: 17, fontWeight: '600' },
   banner: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#1c2a37', padding: 16, minHeight: 80,
+    flexDirection: 'row', alignItems: 'center', padding: 16, minHeight: 80,
   },
-  bannerUrgent:  { backgroundColor: '#1b5e20' },
   arrow:         { fontSize: 48, marginRight: 14 },
   bannerText:    { flex: 1 },
-  instruction:   { fontSize: 20, fontWeight: '700', color: '#ffffff', lineHeight: 26 },
-  bannerDist:    { fontSize: 16, color: '#8fa0b0', marginTop: 4 },
-
-  // Guard warnings
-  guardBanner:         { paddingHorizontal: 16, paddingVertical: 10, gap: 2 },
-  guardBannerCritical: { backgroundColor: '#2b1111' },
-  guardBannerWarning:  { backgroundColor: '#2b1a00' },
-  guardTitle:          { fontSize: 15, fontWeight: '700', color: '#f87171' },
-  guardMsg:            { fontSize: 13, color: '#c8d8e8' },
-
-  // Map
+  instruction:   { fontSize: 20, fontWeight: '700', lineHeight: 26 },
+  bannerDist:    { fontSize: 16, marginTop: 4 },
   mapWrap:       { flex: 1 },
   map:           { flex: 1 },
   poiToggleWrap: { position: 'absolute', bottom: 12, left: 12, flexDirection: 'row' },
-
-  // Status bar
-  statusBar: {
-    height: 44, flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 16,
-    borderTopWidth: 1, borderTopColor: '#1c2a37', backgroundColor: '#0f1923',
-  },
-  etaText:       { fontSize: 13, color: '#c8d8e8' },
-  stepCount:     { fontSize: 13, color: '#607080' },
-
-  // Action buttons
-  actions: {
-    flexDirection: 'row', gap: 10, padding: 12,
-    borderTopWidth: 1, borderTopColor: '#1c2a37',
-  },
-  actionBtn: {
-    flex: 1, backgroundColor: '#1c2a37', borderRadius: 12,
-    height: 72, alignItems: 'center', justifyContent: 'center',
-  },
-  actionPrimary:      { backgroundColor: '#4fc3f7' },
-  actionNext:         { backgroundColor: '#1a3a2a' },
-  actionNextDisabled: { backgroundColor: '#131e27', opacity: 0.4 },
-  actionText:         { fontSize: 13, fontWeight: '600', color: '#c8d8e8', textAlign: 'center' },
-  actionPrimaryText:  { fontSize: 13, fontWeight: '700', color: '#0f1923', textAlign: 'center' },
-  actionNextText:     { fontSize: 13, fontWeight: '700', color: '#4ade80', textAlign: 'center' },
-  actionNextDisabledText: { fontSize: 13, fontWeight: '600', color: '#607080', textAlign: 'center' },
-
-  // Hamburger menu
-  menuBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
-  },
-  menuSheet: {
-    backgroundColor: '#131e27', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingBottom: 32, paddingTop: 8,
-  },
-  menuHandle: {
-    width: 36, height: 4, backgroundColor: '#3a4a5a',
-    borderRadius: 2, alignSelf: 'center', marginBottom: 16,
-  },
-  menuItem: {
-    paddingVertical: 14, paddingHorizontal: 24,
-  },
-  menuItemText:    { fontSize: 17, fontWeight: '600', color: '#e0eaf4' },
-  menuItemSub:     { fontSize: 13, color: '#607080', marginTop: 2 },
-  menuItemDanger:  {},
-  menuItemDangerText: { fontSize: 17, fontWeight: '600', color: '#f87171' },
-  menuDivider: {
-    height: 1, backgroundColor: '#1c2a37', marginVertical: 4, marginHorizontal: 24,
-  },
-  menuCancel: {
-    marginTop: 8, marginHorizontal: 16, height: 52, backgroundColor: '#1c2a37',
-    borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-  },
-  menuCancelText: { fontSize: 16, fontWeight: '700', color: '#8fa0b0' },
+  statusBar:     { height: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, borderTopWidth: 1 },
+  etaText:       { fontSize: 14 },
+  stepCount:     { fontSize: 13 },
+  actions:       { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1 },
+  actionBtn:     { flex: 1, borderRadius: 12, height: 72, alignItems: 'center', justifyContent: 'center' },
+  actionPrimary: {},
+  actionText:    { fontSize: 16, fontWeight: '600' },
+  actionPrimaryText: { fontSize: 16, fontWeight: '700' },
+  guardBanner:   { paddingHorizontal: 16, paddingVertical: 10, gap: 2 },
+  guardTitle:    { fontSize: 15, fontWeight: '700' },
+  guardMsg:      { fontSize: 13 },
+  // Destination pin
+  destMarker:    { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  destPinText:   { fontSize: 20 },
 });
