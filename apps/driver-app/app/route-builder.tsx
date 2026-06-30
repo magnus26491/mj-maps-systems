@@ -227,6 +227,10 @@ export default function RouteBuilderScreen() {
     ));
   }, []);
 
+  const handleNotesChange = useCallback((id: string, notes: string | undefined) => {
+    setStops(prev => prev.map(s => s.id === id ? { ...s, notes } : s));
+  }, []);
+
   const handleTimeChip = useCallback((chip: 'now'|'30'|'60'|'custom') => {
     setTimeChip(chip);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -381,123 +385,6 @@ export default function RouteBuilderScreen() {
 
   // Computed
   const selectedPafCount = Object.values(pafCounts).filter(c => c > 0).length;
-
-  interface StopRowProps {
-    item: LocalStop;
-    drag: () => void;
-    isActive: boolean;
-    onRemove: () => void;
-    onParcelChange: (delta: number) => void;
-    onMoveUp?: () => void;
-    onMoveDown?: () => void;
-  }
-
-  function StopRow({ item, drag, isActive, onRemove, onParcelChange, onMoveUp, onMoveDown }: StopRowProps) {
-    const { colors: c } = useTheme();
-    const [showNotes, setShowNotes] = useState(false);
-    const [notesText, setNotesText] = useState(item.notes ?? '');
-
-    // Sync notes back to parent stop list on blur
-    const handleNotesBlur = useCallback(() => {
-      if (notesText !== (item.notes ?? '')) {
-        setStops(prev => prev.map(s => s.id === item.id ? { ...s, notes: notesText || undefined } : s));
-      }
-    }, [notesText, item.id, item.notes]);
-
-    return (
-      <Swipeable
-        renderRightActions={() => (
-          <TouchableOpacity
-            style={styles.swipeRemove}
-            onPress={onRemove}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${item.address}`}
-          >
-            <Text style={styles.swipeRemoveText}>× Remove</Text>
-          </TouchableOpacity>
-        )}
-      >
-        <ScaleDecorator>
-          <TouchableOpacity
-            onLongPress={Platform.OS !== 'web' ? drag : undefined}
-            disabled={isActive}
-            style={[styles.stopRow, { backgroundColor: isActive ? c.green : c.surface }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Stop: ${item.address}. ${Platform.OS !== 'web' ? 'Long press to reorder.' : ''}`}
-          >
-            {/* Drag handle / web arrows */}
-            {Platform.OS === 'web' ? (
-              <View style={styles.webMoveCol}>
-                <TouchableOpacity onPress={onMoveUp} style={styles.webArrow} accessibilityLabel="Move stop up">
-                  <Text style={{ color: c.subtext, fontSize: 14 }}>▲</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={onMoveDown} style={styles.webArrow} accessibilityLabel="Move stop down">
-                  <Text style={{ color: c.subtext, fontSize: 14 }}>▼</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <Text style={[styles.handle, { color: c.subtext }]}>≡</Text>
-            )}
-            <View style={styles.stopContent}>
-              <Text style={[styles.stopAddress, { color: c.text }]} numberOfLines={2}>
-                {item.address}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowNotes(v => !v)}
-                style={styles.notesToggle}
-                accessibilityLabel={showNotes ? 'Hide note' : notesText ? 'Edit note' : 'Add note'}
-              >
-                <Text style={{ color: c.subtext, fontSize: 12 }}>
-                  {showNotes ? '− hide note' : notesText ? `📝 ${notesText}` : '+ add note'}
-                </Text>
-              </TouchableOpacity>
-              {showNotes && (
-                <TextInput
-                  style={[styles.notesInput, {
-                    backgroundColor: c.background, color: c.text, borderColor: c.border,
-                  }]}
-                  placeholder="Access notes, buzzer code…"
-                  placeholderTextColor={c.subtext}
-                  value={notesText}
-                  onChangeText={setNotesText}
-                  onBlur={handleNotesBlur}
-                  multiline
-                  maxLength={200}
-                />
-              )}
-            </View>
-            {Platform.OS === 'web' && (
-              <TouchableOpacity
-                onPress={onRemove}
-                style={styles.webRemoveBtn}
-                accessibilityRole="button"
-                accessibilityLabel={`Remove ${item.address}`}
-              >
-                <Text style={{ color: '#f87171', fontSize: 20, lineHeight: 22 }}>×</Text>
-              </TouchableOpacity>
-            )}
-            <View style={styles.stepper}>
-              <TouchableOpacity
-                onPress={() => onParcelChange(-1)}
-                style={styles.stepBtn}
-                accessibilityLabel="Decrease parcel count"
-              >
-                <Text style={[styles.stepText, { color: c.text }]}>−</Text>
-              </TouchableOpacity>
-              <Text style={[styles.stepCount, { color: c.text }]}>{item.parcelCount}</Text>
-              <TouchableOpacity
-                onPress={() => onParcelChange(1)}
-                style={styles.stepBtn}
-                accessibilityLabel="Increase parcel count"
-              >
-                <Text style={[styles.stepText, { color: c.text }]}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </ScaleDecorator>
-      </Swipeable>
-    );
-  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -699,6 +586,7 @@ export default function RouteBuilderScreen() {
                 isActive={false}
                 onRemove={() => handleRemoveStop(item.id)}
                 onParcelChange={delta => handleParcelCount(item.id, delta)}
+                onNotesChange={handleNotesChange}
                 onMoveUp={index > 0 ? () => handleMoveStop(item.id, 'up') : undefined}
                 onMoveDown={index < stops.length - 1 ? () => handleMoveStop(item.id, 'down') : undefined}
               />
@@ -719,6 +607,7 @@ export default function RouteBuilderScreen() {
                   isActive={isActive}
                   onRemove={() => handleRemoveStop(item.id)}
                   onParcelChange={delta => handleParcelCount(item.id, delta)}
+                  onNotesChange={handleNotesChange}
                   onMoveUp={idx > 0 ? () => handleMoveStop(item.id, 'up') : undefined}
                   onMoveDown={idx < stops.length - 1 ? () => handleMoveStop(item.id, 'down') : undefined}
                 />
@@ -878,6 +767,124 @@ export default function RouteBuilderScreen() {
       </Modal>
 
     </View>
+  );
+}
+
+// ── StopRow lives at module level so React never sees it as a new component
+// type on parent re-renders, which would unmount/remount every row mid-gesture.
+interface StopRowProps {
+  item: LocalStop;
+  drag: () => void;
+  isActive: boolean;
+  onRemove: () => void;
+  onParcelChange: (delta: number) => void;
+  onNotesChange: (id: string, notes: string | undefined) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+}
+
+function StopRow({ item, drag, isActive, onRemove, onParcelChange, onNotesChange, onMoveUp, onMoveDown }: StopRowProps) {
+  const { colors: c } = useTheme();
+  const [showNotes, setShowNotes] = useState(false);
+  const [notesText, setNotesText] = useState(item.notes ?? '');
+
+  const handleNotesBlur = useCallback(() => {
+    if (notesText !== (item.notes ?? '')) {
+      onNotesChange(item.id, notesText || undefined);
+    }
+  }, [notesText, item.id, item.notes, onNotesChange]);
+
+  return (
+    <Swipeable
+      renderRightActions={() => (
+        <TouchableOpacity
+          style={styles.swipeRemove}
+          onPress={onRemove}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${item.address}`}
+        >
+          <Text style={styles.swipeRemoveText}>× Remove</Text>
+        </TouchableOpacity>
+      )}
+    >
+      <ScaleDecorator>
+        <TouchableOpacity
+          onLongPress={Platform.OS !== 'web' ? drag : undefined}
+          disabled={isActive}
+          style={[styles.stopRow, { backgroundColor: isActive ? c.green : c.surface }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Stop: ${item.address}. ${Platform.OS !== 'web' ? 'Long press to reorder.' : ''}`}
+        >
+          {Platform.OS === 'web' ? (
+            <View style={styles.webMoveCol}>
+              <TouchableOpacity onPress={onMoveUp} style={styles.webArrow} accessibilityLabel="Move stop up">
+                <Text style={{ color: c.subtext, fontSize: 14 }}>▲</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onMoveDown} style={styles.webArrow} accessibilityLabel="Move stop down">
+                <Text style={{ color: c.subtext, fontSize: 14 }}>▼</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={[styles.handle, { color: c.subtext }]}>≡</Text>
+          )}
+          <View style={styles.stopContent}>
+            <Text style={[styles.stopAddress, { color: c.text }]} numberOfLines={2}>
+              {item.address}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowNotes(v => !v)}
+              style={styles.notesToggle}
+              accessibilityLabel={showNotes ? 'Hide note' : notesText ? 'Edit note' : 'Add note'}
+            >
+              <Text style={{ color: c.subtext, fontSize: 12 }}>
+                {showNotes ? '− hide note' : notesText ? `📝 ${notesText}` : '+ add note'}
+              </Text>
+            </TouchableOpacity>
+            {showNotes && (
+              <TextInput
+                style={[styles.notesInput, {
+                  backgroundColor: c.background, color: c.text, borderColor: c.border,
+                }]}
+                placeholder="Access notes, buzzer code…"
+                placeholderTextColor={c.subtext}
+                value={notesText}
+                onChangeText={setNotesText}
+                onBlur={handleNotesBlur}
+                multiline
+                maxLength={200}
+              />
+            )}
+          </View>
+          {Platform.OS === 'web' && (
+            <TouchableOpacity
+              onPress={onRemove}
+              style={styles.webRemoveBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${item.address}`}
+            >
+              <Text style={{ color: '#f87171', fontSize: 20, lineHeight: 22 }}>×</Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.stepper}>
+            <TouchableOpacity
+              onPress={() => onParcelChange(-1)}
+              style={styles.stepBtn}
+              accessibilityLabel="Decrease parcel count"
+            >
+              <Text style={[styles.stepText, { color: c.text }]}>−</Text>
+            </TouchableOpacity>
+            <Text style={[styles.stepCount, { color: c.text }]}>{item.parcelCount}</Text>
+            <TouchableOpacity
+              onPress={() => onParcelChange(1)}
+              style={styles.stepBtn}
+              accessibilityLabel="Increase parcel count"
+            >
+              <Text style={[styles.stepText, { color: c.text }]}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </ScaleDecorator>
+    </Swipeable>
   );
 }
 
