@@ -29,6 +29,7 @@ import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { SlideToConfirm } from '../components/SlideToConfirm';
 import { ShiftProgressBar } from '../components/ShiftProgressBar';
 import DifficultyReportSheet from '../components/DifficultyReportSheet';
+import DriverMenu from '../components/DriverMenu';
 import { useTheme } from '../lib/theme';
 import { useAuthStore } from '../lib/auth';
 import { useLocale } from '../components/LocaleProvider';
@@ -72,6 +73,7 @@ function HudInner() {
   const [lastAlert,      setLastAlert]      = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const [showDifficulty, setShowDifficulty] = useState(false);
   const [ddReported,     setDdReported]     = useState(false);
+  const [showMenu,       setShowMenu]       = useState(false);
   const hasGreeted = useRef(false);
 
   // Reset DD badge when the driver moves to a new stop
@@ -259,9 +261,20 @@ function HudInner() {
 
       {/* ── Current Stop ──────────────────────────────────────── */}
       <View style={[styles.stopCard, { backgroundColor: colors.app.surface }]}>
-        <Text style={[styles.stopIndex, { color: colors.app.textFaint }]}>
-          Stop {currentStop.index + 1} of {shift.totalStops}
-        </Text>
+        <View style={styles.stopHeaderRow}>
+          <Text style={[styles.stopIndex, { color: colors.app.textFaint }]}>
+            Stop {currentStop.index + 1} of {shift.totalStops}
+          </Text>
+          <TouchableOpacity
+            style={styles.menuBtn}
+            onPress={() => setShowMenu(true)}
+            accessibilityLabel="Driver menu"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.menuBtnText, { color: colors.app.textFaint }]}>≡</Text>
+          </TouchableOpacity>
+        </View>
         <Text
           style={[styles.stopAddress, { color: colors.app.text }]}
           numberOfLines={3}
@@ -461,6 +474,14 @@ function HudInner() {
           onSubmit={handleDifficultySubmit}
         />
       )}
+
+      {/* Driver menu — weather + roadworks */}
+      <DriverMenu
+        visible={showMenu}
+        onDismiss={() => setShowMenu(false)}
+        lat={driverLoc?.lat ?? null}
+        lng={driverLoc?.lng ?? null}
+      />
     </SafeAreaView>
   );
 }
@@ -520,7 +541,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 12, marginTop: 16,
     borderRadius: 16, padding: 18,
   },
-  stopIndex:   { fontSize: 15, marginBottom: 4, fontWeight: '600' },
+  stopHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  menuBtn:       { padding: 4 },
+  menuBtnText:   { fontSize: 22, fontWeight: '700', letterSpacing: 1 },
+  stopIndex:     { fontSize: 15, fontWeight: '600' },
   stopAddress: { fontSize: 24, fontWeight: '800', lineHeight: 32 },
   stopNotes:   { fontSize: 15, marginTop: 8, lineHeight: 22 },
   stopMeta:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },

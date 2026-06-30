@@ -255,6 +255,50 @@ export async function apiCheckCommunity(address: string): Promise<CommunityCheck
   }
 }
 
+// ── Weather ──────────────────────────────────────────────────────────────────
+
+export interface WeatherData {
+  tempC:         number;
+  description:   string;
+  weatherCode:   number;
+  windMph:       number;
+  gustMph:       number;
+  precipMm:      number;
+  isDay:         boolean;
+  riskLevel:     'GREEN' | 'AMBER' | 'RED';
+  drivingAdvice: string;
+  fetchedAt:     string;
+}
+
+export async function apiGetWeather(lat: number, lng: number): Promise<WeatherData> {
+  const res = await apiFetch<{ ok: boolean; data: WeatherData }>(
+    `/api/v1/driver/weather?lat=${lat}&lng=${lng}`,
+  );
+  return res.data;
+}
+
+// ── Roadworks ─────────────────────────────────────────────────────────────────
+
+export interface RoadworksItem {
+  title:    string;
+  description: string;
+  link:     string;
+  pubDate:  string | null;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+}
+
+export interface RoadworksData {
+  items:     RoadworksItem[];
+  total:     number;
+  fetchedAt: string;
+  source:    string;
+}
+
+export async function apiGetRoadworks(): Promise<RoadworksData> {
+  const res = await apiFetch<{ ok: boolean; data: RoadworksData }>('/api/v1/driver/roadworks');
+  return res.data;
+}
+
 // ── Generic API client (for DeleteAccountModal) ─────────────────────────────
 interface ApiClient {
   delete: (path: string, token: string | null) => Promise<{ ok: boolean; json: () => Promise<{ message?: string }> }>;
