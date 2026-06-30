@@ -11,8 +11,6 @@
  *     with the OS Places API enabled. Set OS_PLACES_KEY in Railway variables.
  */
 
-import * as https from 'https';
-import * as http from 'http';
 import type { AddressCandidate, DoorPin, ReverseResult, LatLng } from './types.js';
 
 function getKey(): string | undefined {
@@ -36,17 +34,16 @@ interface OsPlacesResponse {
   header?: { totalresults: number };
 }
 
-function httpGet(url: string, timeoutMs = 8_000): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const lib = u.protocol === 'https:' ? https : http;
-    const timer = setTimeout(() => reject(new Error(`OS Places timed out after ${timeoutMs}ms`)), timeoutMs);
-    lib.get(url, (res) => {
-      let body = '';
-      res.on('data', (c: Buffer) => { body += c; });
-      res.on('end', () => { clearTimeout(timer); resolve(body); });
-    }).on('error', (err: Error) => { clearTimeout(timer); reject(err); });
+async function osGet<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(10_000),
+    headers: { 'Accept': 'application/json' },
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`OS Places HTTP ${res.status}: ${body.slice(0, 120)}`);
+  }
+  return res.json() as Promise<T>;
 }
 
 function extractCoords(dpa: OsDpa): { lat: number; lng: number } | null {
@@ -61,12 +58,14 @@ export async function osPlacesPostcodeCandidates(postcode: string): Promise<Addr
   if (!key) return [];
 
   const encoded = encodeURIComponent(postcode.replace(/\s/g, '').toUpperCase());
-  const url = `${BASE}/postcode?postcode=${encoded}&output_srs=WGS84&maxresults=20&key=${key}`;
+  const url = `${BASE}/postcode?postcode=${encoded}&output_srs=WGS84&dataset=DPA&maxresults=100&key=${key}`;
 
   try {
-    const raw = await httpGet(url);
-    const data = JSON.parse(raw) as OsPlacesResponse;
-    if (!data.results) return [];
+    const data = await osGet<OsPlacesResponse>(url);
+    if (!data.results?.length) {
+      console.log(`[os-places] no results for postcode ${postcode} (total=${data.header?.totalresults ?? 0})`);
+      return [];
+    }
 
     return data.results
       .map(r => r.DPA ?? r.LPI)
@@ -99,8 +98,7 @@ export async function osPlacesUprnPin(uprn: string): Promise<DoorPin | null> {
   const url = `${BASE}/uprn?uprn=${encodeURIComponent(uprn)}&output_srs=WGS84&key=${key}`;
 
   try {
-    const raw = await httpGet(url);
-    const data = JSON.parse(raw) as OsPlacesResponse;
+    const data = await osGet<OsPlacesResponse>(url);
     const dpa = data.results?.[0]?.DPA;
     if (!dpa) return null;
     const coords = extractCoords(dpa);
@@ -126,8 +124,7 @@ export async function osPlacesReverse(latlng: LatLng): Promise<ReverseResult | n
   const url = `${BASE}/nearest?point=${latlng.lng},${latlng.lat}&output_srs=WGS84&key=${key}`;
 
   try {
-    const raw = await httpGet(url);
-    const data = JSON.parse(raw) as OsPlacesResponse;
+    const data = await osGet<OsPlacesResponse>(url);
     const dpa = data.results?.[0]?.DPA;
     if (!dpa) return null;
     const coords = extractCoords(dpa);
