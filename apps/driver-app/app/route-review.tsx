@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import { useTheme } from '../components/ThemeContext';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
@@ -56,7 +57,7 @@ export default function RouteReviewScreen() {
     setStarting(true);
     const vehicle = useShiftStore.getState().vehicle;
     const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'TRANSIT_LWB_GB';
-    const token   = (useShiftStore.getState() as any).token ?? '';
+    const token   = useAuthStore.getState().token ?? '';
     try {
       const res = await fetch(`${API}/api/v1/optimise`, {
         method:  'POST',

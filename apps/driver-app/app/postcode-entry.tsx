@@ -30,6 +30,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
@@ -69,7 +70,7 @@ function parseBulkInput(text: string): string[] {
 export default function PostcodeEntryScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const token = useShiftStore(s => (s as any).token ?? '');
+  const token = useAuthStore(s => s.token ?? '');
 
   const [rawInput, setRawInput] = useState('');
   const [stops, setStops] = useState<ParsedStop[]>([]);

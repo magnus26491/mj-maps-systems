@@ -15,6 +15,7 @@ import DraggableFlatList, { ScaleDecorator }
   from 'react-native-draggable-flatlist';
 import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import { useTheme } from '../components/ThemeContext';
 import { parseStopsCsv } from '../utils/parseStopsCsv';
 import { saveRoute, countSavedRoutes } from '../lib/savedRoutes';
@@ -67,7 +68,7 @@ export default function RouteBuilderScreen() {
   const [timeChip,       setTimeChip]       = useState<'now'|'30'|'60'|'custom'>('now');
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const token = useShiftStore(s => (s as any).token ?? '');
+  const token = useAuthStore(s => s.token ?? '');
   const { plan } = usePlan();
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [saveName,        setSaveName]         = useState('');
