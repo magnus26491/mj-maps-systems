@@ -183,6 +183,45 @@ async function main(): Promise<void> {
   console.log(`  Skipped:  ${skippedCount}`);
   console.log('\n  All migrations complete.\n');
 
+  // 6. Optional admin seed — only runs when SEED_ADMIN=true is set in env.
+  //    Set SEED_ADMIN=true + ADMIN_EMAIL + ADMIN_PASSWORD in Railway variables,
+  //    trigger a redeploy, then remove SEED_ADMIN after logging in successfully.
+  if (process.env.SEED_ADMIN === 'true') {
+    const adminEmail    = process.env.ADMIN_EMAIL ?? '';
+    const adminPassword = process.env.ADMIN_PASSWORD ?? '';
+
+    if (!adminEmail || !adminPassword) {
+      console.error('  [seed-admin] SEED_ADMIN=true but ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping.');
+    } else if (adminPassword.length < 8) {
+      console.error('  [seed-admin] ADMIN_PASSWORD must be at least 8 characters — skipping.');
+    } else {
+      console.log(`\n  [seed-admin] Seeding admin account: ${adminEmail}`);
+      try {
+        const bcrypt = await import('bcryptjs');
+        const hash   = await bcrypt.hash(adminPassword, 12);
+        const { rows } = await pool.query(
+          `INSERT INTO users (email, password_hash, role, plan_id, subscription_tier, is_active, is_owner)
+           VALUES ($1, $2, 'admin', 'custom', 'enterprise', true, true)
+           ON CONFLICT (email) DO UPDATE SET
+             password_hash     = EXCLUDED.password_hash,
+             role              = 'admin',
+             plan_id           = 'custom',
+             subscription_tier = 'enterprise',
+             is_active         = true,
+             is_owner          = true
+           RETURNING id, email, role, plan_id`,
+          [adminEmail, hash],
+        );
+        console.log(`  [seed-admin] ✓ Admin ready — id=${rows[0].id} email=${rows[0].email} role=${rows[0].role}`);
+        console.log('  [seed-admin] Remove SEED_ADMIN from Railway variables after logging in.\n');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`  [seed-admin] Failed: ${msg}`);
+        // Non-fatal — don't block the deploy if seed fails
+      }
+    }
+  }
+
   // Safe to end pool here — migrate:prod and start run as separate OS processes
   // (joined by shell &&), so this pool instance is not shared with the API server.
   // This also ensures the standalone `node dist/db/migrate.js` exits cleanly.
