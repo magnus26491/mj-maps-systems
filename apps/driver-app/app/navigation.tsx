@@ -33,7 +33,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { useNavigation } from '../hooks/useNavigation';
 import { useShiftStore } from '../store/shift';
-import { maneuverArrow, formatDistance, formatDuration } from '../lib/navigation';
+import { maneuverArrow, formatDistance, formatDuration, fetchNavRoute } from '../lib/navigation';
 import { useDrivingMode } from '../hooks/useDrivingMode';
 import { useNearbyPOI } from '../hooks/useNearbyPOI';
 import { FuelMarker, EVMarker, POIToggle } from '../components/POIMarkers';
@@ -52,6 +52,22 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
   const a     = Math.sin(dLat / 2) ** 2
     + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Compass bearing (degrees, 0 = north) from point A to point B
+function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (x: number) => x * Math.PI / 180;
+  const toDeg = (x: number) => x * 180 / Math.PI;
+  const dLng  = toRad(lng2 - lng1);
+  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2))
+          - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+// Shortest angular difference between two headings (0–180)
+function angleDiff(a: number, b: number): number {
+  return Math.abs(((a - b) + 540) % 360 - 180);
 }
 
 // ── Web fallback — text-based navigation (no MapLibre) ───────────────────────
@@ -100,6 +116,8 @@ export default function NavigationScreen() {
 
   const { stopId } = useLocalSearchParams<{ stopId: string }>();
   const { stops }  = useShiftStore();
+  const nextStop   = useShiftStore(s => s.nextStop);
+  const vehicleId  = useShiftStore(s => s.vehicleId);
   const { isDriving } = useDrivingMode();
   const { colors } = useTheme();
 
@@ -116,6 +134,10 @@ export default function NavigationScreen() {
 
   // Map camera ref for programmatic control
   const cameraRef = useRef<any>(null);
+
+  // Ghost route — preview of next-stop leg shown behind the live route
+  const [nextRouteGeoJson, setNextRouteGeoJson] = useState<any>(null);
+  const nextRouteFetchedRef = useRef<string | null>(null);
 
   // Resolve stop from shift store and start navigation
   useEffect(() => {
@@ -153,6 +175,19 @@ export default function NavigationScreen() {
     ? haversineM(userLat, userLng, destLat, destLng)
     : Infinity;
   const isApproaching = !isNearDestination && distToDestM < 250;
+
+  // Turnaround detection — compare direction to next stop vs current heading
+  const bearingToNext = (
+    nextStop?.lat != null && nextStop?.lng != null
+    && nextStop.lat !== 0 && nextStop.lng !== 0
+    && destLat !== 0 && destLng !== 0
+  ) ? bearingDeg(destLat, destLng, nextStop.lat, nextStop.lng) : null;
+
+  const needsTurnaround = (
+    bearingToNext !== null
+    && distToDestM < 500
+    && angleDiff(bearing, bearingToNext) > 140
+  );
 
   const handleBack = () => {
     Alert.alert('Stop navigation?', 'Your progress will be lost.', [
@@ -198,6 +233,35 @@ export default function NavigationScreen() {
     }
   }, [isApproaching]);
   useEffect(() => { notesSpokenRef.current = false; }, [stopId]);
+
+  // Pre-fetch next-stop ghost route once we know the current destination
+  useEffect(() => {
+    if (
+      !nextStop || nextStop.lat == null || nextStop.lng == null
+      || (nextStop.lat === 0 && nextStop.lng === 0)
+      || destLat === 0 || destLng === 0
+    ) {
+      setNextRouteGeoJson(null);
+      nextRouteFetchedRef.current = null;
+      return;
+    }
+    const key = `${destLat},${destLng}->${nextStop.lat},${nextStop.lng}`;
+    if (nextRouteFetchedRef.current === key) return;
+    nextRouteFetchedRef.current = key;
+    fetchNavRoute(destLat, destLng, nextStop.lat, nextStop.lng, vehicleId ?? 'lwb_van')
+      .then(r => {
+        if (!r) return;
+        setNextRouteGeoJson({
+          type: 'Feature' as const,
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: r.polyline.map(p => [p.lng, p.lat]),
+          },
+          properties: {},
+        });
+      })
+      .catch(() => {});
+  }, [nextStop?.id, destLat, destLng, vehicleId]);
 
   const openGoogleMaps = () => {
     if (stop) {
@@ -328,6 +392,21 @@ export default function NavigationScreen() {
         </View>
       )}
 
+      {/* Turnaround warning — shown when next stop is behind the driver */}
+      {needsTurnaround && nextStop && (
+        <View style={[styles.turnaroundBanner, { backgroundColor: colors.app.warningBg }]}>
+          <Text style={[styles.turnaroundIcon, { color: colors.app.warning }]}>↩</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.turnaroundTitle, { color: colors.app.warning }]}>
+              Prepare to turn around
+            </Text>
+            <Text style={[styles.turnaroundSub, { color: colors.app.textFaint }]} numberOfLines={1}>
+              Next stop is behind you — {nextStop.address}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* ── MapLibre Map ─────────────────────────────────────────────────── */}
       <View style={styles.mapWrap}>
         {/* Use a fixed fallback centre if no GPS yet */}
@@ -360,6 +439,23 @@ export default function NavigationScreen() {
             animated={true}
             showsUserHeadingIndicator={true}
           />
+
+          {/* Ghost route — next stop preview, dashed and faded, drawn underneath */}
+          {nextRouteGeoJson && (
+            <ShapeSource id="next-route-source" shape={nextRouteGeoJson}>
+              <LineLayer
+                id="next-route-ghost"
+                style={{
+                  lineColor: map.route,
+                  lineWidth: 4,
+                  lineOpacity: 0.28,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineDasharray: [2, 5],
+                }}
+              />
+            </ShapeSource>
+          )}
 
           {/* Route polyline — two layers: glow halo + crisp teal line */}
           {routeGeoJson && (
@@ -429,6 +525,32 @@ export default function NavigationScreen() {
             >
               <View style={[styles.destMarker, { backgroundColor: colors.app.success }]}>
                 <Text style={styles.destPinText}>📍</Text>
+              </View>
+            </MarkerView>
+          )}
+
+          {/* U-turn sign — overlaid on the destination pin when turnaround needed */}
+          {needsTurnaround && destLat !== 0 && destLng !== 0 && (
+            <MarkerView
+              coordinate={[destLng, destLat]}
+              anchor={{ x: -0.3, y: 0.5 }}
+            >
+              <View style={styles.uturnMarker}>
+                <Text style={styles.uturnText}>↩</Text>
+              </View>
+            </MarkerView>
+          )}
+
+          {/* Next-stop destination pin — lighter marker so driver can see endpoint of ghost route */}
+          {nextStop?.lat != null && nextStop.lng != null
+            && nextStop.lat !== 0 && nextStop.lng !== 0
+            && nextRouteGeoJson && (
+            <MarkerView
+              coordinate={[nextStop.lng, nextStop.lat]}
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <View style={styles.nextStopPin}>
+                <Text style={styles.nextStopPinText}>⬡</Text>
               </View>
             </MarkerView>
           )}
@@ -517,4 +639,28 @@ const styles = StyleSheet.create({
   accessNotes:      { paddingHorizontal: 16, paddingVertical: 10 },
   accessNotesLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   accessNotesText:  { fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  // Turnaround banner
+  turnaroundBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12, gap: 12,
+  },
+  turnaroundIcon:  { fontSize: 28, fontWeight: '900' },
+  turnaroundTitle: { fontSize: 15, fontWeight: '700' },
+  turnaroundSub:   { fontSize: 13, marginTop: 2 },
+  // U-turn map pin
+  uturnMarker: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#F59E0B',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 6, elevation: 8,
+  },
+  uturnText: { fontSize: 22, color: '#fff' },
+  // Next-stop ghost pin
+  nextStopPin: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(79, 195, 247, 0.35)',
+    borderWidth: 2, borderColor: 'rgba(79, 195, 247, 0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  nextStopPinText: { fontSize: 14, color: '#4fc3f7' },
 });
