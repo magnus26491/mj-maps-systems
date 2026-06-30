@@ -132,6 +132,14 @@ async function lookupViaCentroid(postcode: string): Promise<PafAddress[]> {
   }];
 }
 
+// OS Places returns ALL CAPS — convert to Title Case for display
+const ALWAYS_UPPER = new Set(['PO', 'SO', 'SW', 'NW', 'NE', 'SE', 'EC', 'WC', 'UK', 'GB']);
+function toTitleCase(s: string): string {
+  return s.replace(/\b\w+/g, w =>
+    ALWAYS_UPPER.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+  );
+}
+
 export const pafRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { postcode?: string } }>(
     '/api/v1/paf/lookup',
@@ -150,17 +158,25 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
         // 1. OS Places (UPRN-level individual houses)
         const osResults = await osPlacesPostcodeCandidates(postcode);
         if (osResults.length) {
-          const addresses: PafAddress[] = osResults.map(c => ({
-            line1:       c.address,
-            postTown:    '',
-            postcode:    c.postcode ?? postcode,
-            fullAddress: c.address,
-            lat:         c.lat,
-            lng:         c.lng,
-            uprn:        c.uprn,
-            confidence:  c.confidence,
-            source:      'os_places',
-          }));
+          const addresses: PafAddress[] = osResults.map(c => {
+            const full = toTitleCase(c.address);
+            // Split "1 High Street, Southampton, SO15 3SP" → line1 + postTown
+            const parts = full.split(',').map(p => p.trim());
+            const pc    = c.postcode ?? postcode;
+            const line1 = parts[0] ?? full;
+            const postTown = parts.slice(1, -1).join(', '); // everything between line1 and postcode
+            return {
+              line1,
+              postTown,
+              postcode:    pc,
+              fullAddress: full,
+              lat:         c.lat,
+              lng:         c.lng,
+              uprn:        c.uprn,
+              confidence:  c.confidence,
+              source:      'os_places',
+            };
+          });
           return reply.send({ ok: true, addresses, source: 'os_places' });
         }
 
