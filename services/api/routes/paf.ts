@@ -4,18 +4,38 @@
  * Returns individual addresses within a UK postcode unit.
  *
  * Resolution order:
- *   1. OS Places API (UPRN-level door coords, requires OS_PLACES_KEY)
- *   2. OpenStreetMap Overpass — nodes/ways tagged addr:postcode=X (free)
- *   3. postcodes.io centroid (last resort — one result at postcode centre)
+ *   1. getAddress.io  (Royal Mail PAF, ~50ms, GETADDRESS_KEY required)
+ *   2. OS Places API  (UPRN-level door coords, OS_PLACES_KEY required)
+ *   3. OpenStreetMap Overpass — nodes/ways tagged addr:postcode=X (free)
+ *   4. Nominatim     — OSM geocoder with UK OpenNames data
+ *   5. postcodes.io centroid (last resort)
+ *
+ * Redis cache: 7-day TTL per postcode — repeat lookups are instant.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../middleware/auth.js';
 import { osPlacesPostcodeCandidates } from '../../geocoding/os-places-client.js';
 
-const OVERPASS    = process.env.OVERPASS_URL ?? 'https://overpass-api.de/api/interpreter';
+const OVERPASS     = process.env.OVERPASS_URL ?? 'https://overpass-api.de/api/interpreter';
 const POSTCODES_IO = 'https://api.postcodes.io';
 const FETCH_TIMEOUT = 10_000;
+const PAF_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days
+
+async function pafCacheGet(postcode: string): Promise<{ addresses: PafAddress[]; source: string } | null> {
+  try {
+    const { redis } = await import('../../cache/index.js');
+    const raw = await redis.get(`paf:${postcode.replace(/\s/g, '').toLowerCase()}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+async function pafCacheSet(postcode: string, result: { addresses: PafAddress[]; source: string }): Promise<void> {
+  try {
+    const { redis } = await import('../../cache/index.js');
+    await redis.setex(`paf:${postcode.replace(/\s/g, '').toLowerCase()}`, PAF_CACHE_TTL, JSON.stringify(result));
+  } catch { /* non-fatal */ }
+}
 
 interface PafAddress {
   line1:       string;
@@ -227,6 +247,57 @@ async function lookupViaCentroid(postcode: string): Promise<PafAddress[]> {
   }];
 }
 
+// ── getAddress.io — Royal Mail PAF, ~50ms, free 100/day or paid ──────────────
+
+interface GetAddressResult {
+  postcode: string;
+  latitude: number;
+  longitude: number;
+  addresses: string[]; // "line1, line2, line3, line4, locality, town, county"
+}
+
+async function lookupViaGetAddress(postcode: string): Promise<PafAddress[]> {
+  const key = process.env.GETADDRESS_KEY;
+  if (!key) return [];
+  const encoded = encodeURIComponent(postcode.replace(/\s/g, ''));
+  const url = `https://api.getaddress.io/find/${encoded}?api-key=${key}&expand=true`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      latitude: number;
+      longitude: number;
+      addresses: Array<{
+        line_1?: string; line_2?: string; line_3?: string; line_4?: string;
+        locality?: string; town_or_city?: string; county?: string;
+        latitude?: number; longitude?: number;
+      }>;
+    };
+    if (!Array.isArray(data.addresses)) return [];
+    return data.addresses
+      .filter(a => a.line_1)
+      .map(a => {
+        const line1 = toTitleCase(a.line_1 ?? '');
+        const line2 = a.line_2 ? toTitleCase(a.line_2) : undefined;
+        const postTown = toTitleCase(a.town_or_city ?? a.locality ?? '');
+        const parts = [line1, line2, postTown, postcode.toUpperCase()].filter(Boolean);
+        return {
+          line1,
+          line2,
+          postTown,
+          postcode: postcode.toUpperCase(),
+          fullAddress: parts.join(', '),
+          lat:  a.latitude  ?? data.latitude,
+          lng:  a.longitude ?? data.longitude,
+          source: 'getaddress' as const,
+          confidence: 0.95,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 // OS Places returns ALL CAPS — convert to Title Case for display
 const ALWAYS_UPPER = new Set(['PO', 'SO', 'SW', 'NW', 'NE', 'SE', 'EC', 'WC', 'UK', 'GB']);
 function toTitleCase(s: string): string {
@@ -255,15 +326,28 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // 1. OS Places (UPRN-level individual houses)
+        // ── Redis cache check (instant on hit) ──────────────────────────────
+        const cached = await pafCacheGet(postcode);
+        if (cached) {
+          return reply.send({ ok: true, ...cached, cached: true });
+        }
+
+        // ── Provider chain ──────────────────────────────────────────────────
+        // 1. getAddress.io — Royal Mail PAF, ~50ms, requires GETADDRESS_KEY
+        const gaResults = await lookupViaGetAddress(postcode);
+        if (gaResults.length) {
+          const result = { addresses: gaResults, source: 'getaddress' };
+          await pafCacheSet(postcode, result);
+          return reply.send({ ok: true, ...result });
+        }
+
+        // 2. OS Places (UPRN-level individual houses, requires OS_PLACES_KEY)
         const osResults = await osPlacesPostcodeCandidates(postcode);
         if (osResults.length) {
           const addresses: PafAddress[] = osResults.map(c => {
             const tc = (s?: string) => s ? toTitleCase(s) : '';
             const pc = c.postcode ?? postcode;
 
-            // Build line1: most specific identifier for this delivery point.
-            // Priority: organisation name → flat/unit → building name → number+street
             const orgName  = tc(c.organisationName);
             const subBldg  = tc(c.subBuildingName);
             const bldgName = tc(c.buildingName);
@@ -275,31 +359,24 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
             let line2: string | undefined;
 
             if (orgName) {
-              // Commercial: "Tesco Express" / "Unit 3B"
               line1 = orgName;
-              // If there's also a sub-building or building, add it
               const bldgPart = [subBldg, bldgName].filter(Boolean).join(', ');
               const streetPart = [bldgNum, street].filter(Boolean).join(' ');
               line2 = [bldgPart, streetPart].filter(Boolean).join(', ') || undefined;
             } else if (subBldg) {
-              // Flat/unit within a named building or street: "Flat 2A, Harbour House" / "Flat 2A, 12 High Street"
               line1 = subBldg;
               const streetPart = [bldgNum, street].filter(Boolean).join(' ');
               line2 = [bldgName, streetPart].filter(Boolean).join(', ') || undefined;
             } else if (bldgName) {
-              // Named building without org: "Harbour House, 12 High Street"
               line1 = bldgName;
               line2 = [bldgNum, street].filter(Boolean).join(' ') || undefined;
             } else {
-              // Standard numbered address: "12 High Street"
               line1 = [bldgNum, street].filter(Boolean).join(' ') || toTitleCase(c.address).split(',')[0].trim();
             }
 
             const full = toTitleCase(c.address);
-
             return {
-              line1,
-              line2,
+              line1, line2,
               postTown:    town || full.split(',').at(-2)?.trim() || '',
               postcode:    pc,
               fullAddress: full,
@@ -310,23 +387,28 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
               source:      'os_places',
             };
           });
-          return reply.send({ ok: true, addresses, source: 'os_places' });
+          const result = { addresses, source: 'os_places' };
+          await pafCacheSet(postcode, result);
+          return reply.send({ ok: true, ...result });
         }
 
-        // 2. Overpass OSM — buildings/addresses tagged with this postcode
-        const osmResults = await lookupViaOverpass(postcode);
+        // 3. Overpass + Nominatim in parallel — both are free but slow on first hit
+        const [osmResults, nominatimResults] = await Promise.all([
+          lookupViaOverpass(postcode),
+          lookupViaNominatim(postcode),
+        ]);
         if (osmResults.length) {
-          return reply.send({ ok: true, addresses: osmResults, source: 'osm' });
+          const result = { addresses: osmResults, source: 'osm' };
+          await pafCacheSet(postcode, result);
+          return reply.send({ ok: true, ...result });
         }
-
-        // 3. Nominatim — OSM geocoder; incorporates OS OpenNames for UK postcodes.
-        //    Catches industrial/commercial premises that aren't in the Overpass dataset.
-        const nominatimResults = await lookupViaNominatim(postcode);
         if (nominatimResults.length) {
-          return reply.send({ ok: true, addresses: nominatimResults, source: 'nominatim' });
+          const result = { addresses: nominatimResults, source: 'nominatim' };
+          await pafCacheSet(postcode, result);
+          return reply.send({ ok: true, ...result });
         }
 
-        // 4. postcodes.io centroid only
+        // 4. postcodes.io centroid only — not cached (useless to cache a centroid long-term)
         const centroid = await lookupViaCentroid(postcode);
         return reply.send({ ok: true, addresses: centroid, source: 'postcode_centroid' });
       } catch (err) {
