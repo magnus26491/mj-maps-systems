@@ -334,6 +334,12 @@ export async function registerWebRoutes(server: any): Promise<void> {
     });
   }
 
+  // Password reset deep-link — email contains /reset-password?token=... → redirect to driver SPA
+  server.get('/reset-password', async (request: any, reply: FastifyReply) => {
+    const qs = request.url.includes('?') ? request.url.slice(request.url.indexOf('?')) : '';
+    reply.redirect(302, `/driver/reset-password${qs}`);
+  });
+
   // Legal sub-pages
   server.get('/legal/privacy', async (_request: any, reply: FastifyReply) => {
     await serveAstroPage(reply, '/legal/privacy');
