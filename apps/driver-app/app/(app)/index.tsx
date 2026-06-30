@@ -4,10 +4,10 @@ import {
   StyleSheet, RefreshControl, Alert,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore } from '../../lib/auth';
-import { apiGetDriverRoute, apiGetAlerts } from '../../lib/api';
+import { apiGetDriverRoute, apiGetAlerts, apiGetTodayRoute } from '../../lib/api';
 import { useLocationSender } from '../../lib/location';
 import { flushQueue, getQueueLength } from '../../lib/offline-queue';
 import { useDriverWs } from '../../lib/ws';
@@ -26,6 +26,23 @@ export default function HomeScreen() {
 
   // routeId comes from the active shift store (set after route accepted)
   const routeId  = useShiftStore(s => s.shift?.routeId ?? null);
+
+  // Auto-discover a dispatcher-assigned route on mount if shift store is empty
+  const [checkingRoute, setCheckingRoute] = useState(!routeId);
+  useEffect(() => {
+    if (routeId) { setCheckingRoute(false); return; }
+    apiGetTodayRoute().then(res => {
+      if (res?.data?.routeId) {
+        // Route exists server-side — let the query below load its data
+        // by writing routeId into the shift store so the screen re-renders
+        useShiftStore.setState(s => ({
+          shift: s.shift
+            ? { ...s.shift, routeId: res.data!.routeId }
+            : { id: '', vehicleId: s.vehicleId ?? '', routeId: res.data!.routeId, totalStops: 0, startedAt: Date.now() },
+        }));
+      }
+    }).catch(() => {}).finally(() => setCheckingRoute(false));
+  }, []);
   const [approachBrief, setApproachBrief] = useState<ServerMessage | null>(null);
   const [workloadMsg,   setWorkloadMsg]   = useState<ServerMessage | null>(null);
   const [queueLen,      setQueueLen]     = useState(0);
@@ -109,16 +126,37 @@ export default function HomeScreen() {
   if (!routeId) {
     return (
       <View style={styles.center}>
-        <Text style={styles.heading}>No route assigned today</Text>
-        <Text style={styles.sub}>
-          Contact your dispatcher to get a route assigned.
-        </Text>
+        <Stack.Screen options={{ title: 'MJ Maps' }} />
+        {checkingRoute ? (
+          <Text style={styles.sub}>Checking for assigned route…</Text>
+        ) : (
+          <>
+            <Text style={styles.emptyIcon}>🗺️</Text>
+            <Text style={styles.heading}>No route assigned today</Text>
+            <Text style={styles.sub}>
+              No dispatcher route found. Start your own shift or search an address.
+            </Text>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => router.push('/shift-start')}
+            >
+              <Text style={styles.primaryBtnText}>Start a Shift</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={() => router.push('/postcode-entry')}
+            >
+              <Text style={styles.secondaryBtnText}>Search Address / Postcode</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ title: "Today's Route" }} />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
@@ -186,7 +224,12 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container:        { flex: 1, backgroundColor: '#030712' },
-  center:           { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  center:           { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+  emptyIcon:        { fontSize: 64, marginBottom: 8 },
+  primaryBtn:       { backgroundColor: '#3b82f6', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 32, width: '100%', alignItems: 'center', marginTop: 8 },
+  primaryBtnText:   { color: '#fff', fontSize: 16, fontWeight: '700' },
+  secondaryBtn:     { backgroundColor: '#1f2937', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, width: '100%', alignItems: 'center' },
+  secondaryBtnText: { color: '#9ca3af', fontSize: 15, fontWeight: '600' },
   header:           { backgroundColor: '#111827', padding: 16, borderBottomWidth: 1, borderColor: '#1f2937' },
   headerRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   heading:          { color: '#f9fafb', fontSize: 18, fontWeight: '700' },
