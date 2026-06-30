@@ -22,6 +22,14 @@ export interface AddressCandidate {
   source: 'os_places' | 'nominatim' | 'plus_code';
   confidence: number;   // 0–1
   uprn?: string;
+  // OS Places DPA individual fields — used to build human-readable line1/line2
+  organisationName?: string;
+  subBuildingName?: string;
+  buildingName?: string;
+  buildingNumber?: string;
+  thoroughfareName?: string;
+  dependentThoroughfareName?: string;
+  postTown?: string;
 }
 
 // ── Door pin (precise delivery location) ─────────────────────────────────────

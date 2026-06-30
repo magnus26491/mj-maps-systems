@@ -27,6 +27,13 @@ interface OsDpa {
   LNG?: number;
   X_COORDINATE?: number;
   Y_COORDINATE?: number;
+  ORGANISATION_NAME?: string;
+  SUB_BUILDING_NAME?: string;
+  BUILDING_NAME?: string;
+  BUILDING_NUMBER?: string;
+  THOROUGHFARE_NAME?: string;
+  DEPENDENT_THOROUGHFARE_NAME?: string;
+  POST_TOWN?: string;
 }
 
 interface OsPlacesResponse {
@@ -82,6 +89,13 @@ export async function osPlacesPostcodeCandidates(postcode: string): Promise<Addr
           source: 'os_places' as const,
           confidence: 0.92,
           uprn: d.UPRN,
+          organisationName: d.ORGANISATION_NAME,
+          subBuildingName:  d.SUB_BUILDING_NAME,
+          buildingName:     d.BUILDING_NAME,
+          buildingNumber:   d.BUILDING_NUMBER,
+          thoroughfareName: d.THOROUGHFARE_NAME,
+          dependentThoroughfareName: d.DEPENDENT_THOROUGHFARE_NAME,
+          postTown:         d.POST_TOWN,
         };
       })
       .filter((c): c is NonNullable<typeof c> => c !== null);
