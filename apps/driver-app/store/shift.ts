@@ -29,6 +29,9 @@ export interface DeliveryStop {
   turnReason?:  string | null;
   status:       'pending' | 'completed' | 'failed';
   failReason?:  string | null;
+  // TODO: w3w — 3-word address for last-metre precision (e.g. "///filled.count.soap").
+  // Populate via GET https://api.what3words.com/v3/convert-to-3wa when stop is loaded.
+  w3w?:         string | null;
 }
 
 export interface Shift {

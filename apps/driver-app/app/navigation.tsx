@@ -128,14 +128,14 @@ export default function NavigationScreen() {
   const { stops }  = useShiftStore();
   const nextStop   = useShiftStore(s => s.nextStop);
   const vehicleId  = useShiftStore(s => s.vehicleId);
-  const { isDriving } = useDrivingMode();
+  const { isDriving, speedKmh } = useDrivingMode();
   const { colors } = useTheme();
   const token = useAuthStore(s => s.token);
 
   const {
     route, currentStep, stepIndex, distanceToNext,
     isLoading, error, userLat, userLng, bearing,
-    guardWarnings, isNearDestination,
+    guardWarnings, isNearDestination, rerouteToast,
     startNav, stopNav, speakStep,
   } = useNavigation();
 
@@ -364,6 +364,8 @@ export default function NavigationScreen() {
   }
 
   const urgent = distanceToNext < 50;
+  // Adaptive zoom: pull back at speed to see further ahead; tighten for last-metre precision
+  const followZoom = speedKmh > 80 ? 15 : speedKmh > 40 ? 16 : 17;
   const etaStr = route
     ? `${formatDuration(route.totalDurationSec)} · ${formatDistance(route.totalDistanceM)} remaining`
     : '';
@@ -421,6 +423,19 @@ export default function NavigationScreen() {
         </View>
       ))}
 
+      {/* TODO: Pre-entry narrow road warning — amber banner when the road AHEAD is too
+          narrow for this vehicle, before the driver turns onto it. Infrastructure:
+          subscribe to road-context events as driver approaches an upcoming turn segment;
+          compare way width against VEHICLE_PROFILES[vehicleId].widthM. The turnaround
+          banner already handles post-entry narrow roads. */}
+
+      {/* TODO: what3words chip — show the 3-word address of the delivery stop for
+          last-metre precision (e.g. "///filled.count.soap"). Tap opens w3words.com.
+          Infrastructure: add w3w?: string to DeliveryStop; call GET
+          https://api.what3words.com/v3/convert-to-3wa?coordinates={lat},{lng}&key=KEY
+          when the stop is loaded. w3words free tier = 10k req/month. DHL reports
+          42% faster last-mile delivery in rural areas with w3w integration. */}
+
       {/* Access notes — ambient when idle, highlighted when approaching */}
       {stop?.notes && (
         <View style={[
@@ -472,13 +487,13 @@ export default function NavigationScreen() {
               centerCoordinate: hasUserLocation
                 ? [userLng, userLat]
                 : (destLng && destLat ? [destLng, destLat] : [-0.1276, 51.5074]),
-              zoomLevel: 17,
+              zoomLevel: followZoom,
               pitch: 55,
               heading: bearing,
             }}
             followUserLocation={hasUserLocation}
             followUserMode={UserTrackingMode.FollowWithHeading}
-            followZoomLevel={17}
+            followZoomLevel={followZoom}
             followPitch={55}
           />
 
@@ -619,11 +634,30 @@ export default function NavigationScreen() {
         </View>
       </View>
 
+      {/* Silent reroute toast — non-blocking, auto-dismisses after 3 s */}
+      {rerouteToast && (
+        <View style={[styles.rerouteToast, { backgroundColor: colors.app.success }]}>
+          <Text style={[styles.rerouteToastText, { color: '#fff' }]}>↺ {rerouteToast}</Text>
+        </View>
+      )}
+
       {/* Status bar */}
       <View style={[styles.statusBar, { borderTopColor: colors.app.border, backgroundColor: colors.app.background }]}>
         <Text style={[styles.etaText, { color: colors.app.textFaint }]}>ETA: {etaStr || '—'}</Text>
+
+        {/* Live speed display */}
+        <View style={styles.speedWidget}>
+          <Text style={[styles.speedValue, { color: isDriving ? colors.app.text : colors.app.textFaint }]}>
+            {speedKmh}
+          </Text>
+          <Text style={[styles.speedUnit, { color: colors.app.textFaint }]}>km/h</Text>
+          {/* TODO: Speed limit badge — render a red-outlined circle showing maxspeedKph here.
+              Highlight red when speedKmh > maxspeedKph. Requires road-context polling:
+              GET /api/v1/road-context?lat=X&lng=Y every ~10 s during navigation. */}
+        </View>
+
         <Text style={[styles.stepCount, { color: colors.app.textFaint }]}>
-          Step {stepIndex + 1} of {route?.steps.length ?? '—'}
+          Step {stepIndex + 1} / {route?.steps.length ?? '—'}
         </Text>
       </View>
 
@@ -673,9 +707,19 @@ const styles = StyleSheet.create({
   mapWrap:       { flex: 1 },
   map:           { flex: 1 },
   poiToggleWrap: { position: 'absolute', bottom: 12, left: 12, flexDirection: 'row' },
-  statusBar:     { height: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, borderTopWidth: 1 },
-  etaText:       { fontSize: 14 },
-  stepCount:     { fontSize: 13 },
+  statusBar:     { height: 52, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, borderTopWidth: 1 },
+  etaText:       { fontSize: 13, flex: 1 },
+  stepCount:     { fontSize: 12, flex: 1, textAlign: 'right' },
+  speedWidget:   { alignItems: 'center', minWidth: 52 },
+  speedValue:    { fontSize: 22, fontWeight: '800', lineHeight: 26 },
+  speedUnit:     { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  rerouteToast:  {
+    position: 'absolute', bottom: 180, alignSelf: 'center',
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 20, zIndex: 100,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, elevation: 10,
+  },
+  rerouteToastText: { fontSize: 15, fontWeight: '700' },
   actions:       { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1 },
   actionBtn:     { flex: 1, borderRadius: 12, height: 72, alignItems: 'center', justifyContent: 'center' },
   actionPrimary: {},
