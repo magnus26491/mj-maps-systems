@@ -61,7 +61,21 @@ export default function RouteBuilderScreen() {
   const [pafResults,     setPafResults]     = useState<PafAddress[]>([]);
   const [pafCounts,      setPafCounts]      = useState<Record<number, number>>({});
   const [pafLoading,     setPafLoading]     = useState(false);
-  const [stops,          setStops]          = useState<LocalStop[]>([]);
+  const [stops,          setStops]          = useState<LocalStop[]>(() => {
+    if (isAddMode) return [];
+    const staged = useShiftStore.getState().stagedStops;
+    if (!staged?.length) return [];
+    return staged.map((s: any) => ({
+      id:          s.id,
+      address:     s.address,
+      lat:         s.lat ?? s.pinLat ?? 0,
+      lng:         s.lng ?? s.pinLon ?? 0,
+      parcelCount: s.parcelCount ?? 1,
+      notes:       s.accessNotes ?? undefined,
+      uprn:        s.uprn,
+      pinSource:   s.pinSource,
+    }));
+  });
   const [optimising,     setOptimising]     = useState(false);
   const [pafError,       setPafError]       = useState<string | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);

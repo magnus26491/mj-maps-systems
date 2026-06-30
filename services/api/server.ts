@@ -70,6 +70,7 @@ import { fleetStreamRoute } from './routes/fleet-stream.js';
 import { deliveryDifficultyRoutes } from './routes/delivery-difficulty.js';
 import { poisRoute } from './routes/pois.js';
 import { pafRoute } from './routes/paf.js';
+import { turnaroundPointRoute } from './routes/turnaround-point.js';
 import { sendPlatformAlert } from '../notifications/telegram-alerts.js';
 
 // ─── ENV ────────────────────────────────────────────────────────────────────
@@ -262,6 +263,7 @@ const start = async () => {
   await server.register(deliveryDifficultyRoutes);
   await server.register(poisRoute);
   await server.register(pafRoute);
+  await server.register(turnaroundPointRoute);
 
   server.get('/api/v1/health', handleHealth as any);
 

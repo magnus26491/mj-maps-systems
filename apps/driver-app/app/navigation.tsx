@@ -33,6 +33,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { useNavigation } from '../hooks/useNavigation';
 import { useShiftStore } from '../store/shift';
+import { useAuthStore } from '../lib/auth';
 import { maneuverArrow, formatDistance, formatDuration, fetchNavRoute } from '../lib/navigation';
 import { useDrivingMode } from '../hooks/useDrivingMode';
 import { useNearbyPOI } from '../hooks/useNearbyPOI';
@@ -43,6 +44,15 @@ import { useTheme } from '../lib/theme';
 
 /** OpenFreeMap — free vector tiles, no API key, OSM data */
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
+
+interface TurnaroundPoint {
+  tooNarrow:     boolean;
+  turnaroundLat: number | null;
+  turnaroundLng: number | null;
+  distanceM:     number | null;
+  reason:        string;
+}
 
 function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -120,6 +130,7 @@ export default function NavigationScreen() {
   const vehicleId  = useShiftStore(s => s.vehicleId);
   const { isDriving } = useDrivingMode();
   const { colors } = useTheme();
+  const token = useAuthStore(s => s.token);
 
   const {
     route, currentStep, stepIndex, distanceToNext,
@@ -131,6 +142,10 @@ export default function NavigationScreen() {
   const [showFuel, setShowFuel] = useState(true);
   const [showEV,   setShowEV]   = useState(true);
   const { fuel, evCharging } = useNearbyPOI(userLat ?? null, userLng ?? null);
+
+  // Turnaround recalculation — find safer turning point when road is too narrow
+  const [turnaroundPoint, setTurnaroundPoint] = useState<TurnaroundPoint | null>(null);
+  const turnaroundFetchedFor = useRef<string | null>(null);
 
   // Map camera ref for programmatic control
   const cameraRef = useRef<any>(null);
@@ -188,6 +203,38 @@ export default function NavigationScreen() {
     && distToDestM < 500
     && angleDiff(bearing, bearingToNext) > 140
   );
+
+  // Fetch a safe turning point from the backend when turnaround is needed
+  useEffect(() => {
+    if (!needsTurnaround || !stopId || destLat === 0 || destLng === 0 || !token) return;
+    const cacheKey = `${stopId}:${destLat.toFixed(5)},${destLng.toFixed(5)}`;
+    if (turnaroundFetchedFor.current === cacheKey) return;
+    turnaroundFetchedFor.current = cacheKey;
+    setTurnaroundPoint(null);
+
+    fetch(
+      `${API}/api/v1/routes/turnaround-point?lat=${destLat}&lng=${destLng}&vehicleId=${vehicleId ?? 'lwb_van'}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+      .then(r => r.json())
+      .then((data: TurnaroundPoint) => setTurnaroundPoint(data))
+      .catch(() => {});
+  }, [needsTurnaround, stopId, destLat, destLng, vehicleId, token]);
+
+  // Reset turnaround state when navigating to a different stop
+  useEffect(() => {
+    setTurnaroundPoint(null);
+    turnaroundFetchedFor.current = null;
+  }, [stopId]);
+
+  // Determine where to show the U-turn marker:
+  // - If road is confirmed too narrow and we have an alternative point, use that
+  // - Otherwise fall back to the stop itself
+  const uturnLat = (turnaroundPoint?.tooNarrow && turnaroundPoint.turnaroundLat != null)
+    ? turnaroundPoint.turnaroundLat : destLat;
+  const uturnLng = (turnaroundPoint?.tooNarrow && turnaroundPoint.turnaroundLng != null)
+    ? turnaroundPoint.turnaroundLng : destLng;
+  const turnaroundReason = turnaroundPoint?.reason ?? 'Prepare to turn around';
 
   const handleBack = () => {
     Alert.alert('Stop navigation?', 'Your progress will be lost.', [
@@ -398,10 +445,12 @@ export default function NavigationScreen() {
           <Text style={[styles.turnaroundIcon, { color: colors.app.warning }]}>↩</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.turnaroundTitle, { color: colors.app.warning }]}>
-              Prepare to turn around
+              {turnaroundPoint?.tooNarrow ? 'Road too narrow — find turning point' : 'Prepare to turn around'}
             </Text>
-            <Text style={[styles.turnaroundSub, { color: colors.app.textFaint }]} numberOfLines={1}>
-              Next stop is behind you — {nextStop.address}
+            <Text style={[styles.turnaroundSub, { color: colors.app.textFaint }]} numberOfLines={2}>
+              {turnaroundPoint?.tooNarrow
+                ? turnaroundReason
+                : `Next stop is behind you — ${nextStop.address}`}
             </Text>
           </View>
         </View>
@@ -529,13 +578,16 @@ export default function NavigationScreen() {
             </MarkerView>
           )}
 
-          {/* U-turn sign — overlaid on the destination pin when turnaround needed */}
-          {needsTurnaround && destLat !== 0 && destLng !== 0 && (
+          {/* U-turn marker — at safe turning point (recalculated if road too narrow) */}
+          {needsTurnaround && uturnLat !== 0 && uturnLng !== 0 && (
             <MarkerView
-              coordinate={[destLng, destLat]}
+              coordinate={[uturnLng, uturnLat]}
               anchor={{ x: -0.3, y: 0.5 }}
             >
-              <View style={styles.uturnMarker}>
+              <View style={[
+                styles.uturnMarker,
+                turnaroundPoint?.tooNarrow ? styles.uturnMarkerNarrow : null,
+              ]}>
                 <Text style={styles.uturnText}>↩</Text>
               </View>
             </MarkerView>
@@ -653,6 +705,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B',
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 6, elevation: 8,
+  },
+  uturnMarkerNarrow: {
+    backgroundColor: '#EF4444',
   },
   uturnText: { fontSize: 22, color: '#fff' },
   // Next-stop ghost pin
