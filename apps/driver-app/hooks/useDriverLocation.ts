@@ -29,15 +29,27 @@ export function useDriverLocation(): DriverLocation | null {
     let sub: Location.LocationSubscription | null = null;
 
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.warn('[location] Foreground permission denied');
-        return;
+      // Check current status before calling request — avoids prompting when
+      // already granted, and avoids the Android "Allow all the time" dialog
+      // re-appearing on every HUD mount when status is "while using".
+      const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
+      if (fgStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('[location] Foreground permission denied');
+          return;
+        }
       }
 
       if (Platform.OS !== 'web') {
-        const bg = await Location.requestBackgroundPermissionsAsync();
-        if (bg.status === 'granted') {
+        const { status: bgCurrent } = await Location.getBackgroundPermissionsAsync();
+        // Only request if not yet determined — once denied, OS dialog won't
+        // re-appear anyway, and once granted we skip the redundant call.
+        if (bgCurrent === 'undetermined') {
+          await Location.requestBackgroundPermissionsAsync();
+        }
+        const { status: bgGranted } = await Location.getBackgroundPermissionsAsync();
+        if (bgGranted === 'granted') {
           await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
             accuracy:         Location.Accuracy.Balanced,
             timeInterval:     10_000,

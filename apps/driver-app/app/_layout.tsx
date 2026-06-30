@@ -90,8 +90,16 @@ function FcmRegistrar({ children }: { children: React.ReactNode }) {
     if (!isReady || !token) return;
     (async () => {
       try {
-        const perms = await Notifications.requestPermissionsAsync();
-        const granted = (perms as any).granted === true || (perms as any).status === 'granted';
+        // Check current state before requesting — avoids prompting on every login
+        // when permission was already granted or permanently denied.
+        const existing = await Notifications.getPermissionsAsync();
+        const isGranted  = (existing as any).granted === true || (existing as any).status === 'granted';
+        const isDetermined = isGranted || (existing as any).status === 'denied';
+        let granted = isGranted;
+        if (!isDetermined) {
+          const perms = await Notifications.requestPermissionsAsync();
+          granted = (perms as any).granted === true || (perms as any).status === 'granted';
+        }
         if (granted) {
           const { data } = await Notifications.getExpoPushTokenAsync();
           await apiRegisterFcmToken(data ?? '');
