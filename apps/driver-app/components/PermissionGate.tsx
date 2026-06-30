@@ -27,7 +27,7 @@ interface PermStep {
   icon:      string;
   titleKey:  string;
   whyKey:    string;
-  whyText?:  string; // overrides t(whyKey) when set — used for plan-specific copy
+  whyText?:  string;
   critical:  boolean;
   request:   () => Promise<PermStatus>;
 }
@@ -36,6 +36,10 @@ export function PermissionGate() {
   const { t } = useLocale();
   const user = useAuthStore(s => s.user);
   const isEnterprise = user?.planId === 'custom';
+
+  // On web, the browser handles permissions natively when features are first used.
+  // The wizard is not needed and would block the login screen.
+  if (Platform.OS === 'web' || !user) return null;
   const {
     perms, loaded,
     requestLocation, requestLocationBackground,
@@ -63,13 +67,12 @@ export function PermissionGate() {
     {
       key: 'notifications', icon: '🔔',
       titleKey: 'perm_notif_title', whyKey: 'perm_notif_why',
-      // Pro drivers: no dispatcher — explain self-service use case instead
       whyText: isEnterprise
         ? undefined
         : 'Get shift reminders and real-time route alerts — even when the screen is off.',
       critical: false, request: requestNotifications,
     },
-    // Camera is only relevant for enterprise drivers — POD photos for fleet compliance
+    // Camera only for enterprise drivers (POD photos for fleet compliance)
     ...(isEnterprise ? [{
       key: 'camera' as const, icon: '📷',
       titleKey: 'perm_camera_title', whyKey: 'perm_camera_why',

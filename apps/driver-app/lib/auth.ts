@@ -14,21 +14,23 @@ const REFRESH_KEY = 'mj_refresh';
 const USER_KEY    = 'mj_user';
 const ROUTE_KEY   = 'mj_route_id';
 
-// In-memory fallback for web platform
-const memStore = new Map<string, string>();
+function webStore() {
+  try { return typeof localStorage !== 'undefined' ? localStorage : null; }
+  catch { return null; }
+}
 
-export async function ssGet(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') return memStore.get(key) ?? null;
+async function ssGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') return webStore()?.getItem(key) ?? null;
   return SecureStore.getItemAsync(key);
 }
 
-export async function ssSet(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') { memStore.set(key, value); return; }
+async function ssSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') { webStore()?.setItem(key, value); return; }
   return SecureStore.setItemAsync(key, value);
 }
 
-export async function ssDel(key: string): Promise<void> {
-  if (Platform.OS === 'web') { memStore.delete(key); return; }
+async function ssDel(key: string): Promise<void> {
+  if (Platform.OS === 'web') { webStore()?.removeItem(key); return; }
   return SecureStore.deleteItemAsync(key);
 }
 

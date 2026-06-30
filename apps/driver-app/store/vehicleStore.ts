@@ -6,7 +6,23 @@
  * computes turn.alertLevel correctly for that vehicle.
  */
 import { create } from 'zustand';
-import { ssGet, ssSet } from '../lib/auth';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+
+function localGet(key: string): string | null {
+  if (Platform.OS === 'web') {
+    try { return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null; }
+    catch { return null; }
+  }
+  return null;
+}
+
+function localSet(key: string, value: string): void {
+  if (Platform.OS === 'web') {
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, value); }
+    catch {}
+  }
+}
 
 export type VehicleProfile =
   | 'car'
@@ -53,7 +69,9 @@ export const useVehicleStore = create<VehicleState>((set) => ({
 
   loadVehicleProfile: async () => {
     try {
-      const stored = await ssGet(STORAGE_KEY);
+      const stored = Platform.OS === 'web'
+        ? localGet(STORAGE_KEY)
+        : await SecureStore.getItemAsync(STORAGE_KEY);
       if (stored && VEHICLE_OPTIONS.some(v => v.key === stored)) {
         set({ vehicleProfile: stored as VehicleProfile, isLoaded: true });
       } else {
@@ -66,7 +84,11 @@ export const useVehicleStore = create<VehicleState>((set) => ({
 
   setVehicleProfile: async (profile) => {
     try {
-      await ssSet(STORAGE_KEY, profile);
+      if (Platform.OS === 'web') {
+        localSet(STORAGE_KEY, profile);
+      } else {
+        await SecureStore.setItemAsync(STORAGE_KEY, profile);
+      }
       set({ vehicleProfile: profile });
     } catch (err) {
       console.error('[vehicleStore] Failed to persist:', err);

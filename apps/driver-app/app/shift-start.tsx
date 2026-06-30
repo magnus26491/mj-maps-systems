@@ -22,7 +22,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
-import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -119,8 +118,7 @@ export default function ShiftStartScreen() {
     setLoading(true);
     try {
       const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
-      // Read token from SecureStore — same source as lib/api.ts
-      const token = await SecureStore.getItemAsync('mj_jwt');
+      const token = useAuthStore.getState().token;
 
       const res = await fetch(`${API}/api/v1/routes/optimise`, {
         method: 'POST',
@@ -204,7 +202,9 @@ export default function ShiftStartScreen() {
 
     // Google Play requires prominent disclosure before requestBackgroundPermissionsAsync.
     // Persist acceptance so the modal only shows once across all shifts.
-    const alreadyConsented = await SecureStore.getItemAsync('bg_location_consented');
+    const alreadyConsented = Platform.OS === 'web'
+      ? null
+      : (typeof localStorage !== 'undefined' ? localStorage.getItem('bg_location_consented') : null);
     if (!alreadyConsented) {
       setShowDisclosure(true);
       return; // handleDisclosureAccept will re-trigger after consent is stored
@@ -226,7 +226,7 @@ export default function ShiftStartScreen() {
 
   const handleDisclosureAccept = useCallback(async () => {
     setShowDisclosure(false);
-    await SecureStore.setItemAsync('bg_location_consented', 'true');
+    if (typeof localStorage !== 'undefined') localStorage.setItem('bg_location_consented', 'true');
     const bgStatus = await Location.requestBackgroundPermissionsAsync();
     if (bgStatus.status !== 'granted') {
       Alert.alert(

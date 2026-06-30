@@ -574,7 +574,7 @@ fastify.post('/forgot-password', {
   );
 
   // Send rawToken to the user via email — this is the only time it exists in plaintext
-  const resetUrl = `https://mjmapsystems.com/reset-password?token=${rawToken}`;
+  const resetUrl = `https://mjmapsystems.com/driver/reset-password?token=${rawToken}`;
   const emailBody = [
     `Click this link to reset your MJ Maps password (valid 1 hour):`,
     ``,

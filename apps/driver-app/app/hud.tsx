@@ -63,7 +63,7 @@ function HudInner() {
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const hasGreeted = useRef(false);
 
-  // Auto-dismiss dispatcher message after 15s (enterprise only)
+  // Auto-dismiss dispatcher message after 15s — enterprise only
   useEffect(() => {
     if (!dispatcherMessage || !isEnterprise) return;
     // Haptic + voice announcement on arrival
@@ -165,7 +165,7 @@ function HudInner() {
         total={shift.totalStops}
       />
 
-      {/* ── Dispatcher Message Banner (enterprise only) ──────── */}
+      {/* ── Dispatcher Message Banner — enterprise drivers only ── */}
       {isEnterprise && dispatcherMessage && (
         <View style={[styles.dispMsgBanner, { backgroundColor: colors.app.surface, borderColor: colors.app.primary }]}>
           <View style={styles.dispMsgHeader}>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -14,6 +14,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
+  const passwordRef = useRef<TextInput>(null);
 
   async function handleLogin() {
     setLoading(true);
@@ -24,7 +25,12 @@ export default function LoginScreen() {
       await setAuth(res.accessToken, res.refreshToken, user);
       router.replace('/(app)/');
     } catch (e: any) {
-      setError(e.message ?? 'Login failed. Check your credentials.');
+      const msg: string = e?.message ?? '';
+      // Only surface clean API error strings to the user.
+      // Raw JS errors (crashes, "is not a function", etc.) become a generic message.
+      const isCleanApiError = msg.length > 0 && msg.length < 100
+        && !msg.includes(' is not ') && !msg.includes('Cannot ') && !msg.includes('undefined');
+      setError(isCleanApiError ? msg : 'Sign in failed. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -48,17 +54,28 @@ export default function LoginScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          blurOnSubmit={false}
         />
         <TextInput
+          ref={passwordRef}
           style={styles.input}
           placeholder="Password"
           placeholderTextColor="#6b7280"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          returnKeyType="go"
+          onSubmitEditing={handleLogin}
+          autoComplete="current-password"
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <TouchableOpacity style={styles.forgotBtn} onPress={() => router.push('/(auth)/forgot-password')}>
+          <Text style={styles.forgotText}>Forgot password?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -85,4 +102,6 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.5 },
   buttonText:     { color: '#fff', fontWeight: '600', fontSize: 15 },
   error:          { color: '#f87171', fontSize: 13, marginBottom: 8 },
+  forgotBtn:      { alignSelf: 'flex-end', marginBottom: 4 },
+  forgotText:     { color: '#6b7280', fontSize: 13 },
 });
