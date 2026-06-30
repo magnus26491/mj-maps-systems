@@ -268,6 +268,13 @@ function HudInner() {
         >
           {currentStop.address}
         </Text>
+        {currentStop.communityWarning ? (
+          <View style={[styles.communityStrip, { backgroundColor: colors.app.warningBg }]}>
+            <Text style={[styles.communityStripText, { color: colors.app.warning }]} numberOfLines={2}>
+              {'⚠️'}  {currentStop.communityWarning}
+            </Text>
+          </View>
+        ) : null}
         {currentStop.notes ? (
           <Text style={[styles.stopNotes, { color: colors.app.warning }]}>
             {currentStop.notes}
@@ -585,4 +592,15 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 16, fontWeight: '700' },
   ddBtnText:     { fontSize: 18, fontWeight: '900' },
   allStopsLink:  { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
+  communityStrip: {
+    marginTop: 10,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  communityStripText: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
 });

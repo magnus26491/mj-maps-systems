@@ -20,19 +20,21 @@ import { useTheme } from '../components/ThemeContext';
 import { parseStopsCsv } from '../utils/parseStopsCsv';
 import { saveRoute, countSavedRoutes } from '../lib/savedRoutes';
 import { usePlan } from '../lib/usePlan';
+import { apiCheckCommunity } from '../lib/api';
 import type { Stop } from '../lib/types';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
 interface LocalStop {
-  id:           string;
-  address:      string;
-  lat:          number;
-  lng:          number;
-  parcelCount:  number;
-  notes?:       string;
-  uprn?:        string;
-  pinSource?:   string;
+  id:               string;
+  address:          string;
+  lat:              number;
+  lng:              number;
+  parcelCount:      number;
+  notes?:           string;
+  uprn?:            string;
+  pinSource?:       string;
+  communityWarning?: string | null;
 }
 
 interface PafAddress {
@@ -62,6 +64,7 @@ export default function RouteBuilderScreen() {
   const [pafCounts,      setPafCounts]      = useState<Record<number, number>>({});
   const [pafLoading,     setPafLoading]     = useState(false);
   const [pafSource,      setPafSource]      = useState<string | null>(null);
+  const [communityMap,   setCommunityMap]   = useState<Record<number, string>>({});
   const [centroidInput,  setCentroidInput]  = useState('');
   const [stops,          setStops]          = useState<LocalStop[]>(() => {
     if (isAddMode) return [];
@@ -116,6 +119,15 @@ export default function RouteBuilderScreen() {
         setCentroidInput('');
       } else {
         setPafResults(addresses);
+        // Fire community checks for all addresses in parallel — results trickle in
+        setCommunityMap({});
+        addresses.forEach((addr: PafAddress, i: number) => {
+          apiCheckCommunity(addr.fullAddress).then(check => {
+            if (check.hasConsensus && check.note) {
+              setCommunityMap(prev => ({ ...prev, [i]: check.note! }));
+            }
+          });
+        });
       }
     } catch (e: any) {
       setPafResults([]);
@@ -165,26 +177,28 @@ export default function RouteBuilderScreen() {
 
   const handleAddSelected = useCallback(() => {
     const selected = pafResults
-      .map((addr, i) => ({ addr, count: pafCounts[i] ?? 0 }))
+      .map((addr, i) => ({ addr, count: pafCounts[i] ?? 0, origIdx: i }))
       .filter(({ count }) => count > 0);
     if (!selected.length) return;
     setStops(prev => [
       ...prev,
-      ...selected.map(({ addr, count }, i) => ({
-        id:         `paf-${Date.now()}-${i}`,
-        address:    addr.fullAddress,
-        lat:        addr.lat ?? 0,
-        lng:        addr.lng ?? 0,
-        parcelCount: count,
-        uprn:       addr.uprn,
-        pinSource:  addr.source,
+      ...selected.map(({ addr, count, origIdx }, i) => ({
+        id:              `paf-${Date.now()}-${i}`,
+        address:         addr.fullAddress,
+        lat:             addr.lat ?? 0,
+        lng:             addr.lng ?? 0,
+        parcelCount:     count,
+        uprn:            addr.uprn,
+        pinSource:       addr.source,
+        communityWarning: communityMap[origIdx] ?? null,
       })),
     ]);
     setPafResults([]);
     setPafCounts({});
+    setCommunityMap({});
     setQuery('');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [pafResults, pafCounts]);
+  }, [pafResults, pafCounts, communityMap]);
 
   const handleFilePick = useCallback(async () => {
     try {
@@ -526,6 +540,11 @@ export default function RouteBuilderScreen() {
                         <Text style={[styles.pafLine2, { color: colors.subtext }]}>
                           {[item.postTown, item.postcode].filter(Boolean).join('  ')}
                         </Text>
+                        {communityMap[index] ? (
+                          <Text style={styles.pafCommunityBadge} numberOfLines={1}>
+                            ⚠  {communityMap[index]}
+                          </Text>
+                        ) : null}
                       </View>
                       {selected && (
                         <View style={styles.pafRemove}>
@@ -540,7 +559,7 @@ export default function RouteBuilderScreen() {
               {/* Panel footer */}
               <View style={styles.pafFooter}>
                 <TouchableOpacity
-                  onPress={() => { setPafResults([]); setPafCounts({}); setPafSource(null); setPafError(null); setCentroidInput(''); }}
+                  onPress={() => { setPafResults([]); setPafCounts({}); setPafSource(null); setPafError(null); setCentroidInput(''); setCommunityMap({}); }}
                   style={styles.pafDismissBtn}
                 >
                   <Text style={{ color: colors.subtext }}>✕ Dismiss</Text>
@@ -919,6 +938,7 @@ const styles = StyleSheet.create({
   pafRemove:         { width: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
   pafLine1:          { fontSize: 15, fontWeight: '600' },
   pafLine2:          { fontSize: 12, marginTop: 2 },
+  pafCommunityBadge: { fontSize: 11, fontWeight: '700', color: '#f59e0b', marginTop: 4 },
   pafFooter:         { flexDirection: 'row', alignItems: 'center',
                        justifyContent: 'space-between',
                        paddingHorizontal: 12, paddingVertical: 10 },

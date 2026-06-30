@@ -89,12 +89,20 @@ function normaliseAddress(address: string): string {
   return address.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-// Build consensus text from top categories (max 3 shown)
+// 80 chars fits 2 lines on the narrowest supported device (iPhone SE, 320pt)
+// at 13pt system font ≈ 7pt/char, 288pt usable width → 41 chars/line × 2 = 82.
+const MAX_NOTE_CHARS = 80;
+
+// Build consensus text from top categories (max 3 shown), capped at 80 chars.
 export function buildConsensusNote(categories: string[]): string {
-  return categories
+  const full = categories
     .slice(0, 3)
     .map(id => categoryMap[id]?.consensus ?? id)
     .join(' · ');
+  if (full.length <= MAX_NOTE_CHARS) return full;
+  // Truncate at last full word before the cap
+  const truncated = full.slice(0, MAX_NOTE_CHARS).replace(/\s+\S*$/, '');
+  return truncated + '…';
 }
 
 const ReportBodySchema = z.object({
@@ -201,6 +209,60 @@ export const deliveryDifficultyRoutes: FastifyPluginAsync = async (fastify) => {
           consensusNote,
         },
       });
+    },
+  );
+};
+
+/**
+ * GET /api/v1/community/address?q=<address>
+ * Address-based community check — used at route-build time before a stop exists.
+ * Returns consensus data for any address string; cached in Redis for 1 hour.
+ */
+export const communityAddressRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.get<{ Querystring: { q?: string } }>(
+    '/api/v1/community/address',
+    { preHandler: [requireAuth] },
+    async (request, reply) => {
+      const raw = (request.query.q ?? '').trim();
+      if (!raw) return reply.code(400).send({ ok: false, error: 'q required' });
+
+      const addressHash = normaliseAddress(raw);
+
+      // Redis cache — 1h TTL; community data changes slowly
+      try {
+        const { redis } = await import('../../cache/index.js');
+        const hit = await redis.get(`community_addr:${addressHash}`);
+        if (hit) return reply.send({ ok: true, ...JSON.parse(hit), cached: true });
+      } catch { /* non-fatal */ }
+
+      const { rows } = await pool.query<{ category: string; driver_count: number }>(
+        `SELECT category, driver_count
+         FROM delivery_difficulty_consensus
+         WHERE address_hash = $1
+         ORDER BY driver_count DESC, report_count DESC
+         LIMIT 5`,
+        [addressHash],
+      );
+
+      if (!rows.length) {
+        return reply.send({ ok: true, hasConsensus: false, categories: [], note: null });
+      }
+
+      const topCategories = rows.map(r => ({
+        id:          r.category,
+        ...(categoryMap[r.category as CategoryId] ?? { emoji: '⚠', label: r.category, consensus: r.category }),
+        driverCount: r.driver_count,
+      }));
+
+      const note = buildConsensusNote(topCategories.map(c => c.id));
+      const result = { hasConsensus: true as const, categories: topCategories, note };
+
+      try {
+        const { redis } = await import('../../cache/index.js');
+        await redis.setex(`community_addr:${addressHash}`, 3600, JSON.stringify(result));
+      } catch { /* non-fatal */ }
+
+      return reply.send({ ok: true, ...result });
     },
   );
 };
