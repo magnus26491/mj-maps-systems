@@ -61,11 +61,14 @@ interface OverpassResult {
 }
 
 async function lookupViaOverpass(postcode: string): Promise<PafAddress[]> {
-  // Query all nodes and ways with addr:postcode matching this unit
-  const query = `[out:json][timeout:10];
+  // Query nodes, ways and relations tagged with this postcode.
+  // Also include elements within the postcode boundary area (catches buildings
+  // that carry addr:street but no addr:postcode — common in UK industrial estates).
+  const query = `[out:json][timeout:12];
 (
   node["addr:postcode"="${postcode}"];
   way["addr:postcode"="${postcode}"];
+  relation["addr:postcode"="${postcode}"];
 );
 out center;`;
 
@@ -80,16 +83,28 @@ out center;`;
 
   for (const el of elements) {
     const tags = el.tags ?? {};
+
     const houseNum  = tags['addr:housenumber'] ?? tags['addr:flats'] ?? '';
-    const street    = tags['addr:street'] ?? '';
-    if (!street) continue; // skip unaddressed elements
+    const street    = tags['addr:street'] ?? tags['addr:place'] ?? '';
+    // Fall back to the element name for business/commercial premises that
+    // are tagged with name rather than addr:housenumber + addr:street.
+    const nameTag   = tags['name'] ?? tags['addr:housename'] ?? tags['addr:unit'] ?? '';
 
     const lat = el.lat ?? el.center?.lat;
     const lng = el.lon ?? el.center?.lon;
     if (!lat || !lng) continue;
 
+    // Build line1: numbered+street wins; named premises second; bare postcode skipped
+    let line1: string;
+    if (street) {
+      line1 = [houseNum, street].filter(Boolean).join(' ');
+    } else if (nameTag) {
+      line1 = nameTag;
+    } else {
+      continue; // no usable label
+    }
+
     const postTown = tags['addr:city'] ?? tags['addr:town'] ?? tags['addr:suburb'] ?? '';
-    const line1    = [houseNum, street].filter(Boolean).join(' ');
     const pc       = tags['addr:postcode'] ?? postcode;
     const full     = [line1, postTown, pc].filter(Boolean).join(', ');
 
@@ -105,7 +120,87 @@ out center;`;
     });
   }
 
-  // Sort by house number numerically then alphabetically
+  // Sort numerically then alphabetically
+  results.sort((a, b) => {
+    const na = parseInt(a.line1) || 0;
+    const nb = parseInt(b.line1) || 0;
+    if (na !== nb) return na - nb;
+    return a.line1.localeCompare(b.line1);
+  });
+
+  return results;
+}
+
+interface NominatimResult {
+  lat:          string;
+  lon:          string;
+  display_name: string;
+  type:         string;
+  address?: {
+    house_number?: string;
+    road?:         string;
+    pedestrian?:   string;
+    footway?:      string;
+    retail?:       string;
+    industrial?:   string;
+    town?:         string;
+    city?:         string;
+    village?:      string;
+    county?:       string;
+    postcode?:     string;
+  };
+}
+
+async function lookupViaNominatim(postcode: string): Promise<PafAddress[]> {
+  // Nominatim is the OSM geocoder; for UK postcodes it incorporates OS OpenNames
+  // data and often returns individual premises that Overpass misses.
+  const params = new URLSearchParams({
+    postalcode:   postcode,
+    countrycodes: 'gb',
+    format:       'json',
+    addressdetails: '1',
+    limit:        '100',
+  });
+
+  const data = await fetchJson<NominatimResult[]>(
+    `https://nominatim.openstreetmap.org/search?${params}`,
+  );
+  if (!Array.isArray(data) || !data.length) return [];
+
+  const results: PafAddress[] = [];
+  const seen = new Set<string>();
+
+  for (const item of data) {
+    const addr      = item.address ?? {};
+    const houseNum  = addr.house_number ?? '';
+    const road      = addr.road ?? addr.pedestrian ?? addr.footway ?? addr.retail ?? addr.industrial ?? '';
+    const postTown  = addr.town ?? addr.city ?? addr.village ?? addr.county ?? '';
+    const pc        = addr.postcode ?? postcode;
+    const lat       = parseFloat(item.lat);
+    const lng       = parseFloat(item.lon);
+
+    if (!lat || !lng) continue;
+    if (!road && !houseNum) continue;
+
+    const line1 = [houseNum, road].filter(Boolean).join(' ');
+    const dedup = `${line1}|${lat.toFixed(5)}|${lng.toFixed(5)}`;
+    if (seen.has(dedup)) continue;
+    seen.add(dedup);
+
+    const full = item.display_name;
+
+    results.push({
+      line1,
+      postTown,
+      postcode: pc,
+      fullAddress: full,
+      lat,
+      lng,
+      source: 'nominatim',
+      confidence: 0.75,
+    });
+  }
+
   results.sort((a, b) => {
     const na = parseInt(a.line1) || 0;
     const nb = parseInt(b.line1) || 0;
@@ -219,7 +314,14 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
           return reply.send({ ok: true, addresses: osmResults, source: 'osm' });
         }
 
-        // 3. postcodes.io centroid only
+        // 3. Nominatim — OSM geocoder; incorporates OS OpenNames for UK postcodes.
+        //    Catches industrial/commercial premises that aren't in the Overpass dataset.
+        const nominatimResults = await lookupViaNominatim(postcode);
+        if (nominatimResults.length) {
+          return reply.send({ ok: true, addresses: nominatimResults, source: 'nominatim' });
+        }
+
+        // 4. postcodes.io centroid only
         const centroid = await lookupViaCentroid(postcode);
         return reply.send({ ok: true, addresses: centroid, source: 'postcode_centroid' });
       } catch (err) {

@@ -61,6 +61,8 @@ export default function RouteBuilderScreen() {
   const [pafResults,     setPafResults]     = useState<PafAddress[]>([]);
   const [pafCounts,      setPafCounts]      = useState<Record<number, number>>({});
   const [pafLoading,     setPafLoading]     = useState(false);
+  const [pafSource,      setPafSource]      = useState<string | null>(null);
+  const [centroidInput,  setCentroidInput]  = useState('');
   const [stops,          setStops]          = useState<LocalStop[]>(() => {
     if (isAddMode) return [];
     const staged = useShiftStore.getState().stagedStops;
@@ -105,11 +107,13 @@ export default function RouteBuilderScreen() {
       }
       const data = await res.json();
       const addresses = data.addresses ?? [];
+      setPafSource(data.source ?? null);
       if (addresses.length === 0) {
         setPafError(`No addresses found for ${formatted}`);
       } else if (data.source === 'postcode_centroid') {
-        setPafError(`No house-level data for ${formatted} — showing postcode area only`);
+        setPafError(`No individual addresses found for ${formatted} — enter your unit or house number below`);
         setPafResults(addresses);
+        setCentroidInput('');
       } else {
         setPafResults(addresses);
       }
@@ -534,11 +538,70 @@ export default function RouteBuilderScreen() {
             <ActivityIndicator color={colors.green} style={{ marginVertical: 12 }} />
           )}
           {pafError && !pafLoading && (
-            <Text style={{ color: '#f87171', fontSize: 13, padding: 12, textAlign: 'center' }}>
+            <Text style={{ color: '#f87171', fontSize: 13, paddingHorizontal: 12, paddingTop: 12,
+              textAlign: 'center' }}>
               {pafError}
             </Text>
           )}
-          {pafResults.length > 0 && (
+          {/* Manual unit/house input when only a centroid came back */}
+          {pafSource === 'postcode_centroid' && pafResults.length > 0 && !pafLoading && (
+            <View style={styles.centroidInputRow}>
+              <TextInput
+                style={[styles.centroidInput, {
+                  backgroundColor: colors.background,
+                  color: colors.text,
+                  borderColor: colors.border,
+                }]}
+                placeholder="Unit or house number (e.g. Unit 3, 12A)"
+                placeholderTextColor={colors.subtext}
+                value={centroidInput}
+                onChangeText={setCentroidInput}
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  if (!centroidInput.trim() || !pafResults[0]) return;
+                  const base = pafResults[0];
+                  const label = `${centroidInput.trim()}, ${base.postcode}`;
+                  setStops(prev => [...prev, {
+                    id:         `paf-${Date.now()}-0`,
+                    address:    label,
+                    lat:        base.lat ?? 0,
+                    lng:        base.lng ?? 0,
+                    parcelCount: 1,
+                    pinSource:  'postcode_centroid',
+                  }]);
+                  setPafResults([]); setPafCounts({}); setPafSource(null);
+                  setPafError(null); setCentroidInput(''); setQuery('');
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+              />
+              <TouchableOpacity
+                style={[styles.centroidAddBtn, {
+                  backgroundColor: centroidInput.trim() ? colors.green : '#1c2a37',
+                }]}
+                disabled={!centroidInput.trim()}
+                onPress={() => {
+                  if (!centroidInput.trim() || !pafResults[0]) return;
+                  const base = pafResults[0];
+                  const label = `${centroidInput.trim()}, ${base.postcode}`;
+                  setStops(prev => [...prev, {
+                    id:         `paf-${Date.now()}-0`,
+                    address:    label,
+                    lat:        base.lat ?? 0,
+                    lng:        base.lng ?? 0,
+                    parcelCount: 1,
+                    pinSource:  'postcode_centroid',
+                  }]);
+                  setPafResults([]); setPafCounts({}); setPafSource(null);
+                  setPafError(null); setCentroidInput(''); setQuery('');
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {pafResults.length > 0 && pafSource !== 'postcode_centroid' && (
             <>
               {/* Panel header row */}
               <View style={styles.pafHeader}>
@@ -603,7 +666,7 @@ export default function RouteBuilderScreen() {
               {/* Panel footer */}
               <View style={styles.pafFooter}>
                 <TouchableOpacity
-                  onPress={() => { setPafResults([]); setPafCounts({}); }}
+                  onPress={() => { setPafResults([]); setPafCounts({}); setPafSource(null); setPafError(null); setCentroidInput(''); }}
                   style={styles.pafDismissBtn}
                 >
                   <Text style={{ color: colors.subtext }}>✕ Dismiss</Text>
@@ -866,6 +929,11 @@ const styles = StyleSheet.create({
                        justifyContent: 'space-between',
                        paddingHorizontal: 12, paddingVertical: 10 },
   pafDismissBtn:     { padding: 8 },
+  centroidInputRow:  { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  centroidInput:     { flex: 1, height: 44, borderRadius: 10, borderWidth: 1,
+                       paddingHorizontal: 12, fontSize: 14 },
+  centroidAddBtn:    { height: 44, paddingHorizontal: 18, borderRadius: 10,
+                       justifyContent: 'center', alignItems: 'center' },
   pafAddSelectedBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   pafAddSelectedText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
 
