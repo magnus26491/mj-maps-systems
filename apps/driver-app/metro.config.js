@@ -46,10 +46,31 @@ const WEB_SUBPATH_SHIMS = {
     path.resolve(__dirname, 'shims/exceptions-manager.web.js'),
 };
 
+// Absolute file paths for native modules we want to intercept regardless of
+// how they are imported (bare package path OR relative path from inside RN).
+const NATIVE_TMR_PATH = path.resolve(
+  __dirname,
+  'node_modules/react-native/Libraries/TurboModule/TurboModuleRegistry.js',
+);
+
 const _resolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = function (context, moduleName, platform) {
-  if (platform === 'web' && WEB_SUBPATH_SHIMS[moduleName]) {
-    return { filePath: WEB_SUBPATH_SHIMS[moduleName], type: 'sourceFile' };
+  if (platform === 'web') {
+    // Intercept absolute package-path shims
+    if (WEB_SUBPATH_SHIMS[moduleName]) {
+      return { filePath: WEB_SUBPATH_SHIMS[moduleName], type: 'sourceFile' };
+    }
+    // Intercept relative-path imports of native TurboModuleRegistry so files
+    // inside react-native (e.g. NativeExceptionsManager) also get the web stub.
+    if (
+      moduleName.includes('TurboModuleRegistry') &&
+      !moduleName.includes('shims')
+    ) {
+      return {
+        filePath: WEB_SUBPATH_SHIMS['react-native/Libraries/TurboModule/TurboModuleRegistry'],
+        type: 'sourceFile',
+      };
+    }
   }
   if (_resolveRequest) return _resolveRequest(context, moduleName, platform);
   return context.resolveRequest(context, moduleName, platform);
