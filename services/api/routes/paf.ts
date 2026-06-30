@@ -200,7 +200,7 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
             return {
               line1,
               line2,
-              postTown:    town || full.split(',').at(-2)?.trim() ?? '',
+              postTown:    town || full.split(',').at(-2)?.trim() || '',
               postcode:    pc,
               fullAddress: full,
               lat:         c.lat,
