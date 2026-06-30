@@ -112,6 +112,19 @@ export default function SettingsScreen() {
 
         <TouchableOpacity
           style={[styles.linkRow, { borderTopColor: colors.app.border }]}
+          onPress={() => router.push('/voice-settings' as any)}
+        >
+          <View style={styles.linkRowLeft}>
+            <Text style={[styles.linkText, { color: colors.app.primary }]}>Voice Navigation</Text>
+            <Text style={[styles.linkSub, { color: colors.app.gray }]}>
+              Voice, speed, pitch &amp; volume
+            </Text>
+          </View>
+          <Text style={[styles.linkArrow, { color: colors.app.primary }]}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.linkRow, { borderTopColor: colors.app.border }]}
           onPress={() => router.push('/(app)/privacy')}
         >
           <Text style={[styles.linkText, { color: colors.app.primary }]}>Privacy Policy</Text>

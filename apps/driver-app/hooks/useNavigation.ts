@@ -12,6 +12,9 @@ import * as Speech from 'expo-speech';
 import { fetchNavRoute, type NavRoute, type NavStep, type NavGuardWarning } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
 import { subscribeSharedLocation, getLatestLocation, type SharedLocation } from '../lib/shared-location';
+import { useVoiceSettingsStore } from '../store/voiceSettings';
+import { SPEECH_LANG } from '../lib/i18n';
+import { useLocale } from '../components/LocaleProvider';
 
 const DEVIATION_THRESHOLD_M = 250;  // metres — if user is this far off route, re-route
 
@@ -79,6 +82,15 @@ interface UseNavigationResult {
 export function useNavigation(): UseNavigationResult {
   const vehicleId     = useShiftStore(s => s.vehicleId);
   const customHeightM = useShiftStore(s => s.customHeightM);
+
+  // Voice settings — language follows UI locale automatically
+  const { locale } = useLocale();
+  const voiceEnabled = useVoiceSettingsStore(s => s.enabled);
+  const voiceId      = useVoiceSettingsStore(s => s.voiceId);
+  const voiceRate    = useVoiceSettingsStore(s => s.rate);
+  const voicePitch   = useVoiceSettingsStore(s => s.pitch);
+  const voiceVolume  = useVoiceSettingsStore(s => s.volume);
+  const speechLang   = SPEECH_LANG[locale] ?? 'en-GB';
   const [route,    setRoute]      = useState<NavRoute | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -110,13 +122,16 @@ export function useNavigation(): UseNavigationResult {
   const locUnsubRef = useRef<(() => void) | null>(null);
 
   const speakStep = useCallback((step: NavStep) => {
+    if (!voiceEnabled) return;
     Speech.stop();
     Speech.speak(step.instruction, {
-      language: 'en-GB',
-      rate:  0.9,
-      pitch: 1.0,
+      language: speechLang,
+      voice:    voiceId ?? undefined,
+      rate:     voiceRate,
+      pitch:    voicePitch,
+      volume:   voiceVolume,
     });
-  }, []);
+  }, [voiceEnabled, speechLang, voiceId, voiceRate, voicePitch, voiceVolume]);
 
   // Advance step based on proximity to next manoeuvre point
   useEffect(() => {
@@ -184,11 +199,21 @@ export function useNavigation(): UseNavigationResult {
       speakStep(step);
     } else if (dist < warnM && phaseSpoken < 2) {
       lastSpokenPhase.current.set(stepIndex, 2);
-      const d = Math.round(dist / 10) * 10;
-      Speech.speak(`In ${d} metres, ${step.instruction}`, { language: 'en-GB', rate: 0.9, pitch: 1.0 });
+      if (voiceEnabled) {
+        const d = Math.round(dist / 10) * 10;
+        Speech.speak(`In ${d} metres, ${step.instruction}`, {
+          language: speechLang, voice: voiceId ?? undefined,
+          rate: voiceRate, pitch: voicePitch, volume: voiceVolume,
+        });
+      }
     } else if (dist < prepareM && phaseSpoken < 1) {
       lastSpokenPhase.current.set(stepIndex, 1);
-      Speech.speak(`Prepare to ${step.instruction}`, { language: 'en-GB', rate: 0.9, pitch: 1.0 });
+      if (voiceEnabled) {
+        Speech.speak(`Prepare to ${step.instruction}`, {
+          language: speechLang, voice: voiceId ?? undefined,
+          rate: voiceRate, pitch: voicePitch, volume: voiceVolume,
+        });
+      }
     }
 
     if (dist < 30 && stepIndex < route.steps.length - 1) {
@@ -271,7 +296,15 @@ export function useNavigation(): UseNavigationResult {
           } else if (Date.now() - offRouteSinceRef.current > 15_000) {
             isReroutingRef.current = true;
             offRouteSinceRef.current = null;
-            Speech.speak('Recalculating', { language: 'en-GB', rate: 0.9 });
+            if (voiceEnabled) {
+                Speech.speak('Recalculating', {
+                  language: speechLang,
+                  voice:    voiceId ?? undefined,
+                  rate:     voiceRate,
+                  pitch:    voicePitch,
+                  volume:   voiceVolume,
+                });
+              }
             const cur = getLatestLocation();
             fetchNavRoute(
               cur?.latitude ?? loc.latitude, cur?.longitude ?? loc.longitude,
@@ -297,7 +330,7 @@ export function useNavigation(): UseNavigationResult {
         }
       }
     });
-  }, [vehicleId, speakStep, customHeightM]);
+  }, [vehicleId, speakStep, customHeightM, voiceEnabled, speechLang, voiceId, voiceRate, voicePitch, voiceVolume]);
 
   const stopNav = useCallback(() => {
     locUnsubRef.current?.();

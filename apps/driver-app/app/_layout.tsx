@@ -34,6 +34,7 @@ import { LocaleProvider } from '../components/LocaleProvider';
 import { PermissionGate } from '../components/PermissionGate';
 import { ThemeProvider, useTheme } from '../lib/theme';
 import { OnboardingModal } from '../components/OnboardingModal';
+import { useVoiceSettingsStore } from '../store/voiceSettings';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -163,6 +164,7 @@ function RootLayoutInner() {
       KeepAwake.activateKeepAwakeAsync();
       setupShiftNotificationChannel().catch(() => {});
     }
+    useVoiceSettingsStore.getState().load().catch(() => {});
     return () => { if (Platform.OS !== 'web') KeepAwake.deactivateKeepAwake(); };
   }, []);
 
