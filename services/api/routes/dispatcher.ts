@@ -213,6 +213,17 @@ export async function dispatcherRoutes(server: FastifyInstance): Promise<void> {
         return reply.code(400).send({ ok: false, error: 'stopId and targetRouteId required' });
       }
 
+      const { routeId } = request.params;
+
+      // Verify stop belongs to the source route (prevents moving stops from other routes)
+      const stopCheck = await pool.query(
+        `SELECT id FROM stops WHERE id = $1 AND route_id = $2`,
+        [stopId, routeId],
+      );
+      if (!stopCheck.rows.length) {
+        return reply.code(404).send({ ok: false, error: 'Stop not found on this route' });
+      }
+
       // Verify target route exists and is active
       const targetRes = await pool.query(
         `SELECT id FROM routes WHERE id = $1 AND status = 'active'`,
@@ -226,8 +237,8 @@ export async function dispatcherRoutes(server: FastifyInstance): Promise<void> {
       await pool.query(
         `UPDATE stops
          SET route_id = $1, status = 'pending', failure_code = NULL, updated_at = NOW()
-         WHERE id = $2`,
-        [targetRouteId, stopId],
+         WHERE id = $2 AND route_id = $3`,
+        [targetRouteId, stopId, routeId],
       );
 
       return reply.send({ ok: true, message: `Stop ${stopId} reassigned to route ${targetRouteId}` });

@@ -658,16 +658,18 @@ fastify.post('/reset-password', {
   const newHash = await hashPassword(newPwd);
 
   // Atomic transaction: mark token used + update password + invalidate other tokens
-  await pool.query('BEGIN');
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     // Mark this token as used
-    await pool.query(
+    await client.query(
       `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
       [tokenId],
     );
 
     // Invalidate any other pending tokens for this user
-    await pool.query(
+    await client.query(
       `UPDATE password_reset_tokens
        SET used_at = NOW()
        WHERE user_id = $1 AND id != $2 AND used_at IS NULL`,
@@ -675,15 +677,17 @@ fastify.post('/reset-password', {
     );
 
     // Set the new password
-    await pool.query(
+    await client.query(
       `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
       [newHash, userId],
     );
 
-    await pool.query('COMMIT');
+    await client.query('COMMIT');
   } catch (err) {
-    await pool.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     throw err;
+  } finally {
+    client.release();
   }
 
   // Audit log — runs after commit so we don't block the response
@@ -872,9 +876,12 @@ export const inviteRoutes: FastifyPluginAsync = async (fastify) => {
       // Hash password and create user
       const passwordHash = await hashPassword(password);
 
-      await pool.query('BEGIN');
+      const client = await pool.connect();
+      let newUser: { id: string; email: string; role: string; subscription_tier: string } | undefined;
       try {
-        const { rows: newUserRows } = await pool.query<{
+        await client.query('BEGIN');
+
+        const { rows: newUserRows } = await client.query<{
           id: string; email: string; role: string; subscription_tier: string;
         }>(
           `INSERT INTO users (email, password_hash, role, subscription_tier, plan_status)
@@ -882,16 +889,23 @@ export const inviteRoutes: FastifyPluginAsync = async (fastify) => {
            RETURNING id, email, role, subscription_tier`,
           [invite.email, passwordHash],
         );
-        const newUser = newUserRows[0];
+        newUser = newUserRows[0];
 
-        await pool.query(
+        await client.query(
           `UPDATE vip_invites
            SET status = 'accepted', accepted_at = NOW(), user_id = $1
            WHERE id = $2`,
           [newUser.id, invite.id],
         );
 
-        await pool.query('COMMIT');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        client.release();
+        throw err;
+      }
+      client.release();
+      if (!newUser) throw new Error('User creation failed');
 
         // Issue JWT pair
         const tokens = signTokenPair({
@@ -913,10 +927,6 @@ export const inviteRoutes: FastifyPluginAsync = async (fastify) => {
             tier:  newUser.subscription_tier,
           },
         });
-      } catch (err) {
-        await pool.query('ROLLBACK');
-        throw err;
-      }
     },
   );
 };

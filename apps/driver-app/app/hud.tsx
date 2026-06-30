@@ -193,7 +193,7 @@ function HudInner() {
           {/* Inline SVG-free alert indicator — large text is readable at a glance */}
           <View style={styles.alertIconWrap}>
             <Text style={[styles.alertIconText, { color: '#fff' }]}>
-              {alert === 'RED' ? '!' : '!'}
+              {alert === 'RED' ? '✕' : '!'}
             </Text>
           </View>
           <View style={styles.alertTextWrap}>
@@ -261,7 +261,7 @@ function HudInner() {
           {currentStop.distanceM != null && (
             <Text style={[styles.metaItem, { color: colors.app.textFaint }]}>
               {currentStop.distanceM < 1000
-                ? `${currentStop.distanceM}m`
+                ? `${Math.round(currentStop.distanceM)}m`
                 : `${(currentStop.distanceM / 1000).toFixed(1)}km`}
             </Text>
           )}

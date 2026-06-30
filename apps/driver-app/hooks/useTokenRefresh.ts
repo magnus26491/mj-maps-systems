@@ -13,10 +13,7 @@ function jwtExpiryMs(token: string): number | null {
   try {
     const payloadB64 = token.split('.')[1];
     if (!payloadB64) return null;
-    const payload = JSON.parse(
-      // atob works in both RN (hermes) and web
-      Buffer.from(payloadB64, 'base64').toString('utf-8'),
-    );
+    const payload = JSON.parse(atob(payloadB64));
     return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
   } catch {
     return null;

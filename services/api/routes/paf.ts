@@ -92,7 +92,7 @@ out center;`;
 
     const lat = el.lat ?? el.center?.lat;
     const lng = el.lon ?? el.center?.lon;
-    if (!lat || !lng) continue;
+    if (lat == null || lng == null || !isFinite(lat) || !isFinite(lng)) continue;
 
     // Build line1: numbered+street wins; named premises second; bare postcode skipped
     let line1: string;
@@ -179,7 +179,7 @@ async function lookupViaNominatim(postcode: string): Promise<PafAddress[]> {
     const lat       = parseFloat(item.lat);
     const lng       = parseFloat(item.lon);
 
-    if (!lat || !lng) continue;
+    if (!isFinite(lat) || !isFinite(lng)) continue;
     if (!road && !houseNum) continue;
 
     const line1 = [houseNum, road].filter(Boolean).join(' ');
@@ -248,6 +248,11 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
       // Normalise: "so153sp" → "SO15 3SP"
       const clean = raw.toUpperCase().replace(/\s+/g, '');
       const postcode = clean.replace(/^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/, '$1 $2');
+
+      // Reject malformed postcodes before they reach Overpass QL interpolation
+      if (!/^[A-Z]{1,2}\d[A-Z\d]? \d[A-Z]{2}$/.test(postcode)) {
+        return reply.code(400).send({ ok: false, error: 'Invalid UK postcode format' });
+      }
 
       try {
         // 1. OS Places (UPRN-level individual houses)

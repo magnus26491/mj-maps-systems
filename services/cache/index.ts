@@ -32,6 +32,8 @@ export function createSubscriber(): Redis {
   const sub = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
     connectTimeout: 5000,
     commandTimeout: 5000,
+    maxRetriesPerRequest: 3,
+    lazyConnect: true,
   });
   sub.on('error', (err) => console.error('[cache:subscriber] Redis error:', err.message));
   return sub;
@@ -58,8 +60,10 @@ export async function getCachedRoadSegments(
   lat: number,
   lon: number,
 ): Promise<RoadSegment[] | null> {
-  const raw = await redis.get(ROAD_KEY(lat, lon));
-  return raw ? (JSON.parse(raw) as RoadSegment[]) : null;
+  try {
+    const raw = await redis.get(ROAD_KEY(lat, lon));
+    return raw ? (JSON.parse(raw) as RoadSegment[]) : null;
+  } catch { return null; }
 }
 
 export async function setCachedRoadSegments(
@@ -67,11 +71,11 @@ export async function setCachedRoadSegments(
   lon: number,
   segments: RoadSegment[],
 ): Promise<void> {
-  await redis.setex(ROAD_KEY(lat, lon), ROAD_TTL, JSON.stringify(segments));
+  try { await redis.setex(ROAD_KEY(lat, lon), ROAD_TTL, JSON.stringify(segments)); } catch { /* non-fatal */ }
 }
 
 export async function invalidateRoadCache(lat: number, lon: number): Promise<void> {
-  await redis.del(ROAD_KEY(lat, lon));
+  try { await redis.del(ROAD_KEY(lat, lon)); } catch { /* non-fatal */ }
 }
 
 // ── Stop pin cache ────────────────────────────────────────────────────────────
@@ -79,16 +83,18 @@ export async function invalidateRoadCache(lat: number, lon: number): Promise<voi
 const PIN_TTL = 60 * 60 * 24 * 90; // 90 days — 7,776,000 seconds
 
 export async function getCachedPin(address: string): Promise<StopPin | null> {
-  const raw = await redis.get(PIN_KEY(address));
-  return raw ? (JSON.parse(raw) as StopPin) : null;
+  try {
+    const raw = await redis.get(PIN_KEY(address));
+    return raw ? (JSON.parse(raw) as StopPin) : null;
+  } catch { return null; }
 }
 
 export async function setCachedPin(address: string, pin: StopPin): Promise<void> {
-  await redis.setex(PIN_KEY(address), PIN_TTL, JSON.stringify(pin));
+  try { await redis.setex(PIN_KEY(address), PIN_TTL, JSON.stringify(pin)); } catch { /* non-fatal */ }
 }
 
 export async function invalidatePinCache(address: string): Promise<void> {
-  await redis.del(PIN_KEY(address));
+  try { await redis.del(PIN_KEY(address)); } catch { /* non-fatal */ }
 }
 
 // ── Community score cache ─────────────────────────────────────────────────────
@@ -99,8 +105,10 @@ export async function getCachedCommunityScore(
   lat: number,
   lon: number,
 ): Promise<number | null> {
-  const raw = await redis.get(COMMUNITY_KEY(lat, lon));
-  return raw ? parseFloat(raw) : null;
+  try {
+    const raw = await redis.get(COMMUNITY_KEY(lat, lon));
+    return raw ? parseFloat(raw) : null;
+  } catch { return null; }
 }
 
 export async function setCachedCommunityScore(
@@ -108,12 +116,12 @@ export async function setCachedCommunityScore(
   lon: number,
   score: number,
 ): Promise<void> {
-  await redis.setex(COMMUNITY_KEY(lat, lon), COMMUNITY_TTL, score.toString());
+  try { await redis.setex(COMMUNITY_KEY(lat, lon), COMMUNITY_TTL, score.toString()); } catch { /* non-fatal */ }
 }
 
 /** Force refresh community score (call after a new driver report is written). */
 export async function invalidateCommunityScore(lat: number, lon: number): Promise<void> {
-  await redis.del(COMMUNITY_KEY(lat, lon));
+  try { await redis.del(COMMUNITY_KEY(lat, lon)); } catch { /* non-fatal */ }
 }
 
 // ── Route result cache ────────────────────────────────────────────────────────
@@ -121,16 +129,18 @@ export async function invalidateCommunityScore(lat: number, lon: number): Promis
 const ROUTE_TTL = 60 * 30; // 30 minutes
 
 export async function getCachedRoute(routeId: string): Promise<unknown | null> {
-  const raw = await redis.get(ROUTE_KEY(routeId));
-  return raw ? JSON.parse(raw) : null;
+  try {
+    const raw = await redis.get(ROUTE_KEY(routeId));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
 }
 
 export async function setCachedRoute(routeId: string, route: unknown): Promise<void> {
-  await redis.setex(ROUTE_KEY(routeId), ROUTE_TTL, JSON.stringify(route));
+  try { await redis.setex(ROUTE_KEY(routeId), ROUTE_TTL, JSON.stringify(route)); } catch { /* non-fatal */ }
 }
 
 export async function invalidateRoute(routeId: string): Promise<void> {
-  await redis.del(ROUTE_KEY(routeId));
+  try { await redis.del(ROUTE_KEY(routeId)); } catch { /* non-fatal */ }
 }
 
 // ── Health check ──────────────────────────────────────────────────────────────

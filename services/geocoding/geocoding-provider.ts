@@ -60,7 +60,10 @@ async function nominatimPostcodeCandidates(postcode: string): Promise<AddressCan
   const encoded = encodeURIComponent(postcode.trim());
   const url = `${NOMINATIM_URL}/search?postalcode=${encoded}&countrycodes=gb&format=json&addressdetails=1&limit=5`;
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'MJMaps/1.0' } });
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'MJMaps/1.0' },
+      signal: AbortSignal.timeout(10_000),
+    });
     if (!res.ok) return [];
     const data = (await res.json()) as Array<{
       place_id: string; display_name: string; lat: string; lon: string;
@@ -84,7 +87,10 @@ async function nominatimReverse(latlng: LatLng): Promise<ReverseResult | null> {
   const NOMINATIM_URL = (process.env.NOMINATIM_URL ?? 'https://nominatim.openstreetmap.org').replace(/\/$/, '');
   const url = `${NOMINATIM_URL}/reverse?lat=${latlng.lat}&lon=${latlng.lng}&format=json&addressdetails=1`;
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'MJMaps/1.0' } });
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'MJMaps/1.0' },
+      signal: AbortSignal.timeout(10_000),
+    });
     if (!res.ok) return null;
     const d = (await res.json()) as {
       display_name: string; lat: string; lon: string;

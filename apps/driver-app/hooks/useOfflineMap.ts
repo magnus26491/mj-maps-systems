@@ -60,7 +60,9 @@ export function useOfflineMap() {
         (_pack: unknown, status: any) => {
           const pct = Math.round(status?.percentage ?? 0);
           setProgress(pct);
-          if (status?.state === 2 /* complete */) {
+          // state 2 = MLNOfflinePackStateComplete; also treat 100% as complete
+          // in case the enum value ever shifts between MapLibre versions.
+          if (status?.state === 2 || pct >= 100) {
             setStatus('complete');
           }
         },

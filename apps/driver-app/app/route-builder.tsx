@@ -329,6 +329,23 @@ export default function RouteBuilderScreen() {
     });
   }, [stops, departureTime, isAddMode]);
 
+  const addCentroidStop = useCallback(() => {
+    const label = centroidInput.trim();
+    if (!label || !pafResults[0]) return;
+    const base = pafResults[0];
+    setStops(prev => [...prev, {
+      id:          `paf-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      address:     `${label}, ${base.postcode}`,
+      lat:         base.lat ?? 0,
+      lng:         base.lng ?? 0,
+      parcelCount: 1,
+      pinSource:   'postcode_centroid' as const,
+    }]);
+    setPafResults([]); setPafCounts({}); setPafSource(null);
+    setPafError(null); setCentroidInput(''); setQuery('');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [centroidInput, pafResults]);
+
   const handleSaveRoute = useCallback(async () => {
     const name = saveName.trim();
     if (!name || !stops.length) return;
@@ -558,44 +575,14 @@ export default function RouteBuilderScreen() {
                 onChangeText={setCentroidInput}
                 autoCorrect={false}
                 returnKeyType="done"
-                onSubmitEditing={() => {
-                  if (!centroidInput.trim() || !pafResults[0]) return;
-                  const base = pafResults[0];
-                  const label = `${centroidInput.trim()}, ${base.postcode}`;
-                  setStops(prev => [...prev, {
-                    id:         `paf-${Date.now()}-0`,
-                    address:    label,
-                    lat:        base.lat ?? 0,
-                    lng:        base.lng ?? 0,
-                    parcelCount: 1,
-                    pinSource:  'postcode_centroid',
-                  }]);
-                  setPafResults([]); setPafCounts({}); setPafSource(null);
-                  setPafError(null); setCentroidInput(''); setQuery('');
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }}
+                onSubmitEditing={() => addCentroidStop()}
               />
               <TouchableOpacity
                 style={[styles.centroidAddBtn, {
                   backgroundColor: centroidInput.trim() ? colors.green : '#1c2a37',
                 }]}
                 disabled={!centroidInput.trim()}
-                onPress={() => {
-                  if (!centroidInput.trim() || !pafResults[0]) return;
-                  const base = pafResults[0];
-                  const label = `${centroidInput.trim()}, ${base.postcode}`;
-                  setStops(prev => [...prev, {
-                    id:         `paf-${Date.now()}-0`,
-                    address:    label,
-                    lat:        base.lat ?? 0,
-                    lng:        base.lng ?? 0,
-                    parcelCount: 1,
-                    pinSource:  'postcode_centroid',
-                  }]);
-                  setPafResults([]); setPafCounts({}); setPafSource(null);
-                  setPafError(null); setCentroidInput(''); setQuery('');
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }}
+                onPress={() => addCentroidStop()}
               >
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Add</Text>
               </TouchableOpacity>

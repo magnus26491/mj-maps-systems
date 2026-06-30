@@ -100,7 +100,7 @@ export function useNavigation(): UseNavigationResult {
   const [bearing,  setBearing]    = useState(0);
   const [guardWarnings, setGuardWarnings] = useState<NavGuardWarning[]>([]);
   // Live distance to the next maneuver point (updated every GPS tick)
-  const [liveDistanceToNext, setLiveDistanceToNext] = useState(0);
+  const [liveDistanceToNext, setLiveDistanceToNext] = useState(9999);
   // True when driver is within 30m of destination on the last step
   const [isNearDestination, setIsNearDestination] = useState(false);
   const arrivedRef = useRef(false);
@@ -258,7 +258,7 @@ export function useNavigation(): UseNavigationResult {
 
     setUserLat(fromLat);
     setUserLng(fromLng);
-    if (currentLoc?.heading !== null) setBearing(currentLoc.heading);
+    if (currentLoc?.heading != null) setBearing(currentLoc.heading);
 
     const navRoute = await fetchNavRoute(
       fromLat, fromLng,
@@ -316,9 +316,15 @@ export function useNavigation(): UseNavigationResult {
                 });
               }
             const cur = getLatestLocation();
+            const rDstLat = destLat.current;
+            const rDstLng = destLng.current;
+            if (rDstLat == null || rDstLng == null) {
+              isReroutingRef.current = false;
+              return; // nav was stopped before reroute fired — abort silently
+            }
             fetchNavRoute(
               cur?.latitude ?? loc.latitude, cur?.longitude ?? loc.longitude,
-              destLat.current!, destLng.current!,
+              rDstLat, rDstLng,
               vehicleId ?? 'lwb_van',
               customHeightM,
               destAddress.current,

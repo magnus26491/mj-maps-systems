@@ -177,6 +177,16 @@ const start = async () => {
   // (customTypes cannot override mimedb's compressible fallback, so HTML/JS/CSS
   // always get compressed regardless of the regex, and Railway compresses again).
 
+  // Global error handler — prevents DB error messages (table names, SQL) leaking to clients
+  server.setErrorHandler((error, _request, reply) => {
+    const status = error.statusCode ?? 500;
+    if (status >= 500) {
+      server.log.error({ err: error }, '[api] unhandled error');
+      return reply.code(500).send({ ok: false, error: 'Internal server error' });
+    }
+    return reply.code(status).send({ ok: false, error: error.message });
+  });
+
   await server.register(fastifyRateLimit, {
     global: true,
     max: 120,
