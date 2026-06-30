@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore } from '../../lib/auth';
 import { apiGetDriverRoute, apiGetAlerts } from '../../lib/api';

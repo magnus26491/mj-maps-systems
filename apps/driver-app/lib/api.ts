@@ -5,8 +5,7 @@
  * On 401: attempt one token refresh → retry once.
  * On second 401: throw 'SESSION_EXPIRED' — caller redirects to login.
  */
-import * as SecureStore from 'expo-secure-store';
-import { refreshAccessToken } from './auth';
+import { useAuthStore, refreshAccessToken } from './auth';
 import type {
   AuthResponse, RouteDetail, Vehicle, Alert, AccessBrief, User,
 } from './types';
@@ -21,7 +20,7 @@ async function apiFetch<T>(
   init?: RequestInit,
   retry = true,
 ): Promise<T> {
-  const token = await SecureStore.getItemAsync('mj_jwt');
+  const token = useAuthStore.getState().token;
   const res   = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
