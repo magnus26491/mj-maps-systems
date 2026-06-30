@@ -30,6 +30,26 @@ let latestLocation: SharedLocation | null = null;
 type Listener = (loc: SharedLocation) => void;
 const listeners = new Set<Listener>();
 
+// ── Adaptive GPS accuracy ────────────────────────────────────────────────────
+// Navigation raises to high accuracy; idle delivery drops to Balanced.
+let highAccuracyMode = false;
+type AccuracyListener = (high: boolean) => void;
+const accuracyListeners = new Set<AccuracyListener>();
+
+/** Called by useNavigation when navigation starts/stops. */
+export function setNavHighAccuracy(active: boolean): void {
+  if (active === highAccuracyMode) return;
+  highAccuracyMode = active;
+  for (const cb of accuracyListeners) cb(active);
+}
+
+/** useDriverLocation subscribes here to restart watcher with correct settings. */
+export function subscribeAccuracyMode(cb: AccuracyListener): () => void {
+  accuracyListeners.add(cb);
+  cb(highAccuracyMode); // fire immediately with current state
+  return () => { accuracyListeners.delete(cb); };
+}
+
 /**
  * Called by useDriverLocation on every GPS fix to broadcast to all subscribers.
  * Also sets latestLocation so getLatestLocation() returns a fresh value.

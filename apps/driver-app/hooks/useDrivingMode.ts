@@ -30,8 +30,9 @@ export function useDrivingMode(): { isDriving: boolean; speedKmh: number } {
   const [isDriving, setIsDriving] = useState(false);
   const [speedKmh, setSpeedKmh]   = useState(0);
 
-  const aboveCount = useRef(0);
-  const belowCount = useRef(0);
+  const aboveCount   = useRef(0);
+  const belowCount   = useRef(0);
+  const prevSpeedRef = useRef(-1);
 
   useEffect(() => {
     const unsub = subscribeSharedLocation((loc) => {
@@ -39,7 +40,12 @@ export function useDrivingMode(): { isDriving: boolean; speedKmh: number } {
       const speed    = speedMs >= 0 ? speedMs * 3.6 : 0;
       const above    = speed > SPEED_THRESHOLD_KPH;
 
-      setSpeedKmh(Math.round(speed));
+      // Only re-render when the displayed integer changes, not every GPS tick
+      const rounded = Math.round(speed);
+      if (rounded !== prevSpeedRef.current) {
+        prevSpeedRef.current = rounded;
+        setSpeedKmh(rounded);
+      }
 
       if (above) {
         belowCount.current = 0;

@@ -76,7 +76,9 @@ export function useTurnScore(
       return fetchTurnScore(lat, lng, vehicleId!, token!);
     },
     enabled,
-    refetchInterval:  (distM ?? 9999) < 500 ? 2000 : 5000,
+    // Road geometry at a stop doesn't change minute-to-minute — 20s when
+    // approaching (<200m), 90s otherwise. Prevents unnecessary API hammering.
+    refetchInterval:  (distM ?? 9999) < 200 ? 20_000 : 90_000,
     placeholderData:  { score: null, alert: 'GREEN' as const, reason: null },
     staleTime:        10_000,
   });

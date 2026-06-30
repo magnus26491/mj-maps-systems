@@ -13,7 +13,7 @@
  * - Heading-up driving camera with pitch ~55°.
  * - Routing/voice/reroute logic unchanged (hooks/useNavigation.ts).
  */
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Linking, Platform,
@@ -214,7 +214,7 @@ export default function NavigationScreen() {
 
     fetch(
       `${API}/api/v1/routes/turnaround-point?lat=${destLat}&lng=${destLng}&vehicleId=${vehicleId ?? 'lwb_van'}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5_000) },
     )
       .then(r => r.json())
       .then((data: TurnaroundPoint) => setTurnaroundPoint(data))
@@ -318,20 +318,52 @@ export default function NavigationScreen() {
     }
   };
 
-  // Build GeoJSON route geometry for ShapeSource
-  const routeGeoJson = route
-    ? {
-        type: 'Feature' as const,
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: route.polyline.map(p => [p.lng, p.lat]),
-        },
-        properties: {},
-      }
-    : null;
+  // Memoized GeoJSON — only recomputed when the route itself changes,
+  // not on every GPS tick / re-render.
+  const routeGeoJson = useMemo(() => {
+    if (!route) return null;
+    return {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: route.polyline.map(p => [p.lng, p.lat]),
+      },
+      properties: {},
+    };
+  }, [route]);
 
-  // Build map colours from theme — these are reactive and update instantly on theme toggle
+  // Build map colours from theme — reactive on theme toggle, stable across GPS ticks
   const map = colors.map;
+
+  // Memoized layer styles — new object refs would cause MapLibre to re-apply
+  // paint properties on every GPS tick. Stable refs = zero re-paint cost.
+  const layerStyles = useMemo(() => ({
+    nextRouteGhost: {
+      lineColor: map.route, lineWidth: 4, lineOpacity: 0.28,
+      lineCap: 'round' as const, lineJoin: 'round' as const, lineDasharray: [2, 5],
+    },
+    routeGlow: {
+      lineColor: map.routeGlow, lineWidth: 14, lineBlur: 6,
+      lineCap: 'round' as const, lineJoin: 'round' as const,
+    },
+    routeCasing: {
+      lineColor: map.routeCasing, lineWidth: 7,
+      lineCap: 'round' as const, lineJoin: 'round' as const,
+    },
+    routeLine: {
+      lineColor: map.route, lineWidth: 5,
+      lineCap: 'round' as const, lineJoin: 'round' as const,
+    },
+    buildings: {
+      fillExtrusionColor: [
+        'interpolate', ['linear'], ['get', 'height'],
+        0, map.buildingBase, 50, map.buildingTop, 150, map.buildingTop,
+      ] as any,
+      fillExtrusionHeight: ['get', 'render_height'] as any,
+      fillExtrusionBase:   ['get', 'render_min_height'] as any,
+      fillExtrusionOpacity: 0.88,
+    },
+  }), [map.route, map.routeGlow, map.routeCasing, map.buildingBase, map.buildingTop]);
 
   if (isLoading) {
     return (
@@ -507,78 +539,25 @@ export default function NavigationScreen() {
           {/* Ghost route — next stop preview, dashed and faded, drawn underneath */}
           {nextRouteGeoJson && (
             <ShapeSource id="next-route-source" shape={nextRouteGeoJson}>
-              <LineLayer
-                id="next-route-ghost"
-                style={{
-                  lineColor: map.route,
-                  lineWidth: 4,
-                  lineOpacity: 0.28,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineDasharray: [2, 5],
-                }}
-              />
+              <LineLayer id="next-route-ghost" style={layerStyles.nextRouteGhost} />
             </ShapeSource>
           )}
 
-          {/* Route polyline — two layers: glow halo + crisp teal line */}
+          {/* Route polyline — glow halo + crisp teal line */}
           {routeGeoJson && (
-            <>
-              {/* Glow halo — wider, blurred teal */}
-              <ShapeSource id="route-source" shape={routeGeoJson}>
-                <LineLayer
-                  id="route-glow"
-                  style={{
-                    lineColor: map.routeGlow,
-                    lineWidth: 14,
-                    lineBlur: 6,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-                {/* Casing — dark border around route */}
-                <LineLayer
-                  id="route-casing"
-                  style={{
-                    lineColor: map.routeCasing,
-                    lineWidth: 7,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-                {/* Main route — bright teal */}
-                <LineLayer
-                  id="route-line"
-                  style={{
-                    lineColor: map.route,
-                    lineWidth: 5,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-              </ShapeSource>
-            </>
+            <ShapeSource id="route-source" shape={routeGeoJson}>
+              <LineLayer id="route-glow"   style={layerStyles.routeGlow} />
+              <LineLayer id="route-casing" style={layerStyles.routeCasing} />
+              <LineLayer id="route-line"   style={layerStyles.routeLine} />
+            </ShapeSource>
           )}
 
-          {/* 3D Buildings — FillExtrusionLayer from OSM building source */}
-          {/* Rendered only at zoom 14+ so they don't overwhelm at low zoom */}
+          {/* 3D Buildings — only render at zoom 15+ (closer = fewer buildings) */}
           <FillExtrusionLayer
             id="buildings-3d"
             sourceID="openfreemap"
-            minZoomLevel={14}
-            style={{
-              fillExtrusionColor: [
-                'interpolate',
-                ['linear'],
-                ['get', 'height'],
-                0,     map.buildingBase,
-                50,    map.buildingTop,
-                150,   map.buildingTop,
-              ],
-              fillExtrusionHeight: ['get', 'render_height'],
-              fillExtrusionBase:   ['get', 'render_min_height'],
-              fillExtrusionOpacity: 0.88,
-            }}
+            minZoomLevel={15}
+            style={layerStyles.buildings}
           />
 
           {/* Destination marker — custom teardrop pin via MarkerView */}

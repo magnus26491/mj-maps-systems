@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Speech from 'expo-speech';
 import { fetchNavRoute, type NavRoute, type NavStep, type NavGuardWarning } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
-import { subscribeSharedLocation, getLatestLocation, type SharedLocation } from '../lib/shared-location';
+import { subscribeSharedLocation, getLatestLocation, setNavHighAccuracy, type SharedLocation } from '../lib/shared-location';
 import { useVoiceSettingsStore } from '../store/voiceSettings';
 import { SPEECH_LANG } from '../lib/i18n';
 import { useLocale } from '../components/LocaleProvider';
@@ -112,6 +112,10 @@ export function useNavigation(): UseNavigationResult {
   const speedMpsRef = useRef(0);
   // Timestamp (ms) when driver first went off-route; null when on-route
   const offRouteSinceRef = useRef<number | null>(null);
+  // Timer for the "Route updated" toast — tracked so it's cleaned up on unmount
+  const rerouteToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last liveDistanceToNext we set state for — avoids re-renders on sub-2m GPS noise
+  const lastDistanceRef = useRef<number>(0);
   const destLat     = useRef<number | null>(null);
   const destLng     = useRef<number | null>(null);
   const destAddress = useRef<string | undefined>(undefined);
@@ -183,8 +187,11 @@ export function useNavigation(): UseNavigationResult {
 
     const dist = distanceM(userLat, userLng, targetLat, targetLng);
 
-    // FIX 1: update live distance state so the hook consumer gets a real-time value
-    setLiveDistanceToNext(dist);
+    // Only update state when distance changes by >2m — avoids re-renders from GPS noise
+    if (Math.abs(dist - lastDistanceRef.current) >= 2) {
+      lastDistanceRef.current = dist;
+      setLiveDistanceToNext(dist);
+    }
 
     // 3-phase speed-adaptive voice (OsmAnd algorithm):
     //   prepare  — dist < speed×25 (300–600m), "Prepare to {instruction}"
@@ -231,10 +238,13 @@ export function useNavigation(): UseNavigationResult {
   }, [userLat, userLng, route, stepIndex, speakStep]);
 
   const startNav = useCallback(async (toLat: number, toLng: number, address?: string) => {
+    // Upgrade GPS to BestForNavigation for precise turn-by-turn tracking
+    setNavHighAccuracy(true);
     setIsLoading(true);
     setError(null);
     setStepIndex(0);
     setLiveDistanceToNext(0);
+    lastDistanceRef.current = 0;
     setIsNearDestination(false);
     arrivedRef.current = false;
     lastSpokenPhase.current.clear();
@@ -319,8 +329,9 @@ export function useNavigation(): UseNavigationResult {
                 setStepIndex(0);
                 lastSpokenPhase.current.clear();
                 if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
+                if (rerouteToastTimerRef.current) clearTimeout(rerouteToastTimerRef.current);
                 setRerouteToast('Route updated');
-                setTimeout(() => setRerouteToast(null), 3_000);
+                rerouteToastTimerRef.current = setTimeout(() => setRerouteToast(null), 3_000);
               }
               isReroutingRef.current = false;
             }).catch(() => { isReroutingRef.current = false; });
@@ -333,9 +344,13 @@ export function useNavigation(): UseNavigationResult {
   }, [vehicleId, speakStep, customHeightM, voiceEnabled, speechLang, voiceId, voiceRate, voicePitch, voiceVolume]);
 
   const stopNav = useCallback(() => {
+    // Drop back to Balanced GPS — driver is parked or delivering on foot
+    setNavHighAccuracy(false);
     locUnsubRef.current?.();
     locUnsubRef.current = null;
     Speech.stop();
+    if (rerouteToastTimerRef.current) clearTimeout(rerouteToastTimerRef.current);
+    rerouteToastTimerRef.current = null;
     setRoute(null);
     routeRef.current = null;
     destLat.current     = null;
@@ -343,6 +358,7 @@ export function useNavigation(): UseNavigationResult {
     destAddress.current = undefined;
     setStepIndex(0);
     setLiveDistanceToNext(0);
+    lastDistanceRef.current = 0;
     setIsNearDestination(false);
     arrivedRef.current = false;
     lastSpokenPhase.current.clear();
@@ -353,8 +369,10 @@ export function useNavigation(): UseNavigationResult {
   }, []);
 
   useEffect(() => () => {
+    setNavHighAccuracy(false);
     locUnsubRef.current?.();
     Speech.stop();
+    if (rerouteToastTimerRef.current) clearTimeout(rerouteToastTimerRef.current);
   }, []);
 
   const currentStep = route?.steps[stepIndex] ?? null;
