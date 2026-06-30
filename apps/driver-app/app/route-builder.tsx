@@ -63,6 +63,7 @@ export default function RouteBuilderScreen() {
   const [pafLoading,     setPafLoading]     = useState(false);
   const [stops,          setStops]          = useState<LocalStop[]>([]);
   const [optimising,     setOptimising]     = useState(false);
+  const [pafError,       setPafError]       = useState<string | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [departureTime,  setDepartureTime]  = useState<Date>(new Date());
   const [timeChip,       setTimeChip]       = useState<'now'|'30'|'60'|'custom'>('now');
@@ -77,16 +78,25 @@ export default function RouteBuilderScreen() {
     const formatted = formatPC(q);
     setPafLoading(true);
     setPafCounts({});
+    setPafError(null);
     try {
       const res = await fetch(
         `${API}/api/v1/paf/lookup?postcode=${encodeURIComponent(formatted)}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? `Server error ${res.status}`);
+      }
       const data = await res.json();
-      setPafResults(data.addresses ?? []);
-    } catch {
+      const addresses = data.addresses ?? [];
+      if (addresses.length === 0) {
+        setPafError(`No addresses found for ${formatted}`);
+      }
+      setPafResults(addresses);
+    } catch (e: any) {
       setPafResults([]);
+      setPafError(e?.message ?? 'Could not load addresses. Check your connection.');
     } finally {
       setPafLoading(false);
     }
@@ -390,7 +400,7 @@ export default function RouteBuilderScreen() {
           placeholder="Postcode or address..."
           placeholderTextColor={colors.subtext}
           value={query}
-          onChangeText={setQuery}
+          onChangeText={v => { setQuery(v); if (pafError) setPafError(null); }}
           returnKeyType="search"
           onSubmitEditing={handleSearch}
           autoCapitalize="characters"
@@ -408,10 +418,15 @@ export default function RouteBuilderScreen() {
       </View>
 
       {/* PAF RESULTS PANEL */}
-      {(pafLoading || pafResults.length > 0) && (
+      {(pafLoading || pafResults.length > 0 || pafError) && (
         <View style={[styles.pafPanel, { backgroundColor: colors.surface }]}>
           {pafLoading && (
             <ActivityIndicator color={colors.green} style={{ marginVertical: 12 }} />
+          )}
+          {pafError && !pafLoading && (
+            <Text style={{ color: '#f87171', fontSize: 13, padding: 12, textAlign: 'center' }}>
+              {pafError}
+            </Text>
           )}
           {pafResults.length > 0 && (
             <>
