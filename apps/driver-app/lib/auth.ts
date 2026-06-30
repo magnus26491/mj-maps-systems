@@ -36,6 +36,24 @@ async function ssDel(key: string): Promise<void> {
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
+// On web, localStorage is synchronous — read it immediately so the store is
+// hydrated before the first render. This prevents the auth guard from briefly
+// seeing token=null and redirecting to /login on every page refresh.
+function readWebAuthSync(): { token: string | null; user: User | null; isReady: boolean } {
+  if (Platform.OS !== 'web') return { token: null, user: null, isReady: false };
+  try {
+    const ls      = typeof localStorage !== 'undefined' ? localStorage : null;
+    const token   = ls?.getItem(TOKEN_KEY) ?? null;
+    const userRaw = ls?.getItem(USER_KEY) ?? null;
+    const user    = userRaw ? (JSON.parse(userRaw) as User) : null;
+    return { token, user, isReady: true };
+  } catch {
+    return { token: null, user: null, isReady: false };
+  }
+}
+
+const _webInit = readWebAuthSync();
+
 interface AuthState {
   token:   string | null;
   user:    User | null;
@@ -47,9 +65,9 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token:   null,
-  user:    null,
-  isReady: false,
+  token:   _webInit.token,
+  user:    _webInit.user,
+  isReady: _webInit.isReady,
 
   setAuth: async (token, refreshToken, user) => {
     await ssSet(TOKEN_KEY,    token);
