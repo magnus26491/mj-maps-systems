@@ -25,8 +25,10 @@ import { useShiftStore } from '../store/shift';
 import { useTurnScore } from '../hooks/useTurnScore';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useDrivingMode } from '../hooks/useDrivingMode';
+import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { SlideToConfirm } from '../components/SlideToConfirm';
 import { ShiftProgressBar } from '../components/ShiftProgressBar';
+import DifficultyReportSheet from '../components/DifficultyReportSheet';
 import { useTheme } from '../lib/theme';
 import { useAuthStore } from '../lib/auth';
 import { useLocale } from '../components/LocaleProvider';
@@ -61,12 +63,34 @@ function HudInner() {
   const user                = useAuthStore(s => s.user);
   const isEnterprise        = user?.planId === 'custom';
 
+  const driverId = user?.id;
+  const { enqueue } = useOfflineQueue();
   const driverLoc = useDriverLocation();
   const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId, driverLoc?.lat, driverLoc?.lng);
 
   const scaleAnim   = useRef(new Animated.Value(1)).current;
-  const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
+  const [lastAlert,      setLastAlert]      = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
+  const [showDifficulty, setShowDifficulty] = useState(false);
+  const [ddReported,     setDdReported]     = useState(false);
   const hasGreeted = useRef(false);
+
+  // Reset DD badge when the driver moves to a new stop
+  useEffect(() => { setDdReported(false); }, [currentStop?.id]);
+
+  const handleDifficultySubmit = useCallback((categories: string[], note: string) => {
+    if (!currentStop) { setShowDifficulty(false); return; }
+    enqueue({
+      type:       'DIFFICULTY_REPORT',
+      stopId:     currentStop.id,
+      address:    currentStop.address,
+      driverId:   driverId ?? 'unknown',
+      routeId:    shift?.routeId ?? 'unknown',
+      categories,
+      notes:      note,
+    } as any);
+    setDdReported(true);
+    setShowDifficulty(false);
+  }, [currentStop, shift, driverId, enqueue]);
 
   const handleFail = useCallback(() => {
     Alert.alert(
@@ -328,6 +352,13 @@ function HudInner() {
           >
             <Text style={styles.addStopLink}>+ Add a stop</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/stop-list')}
+            accessibilityRole="button"
+            accessibilityLabel="View all stops"
+          >
+            <Text style={styles.allStopsLink}>All stops</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Performance quick-access */}
@@ -378,20 +409,28 @@ function HudInner() {
           </TouchableOpacity>
         )}
 
-        {/* Stops */}
+        {/* DD — Difficult Delivery flag (optional, any time before sliding) */}
         {isDriving ? (
-          <View style={[styles.actionBtn, { backgroundColor: colors.app.surface, opacity: 0.4 }]}>
+          <View style={[styles.actionBtn, { backgroundColor: colors.app.surface, opacity: 0.3 }]}>
             <Text style={styles.actionIcon}>🔒</Text>
             <Text style={styles.actionLabel}>Parked only</Text>
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.app.surface }]}
-            onPress={() => router.push('/stop-list')}
+            style={[
+              styles.actionBtn,
+              { backgroundColor: ddReported ? colors.app.successBg : colors.app.warningBg },
+            ]}
+            onPress={() => setShowDifficulty(true)}
             accessibilityRole="button"
-            accessibilityLabel="View all stops"
+            accessibilityLabel="Flag a difficult delivery"
           >
-            <Text style={[styles.actionBtnText, { color: colors.app.primary }]}>All stops</Text>
+            <Text style={[styles.ddBtnText, { color: ddReported ? colors.app.success : colors.app.warning }]}>
+              {ddReported ? '✓ DD' : 'DD'}
+            </Text>
+            <Text style={[styles.actionLabel, { color: ddReported ? colors.app.success : colors.app.warning }]}>
+              {ddReported ? 'Reported' : 'Difficult?'}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -404,6 +443,17 @@ function HudInner() {
           onConfirm={completeStop}
         />
       </View>
+
+      {/* DD — Difficult Delivery report sheet */}
+      {currentStop && (
+        <DifficultyReportSheet
+          stopId={currentStop.id}
+          address={currentStop.address}
+          visible={showDifficulty}
+          onDismiss={() => setShowDifficulty(false)}
+          onSubmit={handleDifficultySubmit}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -530,7 +580,9 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, minHeight: 72,
   },
-  actionIcon:  { fontSize: 20, color: '#94A3B8' },
-  actionLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
+  actionIcon:    { fontSize: 20, color: '#94A3B8' },
+  actionLabel:   { fontSize: 12, color: '#94A3B8', fontWeight: '600', marginTop: 2 },
   actionBtnText: { fontSize: 16, fontWeight: '700' },
+  ddBtnText:     { fontSize: 18, fontWeight: '900' },
+  allStopsLink:  { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
 });
