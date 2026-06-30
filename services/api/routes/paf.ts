@@ -247,52 +247,73 @@ async function lookupViaCentroid(postcode: string): Promise<PafAddress[]> {
   }];
 }
 
-// ── getAddress.io — Royal Mail PAF, ~50ms, free 100/day or paid ──────────────
+// ── Ideal Postcodes — Royal Mail PAF reseller, ~50ms, 100 free trial lookups ─
+// getAddress.io shut down 4 Feb 2026 (Royal Mail v Codeberry judgment).
+// Ideal Postcodes won that same lawsuit and is the legally compliant replacement.
+// Register at https://ideal-postcodes.co.uk → Dashboard → API Keys
+// Free trial: 100 lookups. Paid: ~2.5p/lookup.
 
-interface GetAddressResult {
-  postcode: string;
-  latitude: number;
-  longitude: number;
-  addresses: string[]; // "line1, line2, line3, line4, locality, town, county"
+interface IdealPostcodesAddress {
+  organisation_name?: string;
+  sub_building_name?: string;
+  building_name?:     string;
+  building_number?:   string;
+  line_1?:            string;
+  line_2?:            string;
+  line_3?:            string;
+  post_town?:         string;
+  postcode?:          string;
+  latitude?:          number;
+  longitude?:         number;
+  udprn?:             string;
 }
 
-async function lookupViaGetAddress(postcode: string): Promise<PafAddress[]> {
-  const key = process.env.GETADDRESS_KEY;
+async function lookupViaIdealPostcodes(postcode: string): Promise<PafAddress[]> {
+  const key = process.env.IDEAL_POSTCODES_KEY;
   if (!key) return [];
-  const encoded = encodeURIComponent(postcode.replace(/\s/g, ''));
-  const url = `https://api.getaddress.io/find/${encoded}?api-key=${key}&expand=true`;
+  const encoded = encodeURIComponent(postcode);
+  const url = `https://api.ideal-postcodes.co.uk/v1/postcodes/${encoded}?api_key=${key}`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(6_000) });
     if (!res.ok) return [];
-    const data = (await res.json()) as {
-      latitude: number;
-      longitude: number;
-      addresses: Array<{
-        line_1?: string; line_2?: string; line_3?: string; line_4?: string;
-        locality?: string; town_or_city?: string; county?: string;
-        latitude?: number; longitude?: number;
-      }>;
-    };
-    if (!Array.isArray(data.addresses)) return [];
-    return data.addresses
-      .filter(a => a.line_1)
-      .map(a => {
-        const line1 = toTitleCase(a.line_1 ?? '');
-        const line2 = a.line_2 ? toTitleCase(a.line_2) : undefined;
-        const postTown = toTitleCase(a.town_or_city ?? a.locality ?? '');
-        const parts = [line1, line2, postTown, postcode.toUpperCase()].filter(Boolean);
-        return {
-          line1,
-          line2,
-          postTown,
-          postcode: postcode.toUpperCase(),
-          fullAddress: parts.join(', '),
-          lat:  a.latitude  ?? data.latitude,
-          lng:  a.longitude ?? data.longitude,
-          source: 'getaddress' as const,
-          confidence: 0.95,
-        };
-      });
+    const data = (await res.json()) as { result?: IdealPostcodesAddress[] };
+    if (!Array.isArray(data.result) || !data.result.length) return [];
+
+    return data.result.map(a => {
+      const orgName  = toTitleCase(a.organisation_name ?? '');
+      const subBldg  = toTitleCase(a.sub_building_name ?? '');
+      const bldgName = toTitleCase(a.building_name ?? '');
+      const bldgNum  = a.building_number ?? '';
+      const line1Raw = toTitleCase(a.line_1 ?? '');
+      const line2Raw = a.line_2 ? toTitleCase(a.line_2) : undefined;
+      const postTown = toTitleCase(a.post_town ?? '');
+      const pc       = a.postcode ?? postcode.toUpperCase();
+
+      // Prefer the structured fields when available; fall back to pre-built line_1
+      let line1 = line1Raw;
+      let line2 = line2Raw;
+      if (orgName && !line1Raw.startsWith(orgName)) {
+        line1 = orgName;
+        line2 = line1Raw || line2Raw;
+      } else if (subBldg && !line1Raw.startsWith(subBldg)) {
+        line1 = subBldg;
+        line2 = [bldgName, bldgNum, line1Raw].filter(Boolean).join(', ') || line2Raw;
+      }
+
+      const parts = [line1, line2, postTown, pc].filter(Boolean);
+      return {
+        line1,
+        line2,
+        postTown,
+        postcode:    pc,
+        fullAddress: parts.join(', '),
+        lat:         a.latitude  ?? 0,
+        lng:         a.longitude ?? 0,
+        uprn:        a.udprn,
+        source:      'ideal_postcodes' as const,
+        confidence:  0.97,
+      };
+    }).filter(a => isFinite(a.lat) && isFinite(a.lng) && a.lat !== 0);
   } catch {
     return [];
   }
@@ -333,10 +354,10 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
         }
 
         // ── Provider chain ──────────────────────────────────────────────────
-        // 1. getAddress.io — Royal Mail PAF, ~50ms, requires GETADDRESS_KEY
-        const gaResults = await lookupViaGetAddress(postcode);
-        if (gaResults.length) {
-          const result = { addresses: gaResults, source: 'getaddress' };
+        // 1. Ideal Postcodes — Royal Mail PAF, ~50ms, requires IDEAL_POSTCODES_KEY
+        const ipResults = await lookupViaIdealPostcodes(postcode);
+        if (ipResults.length) {
+          const result = { addresses: ipResults, source: 'ideal_postcodes' };
           await pafCacheSet(postcode, result);
           return reply.send({ ok: true, ...result });
         }
