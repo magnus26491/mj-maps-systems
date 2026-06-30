@@ -6,6 +6,17 @@ const genericStub = '// @flow\nmodule.exports = function() {};';
 
 // Files that need a generic no-op stub (native-only, don't exist on web)
 const filesToStub = [
+  // ── Core initialisation ────────────────────────────────────────────────
+  // @expo/metro-runtime's install.js requires InitializeCore at load time.
+  // On web, InitializeCore pulls in setUpTimers, setUpErrorHandling, XHR,
+  // AppRegistry and the entire native bridge bootstrap — none of which exist
+  // in a browser.  Stubbing it as a no-op cuts the whole chain cleanly.
+  'Libraries/Core/InitializeCore.js',
+  // setUpTimers tries to redefine setTimeout/setInterval via polyfillGlobal.
+  // Our web-polyfill.js already pins timers as non-configurable, so this is
+  // both redundant and harmful on web.
+  'Libraries/Core/setUpTimers.js',
+  // ── Everything else ────────────────────────────────────────────────────
   'Libraries/Utilities/Platform.js',
   'Libraries/EventEmitter/RCTEventEmitter.js',
   'Libraries/ReactPrivate/ReactNativePrivateInterface.js',
