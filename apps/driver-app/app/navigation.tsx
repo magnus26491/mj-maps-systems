@@ -18,6 +18,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Linking, Platform,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -125,6 +126,10 @@ export default function NavigationScreen() {
       return;
     }
     startNav(stop.lat, stop.lng);
+    // Announce destination so driver doesn't need to look at screen
+    if (Platform.OS !== 'web') {
+      Speech.speak(`Navigating to ${stop.address}`, { rate: 0.92 });
+    }
   }, [stopId, stops, startNav]);
 
   const stop = stops.find(s => s.id === stopId);

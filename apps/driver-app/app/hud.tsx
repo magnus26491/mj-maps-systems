@@ -52,6 +52,7 @@ function HudInner() {
   const completeStop        = useShiftStore(s => s.completeStop);
   const failStop            = useShiftStore(s => s.failStop);
   const skipStop            = useShiftStore(s => s.skipStop);
+  const nextStop            = useShiftStore(s => s.nextStop);
   const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
   const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
   const user                = useAuthStore(s => s.user);
@@ -270,14 +271,23 @@ function HudInner() {
           <Text style={styles.navBtnArrow}>→</Text>
         </TouchableOpacity>
 
-        {/* Google Maps escape hatch */}
-        <TouchableOpacity
-          onPress={() => Linking.openURL(
-            `https://maps.google.com/?daddr=${encodeURIComponent(currentStop.address)}`,
-          )}
-        >
-          <Text style={styles.gmapsLink}>Open in Google Maps</Text>
-        </TouchableOpacity>
+        {/* Google Maps escape hatch + Add stop mid-shift */}
+        <View style={styles.stopCardLinks}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL(
+              `https://maps.google.com/?daddr=${encodeURIComponent(currentStop.address)}`,
+            )}
+          >
+            <Text style={styles.gmapsLink}>Open in Google Maps</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/route-builder?addMode=1')}
+            accessibilityRole="button"
+            accessibilityLabel="Add a stop to your route"
+          >
+            <Text style={styles.addStopLink}>+ Add a stop</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Performance quick-access */}
         <TouchableOpacity
@@ -289,6 +299,22 @@ function HudInner() {
           <Text style={styles.perfBtnText}>View performance</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Next stop preview — helps driver mentally prepare */}
+      {nextStop && (
+        <View style={[styles.nextStopCard, { backgroundColor: colors.app.surface }]}>
+          <Text style={[styles.nextStopLabel, { color: colors.app.textFaint }]}>NEXT STOP</Text>
+          <Text style={[styles.nextStopAddr, { color: colors.app.text }]} numberOfLines={1}>
+            {nextStop.address}
+          </Text>
+          <Text style={[styles.nextStopMeta, { color: colors.app.textFaint }]}>
+            {nextStop.parcelCount} parcel{nextStop.parcelCount !== 1 ? 's' : ''}
+            {nextStop.alertLevel && nextStop.alertLevel !== 'GREEN'
+              ? `  ·  ${nextStop.alertLevel === 'RED' ? 'Restricted access' : 'Tight access'}`
+              : ''}
+          </Text>
+        </View>
+      )}
 
       <View style={{ flex: 1 }} />
 
@@ -417,10 +443,18 @@ const styles = StyleSheet.create({
   },
   navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0A0C10' },
   navBtnArrow: { fontSize: 17, fontWeight: '700', color: '#0A0C10' },
-  gmapsLink:   {
-    fontSize: 13, color: '#00C2A8', textDecorationLine: 'underline',
-    marginTop: 10, fontWeight: '500',
+  stopCardLinks: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10,
   },
+  gmapsLink:   { fontSize: 13, color: '#00C2A8', textDecorationLine: 'underline', fontWeight: '500' },
+  addStopLink: { fontSize: 13, color: '#00C2A8', fontWeight: '600' },
+  nextStopCard: {
+    marginHorizontal: 12, marginTop: 8,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
+  },
+  nextStopLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 4 },
+  nextStopAddr:  { fontSize: 15, fontWeight: '600', lineHeight: 20 },
+  nextStopMeta:  { fontSize: 13, marginTop: 4 },
   perfBtn: {
     marginTop: 10,
     backgroundColor: '#12151B',
