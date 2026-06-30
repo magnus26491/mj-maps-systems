@@ -54,6 +54,7 @@ function HudInner() {
   const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
   const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
   const user                = useAuthStore(s => s.user);
+  const isEnterprise        = user?.planId === 'custom';
 
   useDriverLocation();
   const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId);
@@ -62,9 +63,9 @@ function HudInner() {
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const hasGreeted = useRef(false);
 
-  // Auto-dismiss dispatcher message after 15s
+  // Auto-dismiss dispatcher message after 15s (enterprise only)
   useEffect(() => {
-    if (!dispatcherMessage) return;
+    if (!dispatcherMessage || !isEnterprise) return;
     // Haptic + voice announcement on arrival
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -104,8 +105,8 @@ function HudInner() {
     }
 
     Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 1.04, duration: 120, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1.00, duration: 120, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1.04, duration: 120, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(scaleAnim, { toValue: 1.00, duration: 120, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   }, [alert]);
 
@@ -164,8 +165,8 @@ function HudInner() {
         total={shift.totalStops}
       />
 
-      {/* ── Dispatcher Message Banner ─────────────────────────── */}
-      {dispatcherMessage && (
+      {/* ── Dispatcher Message Banner (enterprise only) ──────── */}
+      {isEnterprise && dispatcherMessage && (
         <View style={[styles.dispMsgBanner, { backgroundColor: colors.app.surface, borderColor: colors.app.primary }]}>
           <View style={styles.dispMsgHeader}>
             <Text style={[styles.dispMsgLabel, { color: colors.app.primary }]}>Message from {dispatcherMessage.from}</Text>

@@ -46,16 +46,30 @@ const WEB_SUBPATH_SHIMS = {
     path.resolve(__dirname, 'shims/exceptions-manager.web.js'),
 };
 
-// Absolute file paths for native modules we want to intercept regardless of
-// how they are imported (bare package path OR relative path from inside RN).
-const NATIVE_TMR_PATH = path.resolve(
-  __dirname,
-  'node_modules/react-native/Libraries/TurboModule/TurboModuleRegistry.js',
-);
+// Expo packages whose package.json `exports` field can bypass extraNodeModules.
+// Intercept them explicitly here so the correct web shim is always used,
+// regardless of how Metro resolves the package entry point.
+const EXPO_WEB_PACKAGE_SHIMS = {
+  'expo-haptics':         path.resolve(__dirname, 'shims/expo-haptics.web.ts'),
+  'expo-camera':          path.resolve(__dirname, 'shims/expo-camera.web.ts'),
+  'expo-notifications':   path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
+  'expo-location':        path.resolve(__dirname, 'shims/expo-location.web.ts'),
+  'expo-av':              path.resolve(__dirname, 'shims/expo-av.web.ts'),
+  'expo-image-picker':    path.resolve(__dirname, 'shims/expo-image-picker.web.ts'),
+  'expo-task-manager':    path.resolve(__dirname, 'shims/expo-task-manager.web.ts'),
+  'expo-document-picker': path.resolve(__dirname, 'shims/expo-document-picker.web.ts'),
+  'expo-keep-awake':      path.resolve(__dirname, 'shims/expo-keep-awake.web.ts'),
+  'expo-sqlite':          path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
+  'expo-speech':          path.resolve(__dirname, 'shims/expo-speech.web.ts'),
+};
 
 const _resolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = function (context, moduleName, platform) {
   if (platform === 'web') {
+    // Expo package shims — highest priority, overrides package.json exports
+    if (EXPO_WEB_PACKAGE_SHIMS[moduleName]) {
+      return { filePath: EXPO_WEB_PACKAGE_SHIMS[moduleName], type: 'sourceFile' };
+    }
     // Intercept absolute package-path shims
     if (WEB_SUBPATH_SHIMS[moduleName]) {
       return { filePath: WEB_SUBPATH_SHIMS[moduleName], type: 'sourceFile' };

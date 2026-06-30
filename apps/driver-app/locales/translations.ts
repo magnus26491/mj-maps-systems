@@ -37,7 +37,7 @@ const en = {
   perm_notif_title:    'Notifications',
   perm_notif_why:      'Receive urgent messages from your dispatcher — re-routes, priority deliveries and safety alerts.',
   perm_camera_title:   'Camera',
-  perm_camera_why:     'Take proof-of-delivery photos when your dispatcher requires them.',
+  perm_camera_why:     'Take proof-of-delivery photos for your fleet\'s compliance records.',
 
   // ── Language selector ──────────────────────────────────────────────────────
   lang_title:          'Language',
