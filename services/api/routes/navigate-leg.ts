@@ -316,9 +316,22 @@ export const navigateLegRoute: FastifyPluginAsync = async (fastify) => {
             if (ctx?.road) {
               const road = ctx.road;
               if (road.maxWeightT != null && road.maxWeightT < profile.gvwT)
-                roadRestrictions.push({ type: 'weight', value: `${road.maxWeightT}t`, description: `${road.name ?? 'Road'} — max weight ${road.maxWeightT}t` });
-              if (road.maxHeightM != null && road.maxHeightM < effectiveHeightM)
-                roadRestrictions.push({ type: 'height', value: `${road.maxHeightM}m`, description: `${road.name ?? 'Road'} — max height ${road.maxHeightM}m` });
+                roadRestrictions.push({ type: 'weight', value: `${road.maxWeightT}t`, description: `${road.name ?? 'Road'} — max weight ${road.maxWeightT}t (your vehicle: ${profile.gvwT}t)` });
+
+              // Height restriction: only apply when the driver is on a road that passes
+              // UNDER a constraint (tunnel, or ground-level road below a bridge).
+              // Never fire when the selected way is a bridge (bridge=yes) — a driver on
+              // an open bridge deck has no overhead restriction; the maxheight belongs to
+              // traffic going underneath, which is on a different OSM way at a lower layer.
+              if (road.maxHeightM != null && road.maxHeightM < effectiveHeightM && !road.bridge) {
+                const context = road.tunnel ? 'Tunnel' : 'Low bridge';
+                roadRestrictions.push({
+                  type: 'height',
+                  value: `${road.maxHeightM}m`,
+                  description: `${context} on ${road.name ?? 'this road'} — clearance ${road.maxHeightM}m, your vehicle ${effectiveHeightM}m`,
+                });
+              }
+
               if (road.access && road.access !== 'yes' && road.access !== 'public')
                 roadRestrictions.push({ type: 'access', description: `Access restricted: ${road.access}` });
             }

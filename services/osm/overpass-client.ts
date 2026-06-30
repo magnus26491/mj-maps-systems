@@ -43,6 +43,12 @@ export interface OsmRoadContext {
     maxWeightT: number | null;
     maxHeightM: number | null;
     oneway: boolean;
+    /** OSM layer tag — 0 = ground, 1+ = elevated (bridge), −1 = below ground (tunnel) */
+    layer: number;
+    /** Way carries bridge=yes — driver is ON TOP of a bridge structure */
+    bridge: boolean;
+    /** Way carries tunnel=yes — driver is inside a tunnel */
+    tunnel: boolean;
   } | null;
   levelCrossings: Array<{ osmId: number; lat: number; lng: number }>;
   pedestrianPaths: Array<{
@@ -191,14 +197,37 @@ export async function getRoadContext(lat: number, lng: number, stopId = 'single'
     const ways = elements.filter((e: any) => e.type === 'way' && e.tags?.highway);
 
     if (ways.length > 0) {
-      // Pick the closest / most relevant way — prefer named roads over tracks
+      // Pick the most relevant way using a three-key sort:
+      //
+      // 1. Bridge ways first — a way tagged bridge=yes is unambiguously elevated.
+      //    When a driver is on a bridge, both the bridge way (layer=1) AND the road
+      //    passing underneath (layer=0, maxheight) fall within 30m. Without heading
+      //    data we can't know for certain, but selecting the bridge way prevents the
+      //    most dangerous false positive: warning a driver about a height restriction
+      //    that belongs to a road below them, not the bridge deck they're driving on.
+      //
+      // 2. Higher OSM layer — reinforces the bridge preference; also handles
+      //    multi-level junctions and flyovers.
+      //
+      // 3. Highway class — primary roads over residential etc. (previous behaviour).
       const sorted = ways.sort((a: any, b: any) => {
+        const aBridge = a.tags.bridge === 'yes' ? 1 : 0;
+        const bBridge = b.tags.bridge === 'yes' ? 1 : 0;
+        if (bBridge !== aBridge) return bBridge - aBridge;
+
+        const aLayer = parseInt(a.tags.layer ?? '0', 10);
+        const bLayer = parseInt(b.tags.layer ?? '0', 10);
+        if (bLayer !== aLayer) return bLayer - aLayer;
+
         const rank = (h: string) => ['residential','service','unclassified','tertiary','secondary','primary'].indexOf(h);
         return rank(b.tags.highway) - rank(a.tags.highway);
       });
       const w = sorted[0];
       const tags = w.tags ?? {};
       const widthM = inferWidth(tags.highway, tags.width ?? tags['est_width']);
+      const bridge = tags.bridge === 'yes';
+      const tunnel = tags.tunnel === 'yes';
+      const layer  = parseInt(tags.layer ?? '0', 10);
 
       road = {
         osmId: w.id,
@@ -214,6 +243,9 @@ export async function getRoadContext(lat: number, lng: number, stopId = 'single'
         maxWeightT: tags.maxweight ? parseFloat(tags.maxweight) : null,
         maxHeightM: tags.maxheight ? parseFloat(tags.maxheight) : null,
         oneway: tags.oneway === 'yes',
+        layer,
+        bridge,
+        tunnel,
       };
     }
   } catch (err) {
