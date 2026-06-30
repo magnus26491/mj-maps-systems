@@ -53,6 +53,9 @@ function HudInner() {
   const failStop            = useShiftStore(s => s.failStop);
   const skipStop            = useShiftStore(s => s.skipStop);
   const nextStop            = useShiftStore(s => s.nextStop);
+  const isPaused            = useShiftStore(s => s.isPaused);
+  const pauseShift          = useShiftStore(s => s.pauseShift);
+  const resumeShift         = useShiftStore(s => s.resumeShift);
   const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
   const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
   const user                = useAuthStore(s => s.user);
@@ -136,6 +139,37 @@ function HudInner() {
             onPress={() => router.replace('/vehicle-select')}
           >
             <Text style={styles.emptyBtnText}>Start a new shift</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isPaused) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.app.background }}>
+        <ShiftProgressBar current={currentStop.index} total={shift.totalStops} />
+        <View style={styles.breakWrap}>
+          <Text style={[styles.breakIcon, { color: colors.app.textFaint }]}>II</Text>
+          <Text style={[styles.breakTitle, { color: colors.app.text }]}>On a break</Text>
+          <Text style={[styles.breakSub, { color: colors.app.textFaint }]}>
+            {currentStop.index + 1} of {shift.totalStops} stops remaining
+          </Text>
+          <TouchableOpacity
+            style={[styles.resumeBtn, { backgroundColor: colors.app.success }]}
+            onPress={resumeShift}
+            accessibilityRole="button"
+            accessibilityLabel="Resume shift"
+          >
+            <Text style={[styles.resumeBtnText, { color: '#fff' }]}>Resume shift</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.stopListLink]}
+            onPress={() => router.push('/stop-list')}
+            accessibilityRole="button"
+            accessibilityLabel="View all stops"
+          >
+            <Text style={[styles.stopListLinkText, { color: colors.app.primary }]}>View all stops</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -271,7 +305,7 @@ function HudInner() {
           <Text style={styles.navBtnArrow}>→</Text>
         </TouchableOpacity>
 
-        {/* Google Maps escape hatch + Add stop mid-shift */}
+        {/* Google Maps escape hatch + Break + Add stop mid-shift */}
         <View style={styles.stopCardLinks}>
           <TouchableOpacity
             onPress={() => Linking.openURL(
@@ -279,6 +313,13 @@ function HudInner() {
             )}
           >
             <Text style={styles.gmapsLink}>Open in Google Maps</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={pauseShift}
+            accessibilityRole="button"
+            accessibilityLabel="Take a break"
+          >
+            <Text style={styles.breakLink}>Break</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push('/route-builder?addMode=1')}
@@ -447,7 +488,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10,
   },
   gmapsLink:   { fontSize: 13, color: '#00C2A8', textDecorationLine: 'underline', fontWeight: '500' },
+  breakLink:   { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
   addStopLink: { fontSize: 13, color: '#00C2A8', fontWeight: '600' },
+  // Break / pause screen
+  breakWrap: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32,
+  },
+  breakIcon:     { fontSize: 40, fontWeight: '900', letterSpacing: 8, marginBottom: 16 },
+  breakTitle:    { fontSize: 28, fontWeight: '800', marginBottom: 8 },
+  breakSub:      { fontSize: 16, marginBottom: 40, textAlign: 'center' },
+  resumeBtn: {
+    borderRadius: 14, width: '100%', height: 64,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  },
+  resumeBtnText: { fontSize: 18, fontWeight: '800' },
+  stopListLink:  { paddingVertical: 12 },
+  stopListLinkText: { fontSize: 15, fontWeight: '600', textDecorationLine: 'underline' },
   nextStopCard: {
     marginHorizontal: 12, marginTop: 8,
     borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,

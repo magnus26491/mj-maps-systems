@@ -44,6 +44,16 @@ import { useTheme } from '../lib/theme';
 /** OpenFreeMap — free vector tiles, no API key, OSM data */
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (x: number) => x * Math.PI / 180;
+  const dLat  = toRad(lat2 - lat1);
+  const dLng  = toRad(lng2 - lng1);
+  const a     = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ── Web fallback — text-based navigation (no MapLibre) ───────────────────────
 
 function WebNavigationScreen() {
@@ -117,11 +127,14 @@ export default function NavigationScreen() {
       ]);
       return;
     }
-    if (stop.lat == null || stop.lng == null) {
+    if (stop.lat == null || stop.lng == null || (stop.lat === 0 && stop.lng === 0)) {
       Alert.alert(
         'No GPS pin',
-        'This stop has no GPS pin. Navigate manually or tap to search.',
-        [{ text: 'OK', onPress: () => router.back() }],
+        'This stop has no GPS coordinates. Open in Google Maps to navigate manually.',
+        [
+          { text: 'Open Google Maps', onPress: () => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(stop.address ?? '')}`) },
+          { text: 'OK', onPress: () => router.back() },
+        ],
       );
       return;
     }
@@ -135,6 +148,11 @@ export default function NavigationScreen() {
   const stop = stops.find(s => s.id === stopId);
   const destLat = stop?.lat ?? 0;
   const destLng = stop?.lng ?? 0;
+
+  const distToDestM = (userLat !== null && userLng !== null && destLat !== 0 && destLng !== 0)
+    ? haversineM(userLat, userLng, destLat, destLng)
+    : Infinity;
+  const isApproaching = !isNearDestination && distToDestM < 250;
 
   const handleBack = () => {
     Alert.alert('Stop navigation?', 'Your progress will be lost.', [
@@ -170,6 +188,16 @@ export default function NavigationScreen() {
 
   // Reset flag when stop changes
   useEffect(() => { arrivedRef.current = false; }, [stopId]);
+
+  // Speak access notes once when approaching destination
+  const notesSpokenRef = useRef(false);
+  useEffect(() => {
+    if (isApproaching && !notesSpokenRef.current && stop?.notes && Platform.OS !== 'web') {
+      notesSpokenRef.current = true;
+      Speech.speak(`Approaching. ${stop.notes}`, { rate: 0.90 });
+    }
+  }, [isApproaching]);
+  useEffect(() => { notesSpokenRef.current = false; }, [stopId]);
 
   const openGoogleMaps = () => {
     if (stop) {
@@ -281,6 +309,24 @@ export default function NavigationScreen() {
           <Text style={[styles.guardMsg, { color: colors.app.textFaint }]}>{w.message}</Text>
         </View>
       ))}
+
+      {/* Access notes — ambient when idle, highlighted when approaching */}
+      {stop?.notes && (
+        <View style={[
+          styles.accessNotes,
+          { backgroundColor: isApproaching ? colors.app.warningBg : colors.app.surface },
+        ]}>
+          <Text style={[styles.accessNotesLabel, { color: colors.app.textFaint }]}>
+            {isApproaching ? 'APPROACHING — ACCESS' : 'ACCESS NOTES'}
+          </Text>
+          <Text style={[
+            styles.accessNotesText,
+            { color: isApproaching ? colors.app.warning : colors.app.text },
+          ]}>
+            {stop.notes}
+          </Text>
+        </View>
+      )}
 
       {/* ── MapLibre Map ─────────────────────────────────────────────────── */}
       <View style={styles.mapWrap}>
@@ -467,4 +513,8 @@ const styles = StyleSheet.create({
   // Destination pin
   destMarker:    { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   destPinText:   { fontSize: 20 },
+  // Access notes strip
+  accessNotes:      { paddingHorizontal: 16, paddingVertical: 10 },
+  accessNotesLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  accessNotesText:  { fontSize: 15, fontWeight: '600', lineHeight: 22 },
 });

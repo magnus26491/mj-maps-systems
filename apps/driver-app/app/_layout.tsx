@@ -33,6 +33,7 @@ import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { PermissionGate } from '../components/PermissionGate';
 import { ThemeProvider, useTheme } from '../lib/theme';
+import { OnboardingModal } from '../components/OnboardingModal';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -174,6 +175,7 @@ function RootLayoutInner() {
                     }}
                   />
                   <PermissionGate />
+                  <OnboardingModal />
                 </ShiftAwareProviders>
               </FcmRegistrar>
             </AuthGuard>

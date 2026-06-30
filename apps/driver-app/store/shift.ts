@@ -59,6 +59,7 @@ interface ShiftState {
 
   // ── Shift ─────────────────────────────────────────────────────────────────
   isActive:    boolean;
+  isPaused:    boolean;
   shift:       Shift | null;
   stops:       DeliveryStop[];
   stagedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[];
@@ -69,6 +70,8 @@ interface ShiftState {
   // ── Actions ───────────────────────────────────────────────────────────────
   startShift:      (orderedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[], vehicleId: string, routeId: string) => void;
   endShift:        () => void;
+  pauseShift:      () => void;
+  resumeShift:     () => void;
   completeStop:    () => void;
   failStop:        (reason?: string) => void;
   skipStop:        () => void;
@@ -111,6 +114,7 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
 
   // Shift state
   isActive:     false,
+  isPaused:     false,
   shift:        null,
   stops:        [],
   stagedStops:  [],
@@ -166,10 +170,14 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
 
   // ── endShift ───────────────────────────────────────────────────────────────
   endShift: () => set({
-    isActive: false, shift: null, stops: [],
+    isActive: false, isPaused: false, shift: null, stops: [],
     currentStop: null, nextStop: null, vehicleId: null, customHeightM: null,
     dispatcherMessage: null,
   }),
+
+  // ── pauseShift / resumeShift ───────────────────────────────────────────────
+  pauseShift:  () => set({ isPaused: true }),
+  resumeShift: () => set({ isPaused: false }),
 
   // ── setStops ───────────────────────────────────────────────────────────────
   setStops: (stops) => {
