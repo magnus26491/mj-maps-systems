@@ -25,6 +25,7 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
 import { usePlan } from '../lib/usePlan';
@@ -179,7 +180,7 @@ export default function ShiftStartScreen() {
     // Persist acceptance so the modal only shows once across all shifts.
     const alreadyConsented = Platform.OS === 'web'
       ? null
-      : (typeof localStorage !== 'undefined' ? localStorage.getItem('bg_location_consented') : null);
+      : await AsyncStorage.getItem('bg_location_consented');
     if (!alreadyConsented) {
       setShowDisclosure(true);
       return; // handleDisclosureAccept will re-trigger after consent is stored
@@ -201,7 +202,7 @@ export default function ShiftStartScreen() {
 
   const handleDisclosureAccept = useCallback(async () => {
     setShowDisclosure(false);
-    if (typeof localStorage !== 'undefined') localStorage.setItem('bg_location_consented', 'true');
+    if (Platform.OS !== 'web') await AsyncStorage.setItem('bg_location_consented', 'true');
     const bgStatus = await Location.requestBackgroundPermissionsAsync();
     if (bgStatus.status !== 'granted') {
       Alert.alert(

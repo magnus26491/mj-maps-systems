@@ -55,6 +55,7 @@ interface ShiftState {
   vehicle:        Vehicle | null;
   customHeightM:  number | null;
   setAuth:        (token: string, driverId: string) => void;
+  setVehicleId:   (id: string) => void;
   setCustomHeight: (m: number | null) => void;
 
   // ── Shift ─────────────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   customHeightM: null,
 
   setAuth: (token, driverId) => set({ token, driverId }),
+  setVehicleId: (id) => set({ vehicleId: id }),
   setCustomHeight: (m) => set({ customHeightM: m }),
 
   // Shift state

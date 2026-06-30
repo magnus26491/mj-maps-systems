@@ -24,7 +24,7 @@ import { useShiftStore } from '../store/shift';
 import { useAuthStore } from '../lib/auth';
 import { useOfflineQueue } from './useOfflineQueue';
 
-const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app')
+const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk')
   .replace(/^https/, 'wss')
   .replace(/^http/, 'ws');
 

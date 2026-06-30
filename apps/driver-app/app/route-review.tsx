@@ -20,6 +20,9 @@ export default function RouteReviewScreen() {
 
   const rawStaged = useShiftStore(s => s.stagedStops);
   const [stops,    setStops]   = useState<any[]>(rawStaged ?? []);
+  // Track which stop IDs were staged (pre-optimised by shift-start) so we
+  // can skip a redundant re-optimize if the driver doesn't remove any stops.
+  const [originalStopIds] = useState<Set<string>>(() => new Set((rawStaged ?? []).map((s: any) => s.id)));
   const [starting, setStarting] = useState(false);
   const [undoState, setUndoState] = useState<{ stop: any; index: number } | null>(null);
   const { colors } = useTheme();
@@ -52,7 +55,50 @@ export default function RouteReviewScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [undoState]);
 
-  const [apiEtaSec, setApiEtaSec] = useState<number | null>(null);
+  const [apiEtaSec,   setApiEtaSec]   = useState<number | null>(null);
+  const [optimising,  setOptimising]  = useState(false);
+
+  // Pre-fetch ETA from the already-optimised staged stops so the stats bar
+  // shows a real number immediately (shift-start already called optimise; we
+  // just read totalDurationSec from the staged payload if it was stored).
+  useEffect(() => {
+    const first = rawStaged?.[0] as any;
+    if (first?._totalDurationSec) setApiEtaSec(first._totalDurationSec);
+  }, []);
+
+  const handleReoptimise = useCallback(async () => {
+    if (!stops.length || optimising) return;
+    setOptimising(true);
+    const vehicleId = useShiftStore.getState().vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'lwb_van';
+    const token     = useAuthStore.getState().token ?? '';
+    let depotLat = 0, depotLng = 0;
+    try {
+      const { getLatestLocation } = await import('../lib/shared-location');
+      const loc = getLatestLocation();
+      if (loc) { depotLat = loc.latitude; depotLng = loc.longitude; }
+    } catch { /* non-fatal */ }
+    try {
+      const res = await fetch(`${API}/api/v1/routes/optimise`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          stops: stops.map((s: any) => {
+            const hasCoords = s.lat && s.lng && !(s.lat === 0 && s.lng === 0);
+            return { id: s.id, address: s.address, ...(hasCoords ? { lat: s.lat, lng: s.lng } : {}), parcelCount: s.parcelCount ?? 1, serviceMinutes: 3, notes: s.notes };
+          }),
+          config: { vehicleId, depotLat, depotLng, returnToDepot: false, shiftStartEpoch: Math.floor(departureDate.getTime() / 1000) },
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const payload = json?.data ?? json;
+        if (payload?.orderedStops?.length) setStops(payload.orderedStops);
+        if (payload?.totalDurationSec)     setApiEtaSec(payload.totalDurationSec);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch { /* non-fatal — keeps existing order */ }
+    setOptimising(false);
+  }, [stops, departureDate, optimising]);
 
   const handleStartShift = useCallback(async () => {
     if (!stops.length) return;
@@ -60,6 +106,20 @@ export default function RouteReviewScreen() {
     const vehicle   = useShiftStore.getState().vehicle;
     const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'lwb_van';
     const token     = useAuthStore.getState().token ?? '';
+
+    // If the driver didn't remove any stops, shift-start already optimised the
+    // order — skip the redundant second API call and start immediately.
+    const stopsUnchanged = stops.length === originalStopIds.size
+      && stops.every((s: any) => originalStopIds.has(s.id));
+    if (stopsUnchanged) {
+      const routeId = `offline-${Date.now()}`;
+      useShiftStore.getState().startShift(stops as any, vehicleId, routeId);
+      useShiftStore.getState().clearStagedStops();
+      setStarting(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace('/hud');
+      return;
+    }
 
     // Best-effort GPS depot — falls back to 0,0 only when no fix
     let depotLat = 0, depotLng = 0;
@@ -74,13 +134,16 @@ export default function RouteReviewScreen() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          stops: stops.map((s: any) => ({
-            id: s.id, address: s.address,
-            lat: s.lat ?? 0, lng: s.lng ?? 0,
-            parcelCount: s.parcelCount ?? 1,
-            serviceMinutes: 3,
-            notes: s.notes,
-          })),
+          stops: stops.map((s: any) => {
+            const hasCoords = s.lat && s.lng && !(s.lat === 0 && s.lng === 0);
+            return {
+              id: s.id, address: s.address,
+              ...(hasCoords ? { lat: s.lat, lng: s.lng } : {}),
+              parcelCount: s.parcelCount ?? 1,
+              serviceMinutes: 3,
+              notes: s.notes,
+            };
+          }),
           config: {
             vehicleId,
             depotLat,
@@ -204,19 +267,32 @@ export default function RouteReviewScreen() {
         <Text style={[styles.departureNote, { color: colors.subtext }]}>
           Departing at {departureDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
-        <TouchableOpacity
-          style={[styles.startBtn, {
-            backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
-          }]}
-          onPress={handleStartShift}
-          disabled={stops.length === 0 || starting}
-          accessibilityRole="button"
-          accessibilityLabel={`Start shift with ${stops.length} stops`}
-        >
-          {starting
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.startBtnText}>Start Shift  →</Text>}
-        </TouchableOpacity>
+        <View style={styles.footerRow}>
+          <TouchableOpacity
+            style={[styles.reoptBtn, { borderColor: colors.green }]}
+            onPress={handleReoptimise}
+            disabled={stops.length === 0 || optimising || starting}
+            accessibilityRole="button"
+            accessibilityLabel="Re-optimise stop order"
+          >
+            {optimising
+              ? <ActivityIndicator color={colors.green} size="small" />
+              : <Text style={[styles.reoptBtnText, { color: colors.green }]}>Re-optimize</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.startBtn, {
+              backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
+            }]}
+            onPress={handleStartShift}
+            disabled={stops.length === 0 || starting || optimising}
+            accessibilityRole="button"
+            accessibilityLabel={`Start shift with ${stops.length} stops`}
+          >
+            {starting
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.startBtnText}>Start Shift  →</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
 
     </View>
@@ -257,6 +333,9 @@ const styles = StyleSheet.create({
   snackUndo:       { color: '#4fc3f7', fontWeight: '800', fontSize: 14 },
   footer:          { paddingHorizontal: 16, paddingTop: 12 },
   departureNote:   { fontSize: 12, textAlign: 'center', marginBottom: 8 },
-  startBtn:        { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  footerRow:       { flexDirection: 'row', gap: 10 },
+  reoptBtn:        { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, paddingHorizontal: 20 },
+  reoptBtnText:    { fontSize: 15, fontWeight: '700' },
+  startBtn:        { flex: 1, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   startBtnText:    { color: '#fff', fontSize: 18, fontWeight: '800' },
 });

@@ -116,7 +116,7 @@ function VehicleSelectInner() {
       // No vehicle selected — use sensible SWB van default
       Haptics.selectionAsync();
       const store = useShiftStore.getState();
-      store.vehicleId = 'swb_van';
+      store.setVehicleId('swb_van');
       store.setCustomHeight(null);
       router.back();
       return;
@@ -133,7 +133,7 @@ function VehicleSelectInner() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const store = useShiftStore.getState();
-    store.vehicleId = selected;
+    store.setVehicleId(selected);
     store.setCustomHeight(resolveHeightM());
     router.back();
   }, [selected, showHeightInput, heightInput, heightUnit]);

@@ -61,8 +61,8 @@ function HudInner() {
   const user                = useAuthStore(s => s.user);
   const isEnterprise        = user?.planId === 'custom';
 
-  useDriverLocation();
-  const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId);
+  const driverLoc = useDriverLocation();
+  const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId, driverLoc?.lat, driverLoc?.lng);
 
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
