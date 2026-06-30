@@ -7,7 +7,7 @@
  *
  * The server resolves vehicle profile → Geoapify mode bucket.
  */
-import * as SecureStore from 'expo-secure-store';
+import { useAuthStore } from './auth';
 
 export interface NavStep {
   instruction:  string;
@@ -41,7 +41,7 @@ export async function fetchNavRoute(
   customHeightM?: number | null,
   address?: string,   // full address string — server uses it to look up community-verified pin
 ): Promise<NavRoute | null> {
-  const token = await SecureStore.getItemAsync('mj_jwt');
+  const token = useAuthStore.getState().token;
 
   const res = await fetch(`${API_BASE}/api/v1/navigate/leg`, {
     method: 'POST',

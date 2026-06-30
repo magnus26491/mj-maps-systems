@@ -36,6 +36,10 @@ export function PermissionGate() {
   const { t } = useLocale();
   const user = useAuthStore(s => s.user);
   const isEnterprise = user?.planId === 'custom';
+
+  // On web, the browser handles permissions natively when features are first used.
+  // The wizard is not needed and would block the login screen.
+  if (Platform.OS === 'web' || !user) return null;
   const {
     perms, loaded,
     requestLocation, requestLocationBackground,

@@ -134,7 +134,8 @@ async function uploadPodEntry(entry: OutboxEntry, apiBaseUrl: string): Promise<v
     return;
   }
 
-  const token = await import('expo-secure-store').then(m => m.getItemAsync('mj_jwt'));
+  const { useAuthStore } = await import('./auth');
+  const token = useAuthStore.getState().token;
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   // Step 1: Get presigned upload URL
