@@ -28,6 +28,7 @@ export interface DeliveryStop {
   turnScore?:   number | null;
   turnReason?:  string | null;
   status:       'pending' | 'completed' | 'failed';
+  failReason?:  string | null;
 }
 
 export interface Shift {
@@ -69,7 +70,8 @@ interface ShiftState {
   startShift:      (orderedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[], vehicleId: string, routeId: string) => void;
   endShift:        () => void;
   completeStop:    () => void;
-  failStop:        () => void;
+  failStop:        (reason?: string) => void;
+  skipStop:        () => void;
   setStops:        (stops: DeliveryStop[]) => void;
   updateStopAlert: (stopId: string, alert: 'GREEN' | 'AMBER' | 'RED') => void;
   setStagedStops:   (stops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[]) => void;
@@ -194,15 +196,28 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   },
 
   // ── failStop ───────────────────────────────────────────────────────────────
-  failStop: () => {
+  failStop: (reason?: string) => {
     const { stops, currentStop } = get();
     if (!currentStop) return;
     const updated = stops.map(s =>
-      s.id === currentStop.id ? { ...s, status: 'failed' as const } : s,
+      s.id === currentStop.id ? { ...s, status: 'failed' as const, failReason: reason ?? null } : s,
     );
     const next      = nextPending(updated);
     const afterNext = afterPending(updated, next?.id);
     set({ stops: updated, currentStop: next, nextStop: afterNext });
+  },
+
+  // ── skipStop ── move current stop to end of pending queue ──────────────────
+  skipStop: () => {
+    const { stops, currentStop } = get();
+    if (!currentStop) return;
+    const otherPending = stops.filter(s => s.status === 'pending' && s.id !== currentStop.id);
+    if (!otherPending.length) return;
+    const done      = stops.filter(s => s.status !== 'pending');
+    const reordered = [...done, ...otherPending, currentStop].map((s, i) => ({ ...s, index: i }));
+    const next      = nextPending(reordered);
+    const afterNext = afterPending(reordered, next?.id);
+    set({ stops: reordered, currentStop: next, nextStop: afterNext });
   },
 
   // ── updateStopAlert ────────────────────────────────────────────────────────

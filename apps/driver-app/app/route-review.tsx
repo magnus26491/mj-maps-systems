@@ -52,34 +52,51 @@ export default function RouteReviewScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [undoState]);
 
+  const [apiEtaSec, setApiEtaSec] = useState<number | null>(null);
+
   const handleStartShift = useCallback(async () => {
     if (!stops.length) return;
     setStarting(true);
-    const vehicle = useShiftStore.getState().vehicle;
-    const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'TRANSIT_LWB_GB';
-    const token   = useAuthStore.getState().token ?? '';
+    const vehicle   = useShiftStore.getState().vehicle;
+    const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'lwb_van';
+    const token     = useAuthStore.getState().token ?? '';
+
+    // Best-effort GPS depot — falls back to 0,0 only when no fix
+    let depotLat = 0, depotLng = 0;
     try {
-      const res = await fetch(`${API}/api/v1/optimise`, {
+      const { getLatestLocation } = await import('../lib/shared-location');
+      const loc = getLatestLocation();
+      if (loc) { depotLat = loc.latitude; depotLng = loc.longitude; }
+    } catch { /* non-fatal */ }
+
+    try {
+      const res = await fetch(`${API}/api/v1/routes/optimise`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          depot:                { lat: 0, lng: 0 },
-          stops:                stops.map((s: any) => ({
-                                  id: s.id, address: s.address,
-                                  lat: s.lat ?? 0, lng: s.lng ?? 0,
-                                  parcelCount: s.parcelCount ?? 1,
-                                })),
-          vehicleProfileKey:    vehicle?.profileKey ?? 'TRANSIT_LWB_GB',
-          plannedDepartureTime: departureDate.toISOString(),
+          stops: stops.map((s: any) => ({
+            id: s.id, address: s.address,
+            lat: s.lat ?? 0, lng: s.lng ?? 0,
+            parcelCount: s.parcelCount ?? 1,
+            serviceMinutes: 3,
+            notes: s.notes,
+          })),
+          config: {
+            vehicleId,
+            depotLat,
+            depotLng,
+            returnToDepot: false,
+            shiftStartEpoch: Math.floor(departureDate.getTime() / 1000),
+            shiftEndEpoch:   Math.floor(departureDate.getTime() / 1000) + 10 * 3600,
+          },
         }),
       });
-      const data = res.ok ? await res.json() : null;
-      const routeId = data?.routeId ?? `offline-${Date.now()}`;
-      useShiftStore.getState().startShift(
-        data?.optimized?.orderedStops ?? stops,
-        vehicleId,
-        routeId,
-      );
+      const json = res.ok ? await res.json() : null;
+      const payload  = json?.data ?? json;
+      const routeId  = payload?.routeId ?? `offline-${Date.now()}`;
+      const ordered  = payload?.orderedStops ?? stops;
+      if (payload?.totalDurationSec) setApiEtaSec(payload.totalDurationSec);
+      useShiftStore.getState().startShift(ordered, vehicleId, routeId);
     } catch {
       useShiftStore.getState().startShift(stops as any, vehicleId, `offline-${Date.now()}`);
     } finally {
@@ -91,10 +108,11 @@ export default function RouteReviewScreen() {
   }, [stops, departureDate]);
 
   const totalParcels = stops.reduce((n: number, s: any) => n + (s.parcelCount ?? 1), 0);
-  const etaMins      = stops.length * 3;
-  const etaHrs       = Math.floor(etaMins / 60);
-  const etaMinsRem   = etaMins % 60;
-  const etaDisplay   = etaHrs > 0 ? `~${etaHrs}h ${etaMinsRem}m` : `~${etaMins}m`;
+  // Use API duration when available; fall back to 3 min/stop estimate
+  const etaMins    = apiEtaSec != null ? Math.round(apiEtaSec / 60) : stops.length * 3;
+  const etaHrs     = Math.floor(etaMins / 60);
+  const etaMinsRem = etaMins % 60;
+  const etaDisplay = etaHrs > 0 ? `~${etaHrs}h ${etaMinsRem}m` : `~${etaMins}m`;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>

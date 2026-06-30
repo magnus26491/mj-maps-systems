@@ -230,36 +230,71 @@ export default function RouteBuilderScreen() {
     setOptimising(true);
     try {
       const vehicle = useShiftStore.getState().vehicle;
-      const res = await fetch(`${API}/api/v1/optimise`, {
+      const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'lwb_van';
+
+      // Best-effort GPS depot
+      let depotLat = 0, depotLng = 0;
+      try {
+        const { getLatestLocation } = await import('../lib/shared-location');
+        const loc = getLatestLocation();
+        if (loc) { depotLat = loc.latitude; depotLng = loc.longitude; }
+      } catch { /* non-fatal */ }
+
+      const res = await fetch(`${API}/api/v1/routes/optimise`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          depot:                { lat: 0, lng: 0 },
-          stops:                stops.map(s => ({
-                                  id: s.id, address: s.address,
-                                  lat: s.lat, lng: s.lng, parcelCount: s.parcelCount,
-                                })),
-          vehicleProfileKey:    vehicle?.profileKey ?? 'TRANSIT_LWB_GB',
-          plannedDepartureTime: departureTime.toISOString(),
+          stops: stops.map(s => ({
+            id: s.id, address: s.address,
+            lat: s.lat, lng: s.lng,
+            parcelCount: s.parcelCount,
+            serviceMinutes: 3,
+            notes: s.notes,
+          })),
+          config: {
+            vehicleId,
+            depotLat,
+            depotLng,
+            returnToDepot: false,
+            shiftStartEpoch: Math.floor(departureTime.getTime() / 1000),
+            shiftEndEpoch:   Math.floor(departureTime.getTime() / 1000) + 10 * 3600,
+          },
         }),
       });
       if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.optimized?.orderedStops) {
-        const reordered: LocalStop[] = data.optimized.orderedStops.map((s: any) => ({
-          ...(stops.find(x => x.id === s.id) ?? {}),
-          id: s.id, address: s.address,
-          lat: s.lat, lng: s.lng, parcelCount: s.parcelCount ?? 1,
-        }));
-        setStops(reordered);
+      const json = await res.json();
+      const payload = json?.data ?? json;
+      const ordered: LocalStop[] | undefined = payload?.orderedStops?.map((s: any) => ({
+        ...(stops.find(x => x.id === s.id) ?? {}),
+        id: s.id, address: s.address ?? (stops.find(x => x.id === s.id)?.address ?? ''),
+        lat: s.lat, lng: s.lng, parcelCount: s.parcelCount ?? 1,
+      }));
+      if (ordered?.length) {
+        setStops(ordered);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        throw new Error('empty response');
       }
     } catch {
-      Alert.alert('Could not optimise', 'Check your connection. You can reorder manually.');
+      Alert.alert('Could not optimise', 'Check your connection. You can drag stops to reorder manually.');
     } finally {
       setOptimising(false);
     }
   }, [stops, departureTime, token]);
+
+  const handleMoveStop = useCallback((id: string, direction: 'up' | 'down') => {
+    setStops(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx < 0) return prev;
+      if (direction === 'up'   && idx === 0)              return prev;
+      if (direction === 'down' && idx === prev.length - 1) return prev;
+      const swap = direction === 'up' ? idx - 1 : idx + 1;
+      const next = [...prev];
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      return next;
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
 
   const handleContinue = useCallback(() => {
     if (!stops.length) return;
@@ -318,10 +353,22 @@ export default function RouteBuilderScreen() {
     isActive: boolean;
     onRemove: () => void;
     onParcelChange: (delta: number) => void;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
   }
 
-  function StopRow({ item, drag, isActive, onRemove, onParcelChange }: StopRowProps) {
+  function StopRow({ item, drag, isActive, onRemove, onParcelChange, onMoveUp, onMoveDown }: StopRowProps) {
     const { colors: c } = useTheme();
+    const [showNotes, setShowNotes] = useState(false);
+    const [notesText, setNotesText] = useState(item.notes ?? '');
+
+    // Sync notes back to parent stop list on blur
+    const handleNotesBlur = useCallback(() => {
+      if (notesText !== (item.notes ?? '')) {
+        setStops(prev => prev.map(s => s.id === item.id ? { ...s, notes: notesText || undefined } : s));
+      }
+    }, [notesText, item.id, item.notes]);
+
     return (
       <Swipeable
         renderRightActions={() => (
@@ -331,24 +378,69 @@ export default function RouteBuilderScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Remove ${item.address}`}
           >
-            <Text style={styles.swipeRemoveText}>Remove</Text>
+            <Text style={styles.swipeRemoveText}>× Remove</Text>
           </TouchableOpacity>
         )}
       >
         <ScaleDecorator>
           <TouchableOpacity
-            onLongPress={drag}
+            onLongPress={Platform.OS !== 'web' ? drag : undefined}
             disabled={isActive}
             style={[styles.stopRow, { backgroundColor: isActive ? c.green : c.surface }]}
             accessibilityRole="button"
-            accessibilityLabel={`Stop: ${item.address}. Long press to reorder.`}
+            accessibilityLabel={`Stop: ${item.address}. ${Platform.OS !== 'web' ? 'Long press to reorder.' : ''}`}
           >
-            <Text style={[styles.handle, { color: c.subtext }]}>≡</Text>
+            {/* Drag handle / web arrows */}
+            {Platform.OS === 'web' ? (
+              <View style={styles.webMoveCol}>
+                <TouchableOpacity onPress={onMoveUp} style={styles.webArrow} accessibilityLabel="Move stop up">
+                  <Text style={{ color: c.subtext, fontSize: 14 }}>▲</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onMoveDown} style={styles.webArrow} accessibilityLabel="Move stop down">
+                  <Text style={{ color: c.subtext, fontSize: 14 }}>▼</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={[styles.handle, { color: c.subtext }]}>≡</Text>
+            )}
             <View style={styles.stopContent}>
               <Text style={[styles.stopAddress, { color: c.text }]} numberOfLines={2}>
                 {item.address}
               </Text>
+              <TouchableOpacity
+                onPress={() => setShowNotes(v => !v)}
+                style={styles.notesToggle}
+                accessibilityLabel={showNotes ? 'Hide note' : notesText ? 'Edit note' : 'Add note'}
+              >
+                <Text style={{ color: c.subtext, fontSize: 12 }}>
+                  {showNotes ? '− hide note' : notesText ? `📝 ${notesText}` : '+ add note'}
+                </Text>
+              </TouchableOpacity>
+              {showNotes && (
+                <TextInput
+                  style={[styles.notesInput, {
+                    backgroundColor: c.background, color: c.text, borderColor: c.border,
+                  }]}
+                  placeholder="Access notes, buzzer code…"
+                  placeholderTextColor={c.subtext}
+                  value={notesText}
+                  onChangeText={setNotesText}
+                  onBlur={handleNotesBlur}
+                  multiline
+                  maxLength={200}
+                />
+              )}
             </View>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={onRemove}
+                style={styles.webRemoveBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${item.address}`}
+              >
+                <Text style={{ color: '#f87171', fontSize: 20, lineHeight: 22 }}>×</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.stepper}>
               <TouchableOpacity
                 onPress={() => onParcelChange(-1)}
@@ -471,7 +563,9 @@ export default function RouteBuilderScreen() {
                         styles.pafToggle,
                         selected ? { backgroundColor: colors.green, borderColor: colors.green } : { borderColor: colors.subtext },
                       ]}>
-                        <Text style={{ color: selected ? '#fff' : 'transparent', fontSize: 13, fontWeight: '700' }}>✓</Text>
+                        <Text style={{ color: selected ? '#fff' : colors.subtext, fontSize: 16, fontWeight: '700', lineHeight: 18 }}>
+                          {selected ? '✓' : '+'}
+                        </Text>
                       </View>
                       <View style={styles.pafRowContent}>
                         <Text style={[styles.pafLine1, { color: colors.text }]} numberOfLines={1}>{item.line1}</Text>
@@ -530,20 +624,42 @@ export default function RouteBuilderScreen() {
                 : 'Enter a postcode to see all houses on that street, or tap 📂 to import a CSV'}
             </Text>
           </View>
+        ) : Platform.OS === 'web' ? (
+          <FlatList
+            data={stops}
+            keyExtractor={item => item.id}
+            renderItem={({ item, index }) => (
+              <StopRow
+                item={item}
+                drag={() => {}}
+                isActive={false}
+                onRemove={() => handleRemoveStop(item.id)}
+                onParcelChange={delta => handleParcelCount(item.id, delta)}
+                onMoveUp={index > 0 ? () => handleMoveStop(item.id, 'up') : undefined}
+                onMoveDown={index < stops.length - 1 ? () => handleMoveStop(item.id, 'down') : undefined}
+              />
+            )}
+            contentContainerStyle={{ paddingBottom: 260 }}
+          />
         ) : (
           <DraggableFlatList
             data={stops}
             keyExtractor={item => item.id}
             onDragEnd={({ data }) => setStops(data)}
-            renderItem={({ item, drag, isActive }) => (
-              <StopRow
-                item={item}
-                drag={drag}
-                isActive={isActive}
-                onRemove={() => handleRemoveStop(item.id)}
-                onParcelChange={delta => handleParcelCount(item.id, delta)}
-              />
-            )}
+            renderItem={({ item, drag, isActive, getIndex }) => {
+              const idx = getIndex() ?? 0;
+              return (
+                <StopRow
+                  item={item}
+                  drag={drag}
+                  isActive={isActive}
+                  onRemove={() => handleRemoveStop(item.id)}
+                  onParcelChange={delta => handleParcelCount(item.id, delta)}
+                  onMoveUp={idx > 0 ? () => handleMoveStop(item.id, 'up') : undefined}
+                  onMoveDown={idx < stops.length - 1 ? () => handleMoveStop(item.id, 'down') : undefined}
+                />
+              );
+            }}
             contentContainerStyle={{ paddingBottom: 260 }}
           />
         )}
@@ -749,8 +865,16 @@ const styles = StyleSheet.create({
   stopRow:           { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16,
                        marginVertical: 4, padding: 14, borderRadius: 10, minHeight: 64 },
   handle:            { fontSize: 20, marginRight: 12, width: 24, textAlign: 'center' },
+  webMoveCol:        { justifyContent: 'center', alignItems: 'center', marginRight: 8, gap: 2 },
+  webArrow:          { padding: 6 },
+  webRemoveBtn:      { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
   stopContent:       { flex: 1 },
   stopAddress:       { fontSize: 15, fontWeight: '600' },
+  notesToggle:       { marginTop: 4 },
+  notesInput: {
+    borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 13,
+    marginTop: 6, minHeight: 48, textAlignVertical: 'top',
+  },
   stepper:           { flexDirection: 'row', alignItems: 'center', gap: 4 },
   stepBtn:           { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1c2a37',
                        justifyContent: 'center', alignItems: 'center' },

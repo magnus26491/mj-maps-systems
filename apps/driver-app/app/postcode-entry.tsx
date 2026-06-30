@@ -213,7 +213,10 @@ export default function PostcodeEntryScreen() {
       parcelCount: 1,
     })) as any);
 
-    router.push('/route-preparation');
+    router.push({
+      pathname: '/route-review',
+      params: { departureEpochMs: String(Date.now()) },
+    });
   }, [stops]);
 
   // Add individual postcode

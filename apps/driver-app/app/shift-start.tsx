@@ -143,45 +143,20 @@ export default function ShiftStartScreen() {
         }),
       });
 
+      // Pass optimised stops to staged so route-review shows the correct order.
+      // Do NOT call startShift here — route-review does the single startShift call.
       if (res.ok) {
-        const { data } = await res.json();
-        // Use server-assigned routeId for proper tracking
-        startShift(data.orderedStops, vehicle!, data.routeId);
+        const json = await res.json();
+        const payload = json?.data ?? json;
+        useShiftStore.getState().setStagedStops(payload?.orderedStops ?? stops as any);
       } else {
-        // Offline fallback — use input order with a clearly-flagged offline ID
-        startShift(
-          greedyOrder(stops).map((s, i) => ({
-            id: `stop-${i}`,
-            index: i,
-            address: s.address,
-            notes: s.notes ?? '',
-            parcelCount: s.parcelCount ?? 1,
-            status: 'pending' as const,
-          })),
-          vehicle!,
-          `offline-${Date.now()}`,
-        );
+        useShiftStore.getState().setStagedStops(stops as any);
       }
-
-      useShiftStore.getState().setStagedStops(stops as any);
       router.push({
         pathname: '/route-review',
         params: { departureEpochMs: String(Date.now()) },
       });
     } catch {
-      // No signal — use greedy fallback silently with offline ID
-      startShift(
-        greedyOrder(stops).map((s, i) => ({
-          id: `stop-${i}`,
-          index: i,
-          address: s.address,
-          notes: s.notes ?? '',
-          parcelCount: s.parcelCount ?? 1,
-          status: 'pending' as const,
-        })),
-        vehicle!,
-        `offline-${Date.now()}`,
-      );
       useShiftStore.getState().setStagedStops(stops as any);
       router.push({
         pathname: '/route-review',

@@ -12,7 +12,7 @@
  *
  * Visual: teal brand, turn-score colours, IBM Plex Mono for data, no emoji
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   Animated, Vibration, Platform, Linking, Alert,
@@ -51,6 +51,7 @@ function HudInner() {
   const currentStop         = useShiftStore(s => s.currentStop);
   const completeStop        = useShiftStore(s => s.completeStop);
   const failStop            = useShiftStore(s => s.failStop);
+  const skipStop            = useShiftStore(s => s.skipStop);
   const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
   const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
   const user                = useAuthStore(s => s.user);
@@ -62,6 +63,20 @@ function HudInner() {
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const hasGreeted = useRef(false);
+
+  const handleFail = useCallback(() => {
+    Alert.alert(
+      'Why did this delivery fail?',
+      undefined,
+      [
+        { text: 'No answer', onPress: () => failStop('no_answer') },
+        { text: 'No access', onPress: () => failStop('no_access') },
+        { text: 'Wrong address', onPress: () => failStop('wrong_address') },
+        { text: 'Skip — come back later', onPress: () => skipStop() },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [failStop, skipStop]);
 
   // Auto-dismiss dispatcher message after 15s — enterprise only
   useEffect(() => {
@@ -288,7 +303,7 @@ function HudInner() {
         ) : (
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.app.dangerBg }]}
-            onPress={failStop}
+            onPress={handleFail}
             accessibilityRole="button"
             accessibilityLabel="Mark as failed"
           >

@@ -65,10 +65,10 @@ function WebNavigationScreen() {
       <Text style={{ color: '#f9fafb', fontSize: 20, fontWeight: '700', marginBottom: 24, lineHeight: 28 }}>
         {stop?.address ?? 'Unknown address'}
       </Text>
-      {stop?.access_notes ? (
+      {stop?.notes ? (
         <View style={{ backgroundColor: '#1f2937', borderRadius: 12, padding: 16, marginBottom: 24 }}>
           <Text style={{ color: '#fbbf24', fontSize: 12, fontWeight: '600', marginBottom: 4 }}>ACCESS NOTES</Text>
-          <Text style={{ color: '#d1d5db', fontSize: 14, lineHeight: 20 }}>{stop.access_notes}</Text>
+          <Text style={{ color: '#d1d5db', fontSize: 14, lineHeight: 20 }}>{stop.notes}</Text>
         </View>
       ) : null}
       <TouchableOpacity
@@ -95,7 +95,7 @@ export default function NavigationScreen() {
   const {
     route, currentStep, stepIndex, distanceToNext,
     isLoading, error, userLat, userLng, bearing,
-    guardWarnings,
+    guardWarnings, isNearDestination,
     startNav, stopNav, speakStep,
   } = useNavigation();
 
@@ -142,10 +142,29 @@ export default function NavigationScreen() {
     ]);
   };
 
-  const handleArrived = () => {
+  const handleArrived = useCallback(() => {
     stopNav();
     router.replace(`/stop-delivery?stopId=${stopId}`);
-  };
+  }, [stopId, stopNav]);
+
+  // Auto-prompt arrival when within 30m of destination
+  const arrivedRef = useRef(false);
+  useEffect(() => {
+    if (isNearDestination && !arrivedRef.current) {
+      arrivedRef.current = true;
+      Alert.alert(
+        "You've arrived",
+        stop?.address ?? 'at your destination',
+        [
+          { text: 'Not yet', style: 'cancel' },
+          { text: 'Mark arrived', onPress: handleArrived },
+        ],
+      );
+    }
+  }, [isNearDestination]);
+
+  // Reset flag when stop changes
+  useEffect(() => { arrivedRef.current = false; }, [stopId]);
 
   const openGoogleMaps = () => {
     if (stop) {
