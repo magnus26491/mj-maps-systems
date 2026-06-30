@@ -256,7 +256,9 @@ export default function PostcodeEntryScreen() {
             backgroundColor: item.confidence === 'HIGH' ? colors.green :
                            item.confidence === 'MEDIUM' ? colors.amber : colors.subtext,
           }]}>
-            <Text style={styles.confidenceText}>{item.confidence}</Text>
+            <Text style={styles.confidenceText}>
+              {item.confidence === 'HIGH' ? '● Exact' : item.confidence === 'MEDIUM' ? '● Building' : '● Area'}
+            </Text>
           </View>
         ) : (
           <Text style={[styles.pendingText, { color: colors.subtext }]}>Pending</Text>
@@ -372,20 +374,25 @@ export default function PostcodeEntryScreen() {
           <View style={styles.confidenceRow}>
             {summary.high > 0 && (
               <View style={[styles.confTag, { backgroundColor: colors.green }]}>
-                <Text style={styles.confTagText}>🟢 {summary.high}</Text>
+                <Text style={styles.confTagText}>🟢 {summary.high} front-door pin</Text>
               </View>
             )}
             {summary.medium > 0 && (
               <View style={[styles.confTag, { backgroundColor: colors.amber }]}>
-                <Text style={styles.confTagText}>🟡 {summary.medium}</Text>
+                <Text style={styles.confTagText}>🟡 {summary.medium} building-level</Text>
               </View>
             )}
             {summary.low > 0 && (
               <View style={[styles.confTag, { backgroundColor: colors.subtext }]}>
-                <Text style={styles.confTagText}>⚪ {summary.low}</Text>
+                <Text style={styles.confTagText}>⚪ {summary.low} postcode area only</Text>
               </View>
             )}
           </View>
+          {summary.low > 0 && (
+            <Text style={[styles.pinHint, { color: colors.subtext }]}>
+              ⚪ Postcode-area stops will navigate to the street. Confirm the exact door when you arrive.
+            </Text>
+          )}
         </View>
       )}
 
@@ -475,6 +482,7 @@ const styles = StyleSheet.create({
   confidenceRow: { flexDirection: 'row', gap: 6 },
   confTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   confTagText: { fontSize: 12, fontWeight: '700', color: '#000' },
+  pinHint: { fontSize: 12, marginTop: 6, lineHeight: 18 },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingBottom: 100 },
   stopItem: {

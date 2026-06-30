@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
 import { useAuthStore } from '../lib/auth';
 import { useTheme } from '../components/ThemeContext';
+import { useOfflineMap } from '../hooks/useOfflineMap';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
@@ -177,6 +178,12 @@ export default function RouteReviewScreen() {
   const etaMinsRem = etaMins % 60;
   const etaDisplay = etaHrs > 0 ? `~${etaHrs}h ${etaMinsRem}m` : `~${etaMins}m`;
 
+  const { status: offlineStatus, progress: offlineProgress, download: downloadOffline } = useOfflineMap();
+  const handleDownloadOffline = useCallback(() => {
+    const packName = `route-${Date.now()}`;
+    downloadOffline(stops, packName);
+  }, [stops, downloadOffline]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
 
@@ -197,6 +204,39 @@ export default function RouteReviewScreen() {
           📦  Swipe left on any stop you don't have parcels for to remove it
         </Text>
       </View>
+
+      {/* OFFLINE MAP BANNER — shown until download completes */}
+      {offlineStatus !== 'complete' && (
+        <View style={[styles.offlineBanner, {
+          backgroundColor: offlineStatus === 'error' ? '#3a1a1a' : '#1a2a3a',
+        }]}>
+          {offlineStatus === 'downloading' ? (
+            <>
+              <ActivityIndicator color="#4a9eff" size="small" style={{ marginRight: 8 }} />
+              <Text style={styles.offlineText}>
+                Downloading offline maps… {offlineProgress}%
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.offlineText}>
+                {offlineStatus === 'error'
+                  ? '⚠️  Map download failed — navigation needs data signal'
+                  : '📥  No signal area? Download maps to use offline'}
+              </Text>
+              {offlineStatus !== 'error' && (
+                <TouchableOpacity
+                  style={styles.offlineBtn}
+                  onPress={handleDownloadOffline}
+                  disabled={stops.length === 0}
+                >
+                  <Text style={styles.offlineBtnText}>Download</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      )}
 
       {/* STATS BAR */}
       <View style={styles.statsBar}>
@@ -277,7 +317,12 @@ export default function RouteReviewScreen() {
           >
             {optimising
               ? <ActivityIndicator color={colors.green} size="small" />
-              : <Text style={[styles.reoptBtnText, { color: colors.green }]}>Re-optimize</Text>}
+              : (
+                <>
+                  <Text style={[styles.reoptBtnText, { color: colors.green }]}>Re-optimize</Text>
+                  <Text style={[styles.reoptBtnSub, { color: colors.subtext }]}>Finds the fastest order</Text>
+                </>
+              )}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.startBtn, {
@@ -336,6 +381,13 @@ const styles = StyleSheet.create({
   footerRow:       { flexDirection: 'row', gap: 10 },
   reoptBtn:        { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, paddingHorizontal: 20 },
   reoptBtnText:    { fontSize: 15, fontWeight: '700' },
+  reoptBtnSub:     { fontSize: 10, marginTop: 1 },
   startBtn:        { flex: 1, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   startBtnText:    { color: '#fff', fontSize: 18, fontWeight: '800' },
+  offlineBanner:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
+                     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#0d1c2a' },
+  offlineText:     { flex: 1, fontSize: 12, color: '#a0c4e8', lineHeight: 16 },
+  offlineBtn:      { marginLeft: 10, backgroundColor: '#1c4a7a', borderRadius: 8,
+                     paddingHorizontal: 12, paddingVertical: 6 },
+  offlineBtnText:  { color: '#7ec8ff', fontSize: 12, fontWeight: '700' },
 });

@@ -166,11 +166,11 @@ export default function NavigationScreen() {
     }
     if (stop.lat == null || stop.lng == null || (stop.lat === 0 && stop.lng === 0)) {
       Alert.alert(
-        'No GPS pin',
-        'This stop has no GPS coordinates. Open in Google Maps to navigate manually.',
+        'Location not found',
+        `We couldn't pin an exact location for ${stop.address ?? 'this stop'}. You can open it in Google Maps to navigate there directly.`,
         [
-          { text: 'Open Google Maps', onPress: () => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(stop.address ?? '')}`) },
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'Open in Google Maps', onPress: () => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(stop.address ?? '')}`) },
+          { text: 'Go back', style: 'cancel', onPress: () => router.back() },
         ],
       );
       return;
