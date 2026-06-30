@@ -25,6 +25,8 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveWebConsent, loadWebConsent } from '../lib/webPermCookie';
 import { router } from 'expo-router';
 import { useShiftStore } from '../store/shift';
 import { usePlan } from '../lib/usePlan';
@@ -143,45 +145,20 @@ export default function ShiftStartScreen() {
         }),
       });
 
+      // Pass optimised stops to staged so route-review shows the correct order.
+      // Do NOT call startShift here — route-review does the single startShift call.
       if (res.ok) {
-        const { data } = await res.json();
-        // Use server-assigned routeId for proper tracking
-        startShift(data.orderedStops, vehicle!, data.routeId);
+        const json = await res.json();
+        const payload = json?.data ?? json;
+        useShiftStore.getState().setStagedStops(payload?.orderedStops ?? stops as any);
       } else {
-        // Offline fallback — use input order with a clearly-flagged offline ID
-        startShift(
-          greedyOrder(stops).map((s, i) => ({
-            id: `stop-${i}`,
-            index: i,
-            address: s.address,
-            notes: s.notes ?? '',
-            parcelCount: s.parcelCount ?? 1,
-            status: 'pending' as const,
-          })),
-          vehicle!,
-          `offline-${Date.now()}`,
-        );
+        useShiftStore.getState().setStagedStops(stops as any);
       }
-
-      useShiftStore.getState().setStagedStops(stops as any);
       router.push({
         pathname: '/route-review',
         params: { departureEpochMs: String(Date.now()) },
       });
     } catch {
-      // No signal — use greedy fallback silently with offline ID
-      startShift(
-        greedyOrder(stops).map((s, i) => ({
-          id: `stop-${i}`,
-          index: i,
-          address: s.address,
-          notes: s.notes ?? '',
-          parcelCount: s.parcelCount ?? 1,
-          status: 'pending' as const,
-        })),
-        vehicle!,
-        `offline-${Date.now()}`,
-      );
       useShiftStore.getState().setStagedStops(stops as any);
       router.push({
         pathname: '/route-review',
@@ -201,24 +178,30 @@ export default function ShiftStartScreen() {
     }
 
     // Google Play requires prominent disclosure before requestBackgroundPermissionsAsync.
-    // Persist acceptance so the modal only shows once across all shifts.
+    // Persist acceptance so the modal only shows once — per device (AsyncStorage)
+    // or per browser session (cookie + localStorage on web).
     const alreadyConsented = Platform.OS === 'web'
-      ? null
-      : (typeof localStorage !== 'undefined' ? localStorage.getItem('bg_location_consented') : null);
+      ? loadWebConsent('bg_location_consented')
+      : !!(await AsyncStorage.getItem('bg_location_consented'));
     if (!alreadyConsented) {
       setShowDisclosure(true);
       return; // handleDisclosureAccept will re-trigger after consent is stored
     }
 
-    // Already consented — request background permission (may already be granted)
-    const bgStatus = await Location.requestBackgroundPermissionsAsync();
-    if (bgStatus.status !== 'granted') {
-      Alert.alert(
-        'Background Location Required',
-        'MJ Maps needs background location access to track your route during deliveries. Please enable it in Settings.',
-        [{ text: 'OK' }],
-      );
-      return;
+    // Web: browser handles location natively when first used — skip native API
+    if (Platform.OS !== 'web') {
+      const { status: bgCurrent } = await Location.getBackgroundPermissionsAsync();
+      if (bgCurrent !== 'granted') {
+        const bgStatus = await Location.requestBackgroundPermissionsAsync();
+        if (bgStatus.status !== 'granted') {
+          Alert.alert(
+            'Background Location Required',
+            'MJ Maps needs background location access to track your route during deliveries. Please enable it in Settings.',
+            [{ text: 'OK' }],
+          );
+          return;
+        }
+      }
     }
 
     await _executeShiftStart();
@@ -226,14 +209,20 @@ export default function ShiftStartScreen() {
 
   const handleDisclosureAccept = useCallback(async () => {
     setShowDisclosure(false);
-    if (typeof localStorage !== 'undefined') localStorage.setItem('bg_location_consented', 'true');
-    const bgStatus = await Location.requestBackgroundPermissionsAsync();
-    if (bgStatus.status !== 'granted') {
-      Alert.alert(
-        'Background Location Required',
-        'MJ Maps needs background location access to track your route during deliveries. Please enable it in Settings.',
-      );
-      return;
+    if (Platform.OS === 'web') {
+      saveWebConsent('bg_location_consented');
+    } else {
+      await AsyncStorage.setItem('bg_location_consented', '1');
+    }
+    if (Platform.OS !== 'web') {
+      const bgStatus = await Location.requestBackgroundPermissionsAsync();
+      if (bgStatus.status !== 'granted') {
+        Alert.alert(
+          'Background Location Required',
+          'MJ Maps needs background location access to track your route during deliveries. Please enable it in Settings.',
+        );
+        return;
+      }
     }
     await _executeShiftStart();
   }, [_executeShiftStart]);

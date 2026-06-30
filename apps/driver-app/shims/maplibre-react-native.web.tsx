@@ -52,4 +52,10 @@ export const Camera          = Noop;
 export const UserTrackingMode = { Follow: 'follow' };
 export const Animated        = { View: require('react-native').Animated.View };
 
+export const offlineManager = {
+  createPack:  () => Promise.resolve(),
+  deletePack:  () => Promise.resolve(),
+  getPacks:    () => Promise.resolve([]),
+};
+
 export default MapView;

@@ -33,6 +33,8 @@ import { useTokenRefresh } from '../hooks/useTokenRefresh';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { PermissionGate } from '../components/PermissionGate';
 import { ThemeProvider, useTheme } from '../lib/theme';
+import { OnboardingModal } from '../components/OnboardingModal';
+import { useVoiceSettingsStore } from '../store/voiceSettings';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,8 +91,16 @@ function FcmRegistrar({ children }: { children: React.ReactNode }) {
     if (!isReady || !token) return;
     (async () => {
       try {
-        const perms = await Notifications.requestPermissionsAsync();
-        const granted = (perms as any).granted === true || (perms as any).status === 'granted';
+        // Check current state before requesting — avoids prompting on every login
+        // when permission was already granted or permanently denied.
+        const existing = await Notifications.getPermissionsAsync();
+        const isGranted  = (existing as any).granted === true || (existing as any).status === 'granted';
+        const isDetermined = isGranted || (existing as any).status === 'denied';
+        let granted = isGranted;
+        if (!isDetermined) {
+          const perms = await Notifications.requestPermissionsAsync();
+          granted = (perms as any).granted === true || (perms as any).status === 'granted';
+        }
         if (granted) {
           const { data } = await Notifications.getExpoPushTokenAsync();
           await apiRegisterFcmToken(data ?? '');
@@ -154,6 +164,7 @@ function RootLayoutInner() {
       KeepAwake.activateKeepAwakeAsync();
       setupShiftNotificationChannel().catch(() => {});
     }
+    useVoiceSettingsStore.getState().load().catch(() => {});
     return () => { if (Platform.OS !== 'web') KeepAwake.deactivateKeepAwake(); };
   }, []);
 
@@ -174,6 +185,7 @@ function RootLayoutInner() {
                     }}
                   />
                   <PermissionGate />
+                  <OnboardingModal />
                 </ShiftAwareProviders>
               </FcmRegistrar>
             </AuthGuard>

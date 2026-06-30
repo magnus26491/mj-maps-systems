@@ -21,36 +21,15 @@ import { VEHICLE_PROFILES } from '../../../packages/vehicle-profiles/index';
 import type { VehicleId, VehicleClass } from '../../../packages/vehicle-profiles/index';
 import { useShiftStore } from '../store/shift';
 import { ThemeProvider, useTheme } from '../components/ThemeContext';
+import { VehicleIcon } from '../components/VehicleIcon';
 
 // ── Static display data ───────────────────────────────────────────────────────
 
-const CLASS_META: Record<VehicleClass, { label: string; emoji: string; tagline: string }> = {
-  light: { label: 'Light Vehicles',  emoji: '🚗', tagline: 'Cars, bikes & towed units' },
-  van:   { label: 'Vans',            emoji: '🚐', tagline: 'Panel vans, tippers & minibuses' },
-  hgv:   { label: 'HGV / Rigid',    emoji: '🚚', tagline: 'Heavy goods vehicles, 7.5t – 26t' },
-  artic: { label: 'Articulated',     emoji: '🚛', tagline: 'Artic trucks — set your trailer height below' },
-};
-
-const VEHICLE_EMOJI: Record<VehicleId, string> = {
-  bicycle:       '🚲',
-  motorbike:     '🏍️',
-  small_car:     '🚗',
-  large_car:     '🚙',
-  swb_van:       '🚐',
-  lwb_van:       '🚐',
-  luton_van:     '📦',
-  tipper_swb:    '🪣',
-  tipper_lwb:    '🪣',
-  '7_5t_rigid':  '🚚',
-  '18t_rigid':   '🚚',
-  '26t_rigid':   '🚚',
-  artic_13_6m:   '🚛',
-  artic_15_5m:   '🚛',
-  car_trailer:   '🚗',
-  horse_trailer: '🐴',
-  caravan_7m:    '🏕️',
-  minibus:       '🚌',
-  coach:         '🚌',
+const CLASS_META: Record<VehicleClass, { label: string; tagline: string }> = {
+  light: { label: 'Light Vehicles',  tagline: 'Cars, bikes & towed units' },
+  van:   { label: 'Vans',            tagline: 'Panel vans, tippers & minibuses' },
+  hgv:   { label: 'HGV / Rigid',    tagline: 'Heavy goods vehicles, 7.5t – 26t' },
+  artic: { label: 'Articulated',     tagline: 'Artic trucks — set your trailer height below' },
 };
 
 const CLASS_ORDER: VehicleClass[] = ['light', 'van', 'hgv', 'artic'];
@@ -116,7 +95,7 @@ function VehicleSelectInner() {
       // No vehicle selected — use sensible SWB van default
       Haptics.selectionAsync();
       const store = useShiftStore.getState();
-      store.vehicleId = 'swb_van';
+      store.setVehicleId('swb_van');
       store.setCustomHeight(null);
       router.back();
       return;
@@ -133,7 +112,7 @@ function VehicleSelectInner() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const store = useShiftStore.getState();
-    store.vehicleId = selected;
+    store.setVehicleId(selected);
     store.setCustomHeight(resolveHeightM());
     router.back();
   }, [selected, showHeightInput, heightInput, heightUnit]);
@@ -171,7 +150,6 @@ function VehicleSelectInner() {
             <View key={cls} style={styles.section}>
               {/* Section header */}
               <View style={[styles.sectionHead, { borderLeftColor: colors.blue }]}>
-                <Text style={styles.sectionEmoji}>{meta.emoji}</Text>
                 <View style={styles.sectionText}>
                   <Text style={[styles.sectionLabel, { color: colors.text }]}>{meta.label}</Text>
                   <Text style={[styles.sectionTagline, { color: colors.subtext }]}>{meta.tagline}</Text>
@@ -203,7 +181,13 @@ function VehicleSelectInner() {
                         </View>
                       )}
 
-                      <Text style={styles.cardEmoji}>{VEHICLE_EMOJI[profile.id as VehicleId]}</Text>
+                      <View style={styles.cardIcon}>
+                        <VehicleIcon
+                          id={profile.id as VehicleId}
+                          size={48}
+                          color={isOn ? colors.blue : colors.subtext}
+                        />
+                      </View>
                       <Text
                         style={[styles.cardLabel, { color: isOn ? colors.blue : colors.text }]}
                         numberOfLines={2}
@@ -295,7 +279,6 @@ function VehicleSelectInner() {
         <View style={[styles.footer, { borderTopColor: colors.surfaceAlt }]}>
           {selectedProfile && (
             <Text style={[styles.footerMeta, { color: colors.subtext }]} numberOfLines={1}>
-              {VEHICLE_EMOJI[selected!]}{' '}
               {selectedProfile.label}
               {'  ·  '}
               {selectedProfile.lengthM}m long
@@ -378,7 +361,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3, paddingLeft: 10,
     marginBottom: 12,
   },
-  sectionEmoji: { fontSize: 22, marginRight: 10 },
   sectionText:  { flex: 1 },
   sectionLabel: { fontSize: 16, fontWeight: '700' },
   sectionTagline: { fontSize: 13, marginTop: 2 },
@@ -404,7 +386,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   checkMark:    { color: '#fff', fontSize: 12, fontWeight: '800' },
-  cardEmoji:    { fontSize: 26, marginBottom: 6 },
+  cardIcon:     { marginBottom: 6 },
   cardLabel:    { fontSize: 14, fontWeight: '700', lineHeight: 18, marginBottom: 8 },
   pills:        { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   pill:         { borderRadius: 6, paddingVertical: 3, paddingHorizontal: 7 },

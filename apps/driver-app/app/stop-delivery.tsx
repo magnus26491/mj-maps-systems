@@ -128,7 +128,7 @@ function StopDeliveryInner() {
       notes,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    failStop();
+    failStop(selectedReason);
     router.back();
   }, [stop, shift, selectedReason, notes]);
 

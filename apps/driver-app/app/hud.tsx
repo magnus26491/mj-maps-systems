@@ -12,7 +12,7 @@
  *
  * Visual: teal brand, turn-score colours, IBM Plex Mono for data, no emoji
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   Animated, Vibration, Platform, Linking, Alert,
@@ -51,17 +51,36 @@ function HudInner() {
   const currentStop         = useShiftStore(s => s.currentStop);
   const completeStop        = useShiftStore(s => s.completeStop);
   const failStop            = useShiftStore(s => s.failStop);
+  const skipStop            = useShiftStore(s => s.skipStop);
+  const nextStop            = useShiftStore(s => s.nextStop);
+  const isPaused            = useShiftStore(s => s.isPaused);
+  const pauseShift          = useShiftStore(s => s.pauseShift);
+  const resumeShift         = useShiftStore(s => s.resumeShift);
   const dispatcherMessage   = useShiftStore(s => s.dispatcherMessage);
   const dismissDispMsg      = useShiftStore(s => s.dismissDispatcherMessage);
   const user                = useAuthStore(s => s.user);
   const isEnterprise        = user?.planId === 'custom';
 
-  useDriverLocation();
-  const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId);
+  const driverLoc = useDriverLocation();
+  const { score, alert, reason } = useTurnScore(currentStop, shift?.vehicleId, driverLoc?.lat, driverLoc?.lng);
 
   const scaleAnim   = useRef(new Animated.Value(1)).current;
   const [lastAlert, setLastAlert] = useState<'GREEN' | 'AMBER' | 'RED'>('GREEN');
   const hasGreeted = useRef(false);
+
+  const handleFail = useCallback(() => {
+    Alert.alert(
+      'Why did this delivery fail?',
+      undefined,
+      [
+        { text: 'No answer', onPress: () => failStop('no_answer') },
+        { text: 'No access', onPress: () => failStop('no_access') },
+        { text: 'Wrong address', onPress: () => failStop('wrong_address') },
+        { text: 'Skip — come back later', onPress: () => skipStop() },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [failStop, skipStop]);
 
   // Auto-dismiss dispatcher message after 15s — enterprise only
   useEffect(() => {
@@ -120,6 +139,37 @@ function HudInner() {
             onPress={() => router.replace('/vehicle-select')}
           >
             <Text style={styles.emptyBtnText}>Start a new shift</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isPaused) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.app.background }}>
+        <ShiftProgressBar current={currentStop.index} total={shift.totalStops} />
+        <View style={styles.breakWrap}>
+          <Text style={[styles.breakIcon, { color: colors.app.textFaint }]}>II</Text>
+          <Text style={[styles.breakTitle, { color: colors.app.text }]}>On a break</Text>
+          <Text style={[styles.breakSub, { color: colors.app.textFaint }]}>
+            {currentStop.index + 1} of {shift.totalStops} stops remaining
+          </Text>
+          <TouchableOpacity
+            style={[styles.resumeBtn, { backgroundColor: colors.app.success }]}
+            onPress={resumeShift}
+            accessibilityRole="button"
+            accessibilityLabel="Resume shift"
+          >
+            <Text style={[styles.resumeBtnText, { color: '#fff' }]}>Resume shift</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.stopListLink]}
+            onPress={() => router.push('/stop-list')}
+            accessibilityRole="button"
+            accessibilityLabel="View all stops"
+          >
+            <Text style={[styles.stopListLinkText, { color: colors.app.primary }]}>View all stops</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -255,14 +305,30 @@ function HudInner() {
           <Text style={styles.navBtnArrow}>→</Text>
         </TouchableOpacity>
 
-        {/* Google Maps escape hatch */}
-        <TouchableOpacity
-          onPress={() => Linking.openURL(
-            `https://maps.google.com/?daddr=${encodeURIComponent(currentStop.address)}`,
-          )}
-        >
-          <Text style={styles.gmapsLink}>Open in Google Maps</Text>
-        </TouchableOpacity>
+        {/* Google Maps escape hatch + Break + Add stop mid-shift */}
+        <View style={styles.stopCardLinks}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL(
+              `https://maps.google.com/?daddr=${encodeURIComponent(currentStop.address)}`,
+            )}
+          >
+            <Text style={styles.gmapsLink}>Open in Google Maps</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={pauseShift}
+            accessibilityRole="button"
+            accessibilityLabel="Take a break"
+          >
+            <Text style={styles.breakLink}>Break</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/route-builder?addMode=1')}
+            accessibilityRole="button"
+            accessibilityLabel="Add a stop to your route"
+          >
+            <Text style={styles.addStopLink}>+ Add a stop</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Performance quick-access */}
         <TouchableOpacity
@@ -274,6 +340,22 @@ function HudInner() {
           <Text style={styles.perfBtnText}>View performance</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Next stop preview — helps driver mentally prepare */}
+      {nextStop && (
+        <View style={[styles.nextStopCard, { backgroundColor: colors.app.surface }]}>
+          <Text style={[styles.nextStopLabel, { color: colors.app.textFaint }]}>NEXT STOP</Text>
+          <Text style={[styles.nextStopAddr, { color: colors.app.text }]} numberOfLines={1}>
+            {nextStop.address}
+          </Text>
+          <Text style={[styles.nextStopMeta, { color: colors.app.textFaint }]}>
+            {nextStop.parcelCount} parcel{nextStop.parcelCount !== 1 ? 's' : ''}
+            {nextStop.alertLevel && nextStop.alertLevel !== 'GREEN'
+              ? `  ·  ${nextStop.alertLevel === 'RED' ? 'Restricted access' : 'Tight access'}`
+              : ''}
+          </Text>
+        </View>
+      )}
 
       <View style={{ flex: 1 }} />
 
@@ -288,7 +370,7 @@ function HudInner() {
         ) : (
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.app.dangerBg }]}
-            onPress={failStop}
+            onPress={handleFail}
             accessibilityRole="button"
             accessibilityLabel="Mark as failed"
           >
@@ -402,10 +484,33 @@ const styles = StyleSheet.create({
   },
   navBtnText:  { fontSize: 17, fontWeight: '700', color: '#0A0C10' },
   navBtnArrow: { fontSize: 17, fontWeight: '700', color: '#0A0C10' },
-  gmapsLink:   {
-    fontSize: 13, color: '#00C2A8', textDecorationLine: 'underline',
-    marginTop: 10, fontWeight: '500',
+  stopCardLinks: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10,
   },
+  gmapsLink:   { fontSize: 13, color: '#00C2A8', textDecorationLine: 'underline', fontWeight: '500' },
+  breakLink:   { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
+  addStopLink: { fontSize: 13, color: '#00C2A8', fontWeight: '600' },
+  // Break / pause screen
+  breakWrap: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32,
+  },
+  breakIcon:     { fontSize: 40, fontWeight: '900', letterSpacing: 8, marginBottom: 16 },
+  breakTitle:    { fontSize: 28, fontWeight: '800', marginBottom: 8 },
+  breakSub:      { fontSize: 16, marginBottom: 40, textAlign: 'center' },
+  resumeBtn: {
+    borderRadius: 14, width: '100%', height: 64,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  },
+  resumeBtnText: { fontSize: 18, fontWeight: '800' },
+  stopListLink:  { paddingVertical: 12 },
+  stopListLinkText: { fontSize: 15, fontWeight: '600', textDecorationLine: 'underline' },
+  nextStopCard: {
+    marginHorizontal: 12, marginTop: 8,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
+  },
+  nextStopLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 4 },
+  nextStopAddr:  { fontSize: 15, fontWeight: '600', lineHeight: 20 },
+  nextStopMeta:  { fontSize: 13, marginTop: 4 },
   perfBtn: {
     marginTop: 10,
     backgroundColor: '#12151B',

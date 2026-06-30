@@ -8,7 +8,7 @@
  *
  * Events are sent via apiDriverEvent — offline queue handles signal loss.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useShiftStore } from '../store/shift';
@@ -25,6 +25,18 @@ export function useLocationSender() {
   const driverId = useShiftStore(s => s.driverId);
   const routeId  = useShiftStore(s => s.shift?.routeId ?? null);
 
+  // Cache network state via subscription instead of calling NetInfo.fetch()
+  // on every GPS tick (every 8–2s). The ref is synchronous — no await needed.
+  const isOnlineRef = useRef(true);
+  useEffect(() => {
+    NetInfo.fetch().then(s => {
+      isOnlineRef.current = Boolean(s.isConnected && s.isInternetReachable);
+    });
+    return NetInfo.addEventListener(s => {
+      isOnlineRef.current = Boolean(s.isConnected && s.isInternetReachable);
+    });
+  }, []);
+
   useEffect(() => {
     if (!location || !driverId || !routeId) return;
 
@@ -39,17 +51,12 @@ export function useLocationSender() {
       epochSec: Math.floor(Date.now() / 1000),
     };
 
-    (async () => {
-      const net = await NetInfo.fetch();
-      if (net.isConnected) {
-        try {
-          await apiDriverEvent(payload);
-        } catch {
-          await enqueue(DriverEventType.LOCATION_UPDATE, payload);
-        }
-      } else {
-        await enqueue(DriverEventType.LOCATION_UPDATE, payload);
-      }
-    })();
+    if (isOnlineRef.current) {
+      apiDriverEvent(payload).catch(() => {
+        enqueue(DriverEventType.LOCATION_UPDATE, payload).catch(() => {});
+      });
+    } else {
+      enqueue(DriverEventType.LOCATION_UPDATE, payload).catch(() => {});
+    }
   }, [location, driverId, routeId]);
 }

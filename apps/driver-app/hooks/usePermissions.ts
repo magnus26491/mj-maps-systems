@@ -38,12 +38,51 @@ const DEFAULT_STATE: PermissionState = {
   camera:             'undetermined',
 };
 
+/**
+ * Reconcile stored state with actual OS state.
+ * Prevents the permission wizard from re-appearing when:
+ *  · the user reinstalls the app (OS may have kept permissions)
+ *  · the stored state is stale / missing
+ * Only promotes undetermined → granted/denied; never demotes granted → denied,
+ * so a user who revoked in Settings will see the wizard again (correct behaviour).
+ */
+async function reconcileWithOs(stored: PermissionState): Promise<PermissionState> {
+  if (Platform.OS === 'web') return stored;
+  const updates: Partial<PermissionState> = {};
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    const s = mapStatus(status);
+    if (s !== 'undetermined' && stored.location === 'undetermined') updates.location = s;
+  } catch { /* ignore */ }
+  try {
+    const { status } = await Location.getBackgroundPermissionsAsync();
+    const s = mapStatus(status);
+    if (s !== 'undetermined' && stored.locationBackground === 'undetermined') updates.locationBackground = s;
+  } catch { /* ignore */ }
+  try {
+    const result = await Notifications.getPermissionsAsync();
+    const s = mapStatus(result.status as string);
+    if (s !== 'undetermined' && stored.notifications === 'undetermined') updates.notifications = s;
+  } catch { /* ignore */ }
+  try {
+    const { status } = await Camera.getCameraPermissionsAsync();
+    const s = mapStatus(status as string);
+    if (s !== 'undetermined' && stored.camera === 'undetermined') updates.camera = s;
+  } catch { /* ignore */ }
+  const reconciled = { ...stored, ...updates };
+  if (Object.keys(updates).length > 0) {
+    save(reconciled).catch(() => {});
+  }
+  return reconciled;
+}
+
 async function loadSaved(): Promise<PermissionState> {
+  let stored = DEFAULT_STATE;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+    if (raw) stored = { ...DEFAULT_STATE, ...JSON.parse(raw) };
   } catch { /* ignore */ }
-  return DEFAULT_STATE;
+  return reconcileWithOs(stored);
 }
 
 async function save(state: PermissionState) {

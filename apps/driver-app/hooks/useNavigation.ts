@@ -8,11 +8,13 @@
  * stopNav() unsubscribes.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Alert } from 'react-native';
 import * as Speech from 'expo-speech';
 import { fetchNavRoute, type NavRoute, type NavStep, type NavGuardWarning } from '../lib/navigation';
 import { useShiftStore } from '../store/shift';
-import { subscribeSharedLocation, getLatestLocation, type SharedLocation } from '../lib/shared-location';
+import { subscribeSharedLocation, getLatestLocation, setNavHighAccuracy, type SharedLocation } from '../lib/shared-location';
+import { useVoiceSettingsStore } from '../store/voiceSettings';
+import { SPEECH_LANG } from '../lib/i18n';
+import { useLocale } from '../components/LocaleProvider';
 
 const DEVIATION_THRESHOLD_M = 250;  // metres — if user is this far off route, re-route
 
@@ -71,6 +73,7 @@ interface UseNavigationResult {
   userLng:             number | null;
   bearing:             number;
   guardWarnings:       NavGuardWarning[];
+  rerouteToast:        string | null;
   startNav:            (toLat: number, toLng: number, address?: string) => void;
   stopNav:             () => void;
   speakStep:           (step: NavStep) => void;
@@ -79,6 +82,15 @@ interface UseNavigationResult {
 export function useNavigation(): UseNavigationResult {
   const vehicleId     = useShiftStore(s => s.vehicleId);
   const customHeightM = useShiftStore(s => s.customHeightM);
+
+  // Voice settings — language follows UI locale automatically
+  const { locale } = useLocale();
+  const voiceEnabled = useVoiceSettingsStore(s => s.enabled);
+  const voiceId      = useVoiceSettingsStore(s => s.voiceId);
+  const voiceRate    = useVoiceSettingsStore(s => s.rate);
+  const voicePitch   = useVoiceSettingsStore(s => s.pitch);
+  const voiceVolume  = useVoiceSettingsStore(s => s.volume);
+  const speechLang   = SPEECH_LANG[locale] ?? 'en-GB';
   const [route,    setRoute]      = useState<NavRoute | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,8 +104,18 @@ export function useNavigation(): UseNavigationResult {
   // True when driver is within 30m of destination on the last step
   const [isNearDestination, setIsNearDestination] = useState(false);
   const arrivedRef = useRef(false);
+  const [rerouteToast, setRerouteToast] = useState<string | null>(null);
 
-  const lastSpokenStep = useRef(-1);
+  // stepIndex → highest phase spoken: 1=prepare, 2=warn, 3=execute
+  const lastSpokenPhase = useRef<Map<number, number>>(new Map());
+  // Latest GPS speed in m/s (updated every location tick, read in voice useEffect)
+  const speedMpsRef = useRef(0);
+  // Timestamp (ms) when driver first went off-route; null when on-route
+  const offRouteSinceRef = useRef<number | null>(null);
+  // Timer for the "Route updated" toast — tracked so it's cleaned up on unmount
+  const rerouteToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last liveDistanceToNext we set state for — avoids re-renders on sub-2m GPS noise
+  const lastDistanceRef = useRef<number>(0);
   const destLat     = useRef<number | null>(null);
   const destLng     = useRef<number | null>(null);
   const destAddress = useRef<string | undefined>(undefined);
@@ -104,13 +126,16 @@ export function useNavigation(): UseNavigationResult {
   const locUnsubRef = useRef<(() => void) | null>(null);
 
   const speakStep = useCallback((step: NavStep) => {
+    if (!voiceEnabled) return;
     Speech.stop();
     Speech.speak(step.instruction, {
-      language: 'en-GB',
-      rate:  0.9,
-      pitch: 1.0,
+      language: speechLang,
+      voice:    voiceId ?? undefined,
+      rate:     voiceRate,
+      pitch:    voicePitch,
+      volume:   voiceVolume,
     });
-  }, []);
+  }, [voiceEnabled, speechLang, voiceId, voiceRate, voicePitch, voiceVolume]);
 
   // Advance step based on proximity to next manoeuvre point
   useEffect(() => {
@@ -162,12 +187,40 @@ export function useNavigation(): UseNavigationResult {
 
     const dist = distanceM(userLat, userLng, targetLat, targetLng);
 
-    // FIX 1: update live distance state so the hook consumer gets a real-time value
-    setLiveDistanceToNext(dist);
+    // Only update state when distance changes by >2m — avoids re-renders from GPS noise
+    if (Math.abs(dist - lastDistanceRef.current) >= 2) {
+      lastDistanceRef.current = dist;
+      setLiveDistanceToNext(dist);
+    }
 
-    if (dist < 200 && lastSpokenStep.current !== stepIndex) {
-      lastSpokenStep.current = stepIndex;
+    // 3-phase speed-adaptive voice (OsmAnd algorithm):
+    //   prepare  — dist < speed×25 (300–600m), "Prepare to {instruction}"
+    //   warn     — dist < speed×10 (≥100m),    "In Xm, {instruction}"
+    //   execute  — dist < 30m,                 full instruction via speakStep
+    const speedMps = speedMpsRef.current;
+    const prepareM = Math.max(300, Math.min(600, speedMps * 25));
+    const warnM    = Math.max(100, speedMps * 10);
+    const phaseSpoken = lastSpokenPhase.current.get(stepIndex) ?? 0;
+    if (dist < 30 && phaseSpoken < 3) {
+      lastSpokenPhase.current.set(stepIndex, 3);
       speakStep(step);
+    } else if (dist < warnM && phaseSpoken < 2) {
+      lastSpokenPhase.current.set(stepIndex, 2);
+      if (voiceEnabled) {
+        const d = Math.round(dist / 10) * 10;
+        Speech.speak(`In ${d} metres, ${step.instruction}`, {
+          language: speechLang, voice: voiceId ?? undefined,
+          rate: voiceRate, pitch: voicePitch, volume: voiceVolume,
+        });
+      }
+    } else if (dist < prepareM && phaseSpoken < 1) {
+      lastSpokenPhase.current.set(stepIndex, 1);
+      if (voiceEnabled) {
+        Speech.speak(`Prepare to ${step.instruction}`, {
+          language: speechLang, voice: voiceId ?? undefined,
+          rate: voiceRate, pitch: voicePitch, volume: voiceVolume,
+        });
+      }
     }
 
     if (dist < 30 && stepIndex < route.steps.length - 1) {
@@ -185,13 +238,18 @@ export function useNavigation(): UseNavigationResult {
   }, [userLat, userLng, route, stepIndex, speakStep]);
 
   const startNav = useCallback(async (toLat: number, toLng: number, address?: string) => {
+    // Upgrade GPS to BestForNavigation for precise turn-by-turn tracking
+    setNavHighAccuracy(true);
     setIsLoading(true);
     setError(null);
     setStepIndex(0);
     setLiveDistanceToNext(0);
+    lastDistanceRef.current = 0;
     setIsNearDestination(false);
     arrivedRef.current = false;
-    lastSpokenStep.current = -1;
+    lastSpokenPhase.current.clear();
+    offRouteSinceRef.current = null;
+    setRerouteToast(null);
 
     // Get current position for route calculation
     const currentLoc = getLatestLocation();
@@ -231,8 +289,10 @@ export function useNavigation(): UseNavigationResult {
       setUserLat(loc.latitude);
       setUserLng(loc.longitude);
       if (loc.heading !== null) setBearing(loc.heading);
+      speedMpsRef.current = loc.speed ?? 0;
 
-      // Off-route detection — prompt driver before rerouting
+      // Silent auto-reroute — NHTSA-safe: no blocking Alert while driving.
+      // Waits 15 s of continuous off-route before recalculating (filters GPS drift).
       const currentRoute = routeRef.current;
       if (currentRoute && !isReroutingRef.current) {
         const offRoute = isOffRoute(
@@ -241,54 +301,56 @@ export function useNavigation(): UseNavigationResult {
           DEVIATION_THRESHOLD_M,
         );
         if (offRoute) {
-          isReroutingRef.current = true; // prevent repeated prompts
-          Alert.alert(
-            '🔄 Off Route',
-            'You appear to be off your planned route. Reroute now?',
-            [
-              {
-                text: 'Keep Going',
-                style: 'cancel',
-                onPress: () => {
-                  // Re-arm after 90s so the prompt can fire again if still off-route
-                  setTimeout(() => { isReroutingRef.current = false; }, 90_000);
-                },
-              },
-              {
-                text: 'Reroute',
-                onPress: () => {
-                  const cur = getLatestLocation();
-                  fetchNavRoute(
-                    cur?.latitude ?? loc.latitude, cur?.longitude ?? loc.longitude,
-                    destLat.current!, destLng.current!,
-                    vehicleId ?? 'lwb_van',
-                    customHeightM,
-                    destAddress.current,
-                  ).then(newRoute => {
-                    if (newRoute) {
-                      routeRef.current = newRoute;
-                      setRoute(newRoute);
-                      setStepIndex(0);
-                      if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
-                    }
-                    isReroutingRef.current = false;
-                  }).catch(() => {
-                    isReroutingRef.current = false;
-                  });
-                },
-              },
-            ],
-            { cancelable: true, onDismiss: () => { isReroutingRef.current = false; } },
-          );
+          if (offRouteSinceRef.current === null) {
+            offRouteSinceRef.current = Date.now();
+          } else if (Date.now() - offRouteSinceRef.current > 15_000) {
+            isReroutingRef.current = true;
+            offRouteSinceRef.current = null;
+            if (voiceEnabled) {
+                Speech.speak('Recalculating', {
+                  language: speechLang,
+                  voice:    voiceId ?? undefined,
+                  rate:     voiceRate,
+                  pitch:    voicePitch,
+                  volume:   voiceVolume,
+                });
+              }
+            const cur = getLatestLocation();
+            fetchNavRoute(
+              cur?.latitude ?? loc.latitude, cur?.longitude ?? loc.longitude,
+              destLat.current!, destLng.current!,
+              vehicleId ?? 'lwb_van',
+              customHeightM,
+              destAddress.current,
+            ).then(newRoute => {
+              if (newRoute) {
+                routeRef.current = newRoute;
+                setRoute(newRoute);
+                setStepIndex(0);
+                lastSpokenPhase.current.clear();
+                if (newRoute.steps[0]) speakStep(newRoute.steps[0]);
+                if (rerouteToastTimerRef.current) clearTimeout(rerouteToastTimerRef.current);
+                setRerouteToast('Route updated');
+                rerouteToastTimerRef.current = setTimeout(() => setRerouteToast(null), 3_000);
+              }
+              isReroutingRef.current = false;
+            }).catch(() => { isReroutingRef.current = false; });
+          }
+        } else {
+          offRouteSinceRef.current = null;
         }
       }
     });
-  }, [vehicleId, speakStep, customHeightM]);
+  }, [vehicleId, speakStep, customHeightM, voiceEnabled, speechLang, voiceId, voiceRate, voicePitch, voiceVolume]);
 
   const stopNav = useCallback(() => {
+    // Drop back to Balanced GPS — driver is parked or delivering on foot
+    setNavHighAccuracy(false);
     locUnsubRef.current?.();
     locUnsubRef.current = null;
     Speech.stop();
+    if (rerouteToastTimerRef.current) clearTimeout(rerouteToastTimerRef.current);
+    rerouteToastTimerRef.current = null;
     setRoute(null);
     routeRef.current = null;
     destLat.current     = null;
@@ -296,15 +358,21 @@ export function useNavigation(): UseNavigationResult {
     destAddress.current = undefined;
     setStepIndex(0);
     setLiveDistanceToNext(0);
+    lastDistanceRef.current = 0;
     setIsNearDestination(false);
     arrivedRef.current = false;
+    lastSpokenPhase.current.clear();
+    offRouteSinceRef.current = null;
     setError(null);
     setGuardWarnings([]);
+    setRerouteToast(null);
   }, []);
 
   useEffect(() => () => {
+    setNavHighAccuracy(false);
     locUnsubRef.current?.();
     Speech.stop();
+    if (rerouteToastTimerRef.current) clearTimeout(rerouteToastTimerRef.current);
   }, []);
 
   const currentStep = route?.steps[stepIndex] ?? null;
@@ -314,7 +382,7 @@ export function useNavigation(): UseNavigationResult {
     distanceToNext: liveDistanceToNext,
     isNearDestination,
     isLoading, error, userLat, userLng, bearing,
-    guardWarnings,
+    guardWarnings, rerouteToast,
     startNav, stopNav, speakStep,
   };
 }

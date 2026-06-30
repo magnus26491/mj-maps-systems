@@ -28,6 +28,10 @@ export interface DeliveryStop {
   turnScore?:   number | null;
   turnReason?:  string | null;
   status:       'pending' | 'completed' | 'failed';
+  failReason?:  string | null;
+  // TODO: w3w — 3-word address for last-metre precision (e.g. "///filled.count.soap").
+  // Populate via GET https://api.what3words.com/v3/convert-to-3wa when stop is loaded.
+  w3w?:         string | null;
 }
 
 export interface Shift {
@@ -54,10 +58,12 @@ interface ShiftState {
   vehicle:        Vehicle | null;
   customHeightM:  number | null;
   setAuth:        (token: string, driverId: string) => void;
+  setVehicleId:   (id: string) => void;
   setCustomHeight: (m: number | null) => void;
 
   // ── Shift ─────────────────────────────────────────────────────────────────
   isActive:    boolean;
+  isPaused:    boolean;
   shift:       Shift | null;
   stops:       DeliveryStop[];
   stagedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[];
@@ -68,8 +74,11 @@ interface ShiftState {
   // ── Actions ───────────────────────────────────────────────────────────────
   startShift:      (orderedStops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[], vehicleId: string, routeId: string) => void;
   endShift:        () => void;
+  pauseShift:      () => void;
+  resumeShift:     () => void;
   completeStop:    () => void;
-  failStop:        () => void;
+  failStop:        (reason?: string) => void;
+  skipStop:        () => void;
   setStops:        (stops: DeliveryStop[]) => void;
   updateStopAlert: (stopId: string, alert: 'GREEN' | 'AMBER' | 'RED') => void;
   setStagedStops:   (stops: Omit<DeliveryStop, 'etaLabel' | 'distanceM' | 'alertLevel'>[]) => void;
@@ -105,10 +114,12 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   customHeightM: null,
 
   setAuth: (token, driverId) => set({ token, driverId }),
+  setVehicleId: (id) => set({ vehicleId: id }),
   setCustomHeight: (m) => set({ customHeightM: m }),
 
   // Shift state
   isActive:     false,
+  isPaused:     false,
   shift:        null,
   stops:        [],
   stagedStops:  [],
@@ -164,10 +175,14 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
 
   // ── endShift ───────────────────────────────────────────────────────────────
   endShift: () => set({
-    isActive: false, shift: null, stops: [],
+    isActive: false, isPaused: false, shift: null, stops: [],
     currentStop: null, nextStop: null, vehicleId: null, customHeightM: null,
     dispatcherMessage: null,
   }),
+
+  // ── pauseShift / resumeShift ───────────────────────────────────────────────
+  pauseShift:  () => set({ isPaused: true }),
+  resumeShift: () => set({ isPaused: false }),
 
   // ── setStops ───────────────────────────────────────────────────────────────
   setStops: (stops) => {
@@ -194,15 +209,28 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   },
 
   // ── failStop ───────────────────────────────────────────────────────────────
-  failStop: () => {
+  failStop: (reason?: string) => {
     const { stops, currentStop } = get();
     if (!currentStop) return;
     const updated = stops.map(s =>
-      s.id === currentStop.id ? { ...s, status: 'failed' as const } : s,
+      s.id === currentStop.id ? { ...s, status: 'failed' as const, failReason: reason ?? null } : s,
     );
     const next      = nextPending(updated);
     const afterNext = afterPending(updated, next?.id);
     set({ stops: updated, currentStop: next, nextStop: afterNext });
+  },
+
+  // ── skipStop ── move current stop to end of pending queue ──────────────────
+  skipStop: () => {
+    const { stops, currentStop } = get();
+    if (!currentStop) return;
+    const otherPending = stops.filter(s => s.status === 'pending' && s.id !== currentStop.id);
+    if (!otherPending.length) return;
+    const done      = stops.filter(s => s.status !== 'pending');
+    const reordered = [...done, ...otherPending, currentStop].map((s, i) => ({ ...s, index: i }));
+    const next      = nextPending(reordered);
+    const afterNext = afterPending(reordered, next?.id);
+    set({ stops: reordered, currentStop: next, nextStop: afterNext });
   },
 
   // ── updateStopAlert ────────────────────────────────────────────────────────

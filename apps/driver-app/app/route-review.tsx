@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useShiftStore } from '../store/shift';
 import { useAuthStore } from '../lib/auth';
 import { useTheme } from '../components/ThemeContext';
+import { useOfflineMap } from '../hooks/useOfflineMap';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk';
 
@@ -20,6 +21,9 @@ export default function RouteReviewScreen() {
 
   const rawStaged = useShiftStore(s => s.stagedStops);
   const [stops,    setStops]   = useState<any[]>(rawStaged ?? []);
+  // Track which stop IDs were staged (pre-optimised by shift-start) so we
+  // can skip a redundant re-optimize if the driver doesn't remove any stops.
+  const [originalStopIds] = useState<Set<string>>(() => new Set((rawStaged ?? []).map((s: any) => s.id)));
   const [starting, setStarting] = useState(false);
   const [undoState, setUndoState] = useState<{ stop: any; index: number } | null>(null);
   const { colors } = useTheme();
@@ -52,34 +56,111 @@ export default function RouteReviewScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [undoState]);
 
-  const handleStartShift = useCallback(async () => {
-    if (!stops.length) return;
-    setStarting(true);
-    const vehicle = useShiftStore.getState().vehicle;
-    const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'TRANSIT_LWB_GB';
-    const token   = useAuthStore.getState().token ?? '';
+  const [apiEtaSec,   setApiEtaSec]   = useState<number | null>(null);
+  const [optimising,  setOptimising]  = useState(false);
+
+  // Pre-fetch ETA from the already-optimised staged stops so the stats bar
+  // shows a real number immediately (shift-start already called optimise; we
+  // just read totalDurationSec from the staged payload if it was stored).
+  useEffect(() => {
+    const first = rawStaged?.[0] as any;
+    if (first?._totalDurationSec) setApiEtaSec(first._totalDurationSec);
+  }, []);
+
+  const handleReoptimise = useCallback(async () => {
+    if (!stops.length || optimising) return;
+    setOptimising(true);
+    const vehicleId = useShiftStore.getState().vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'lwb_van';
+    const token     = useAuthStore.getState().token ?? '';
+    let depotLat = 0, depotLng = 0;
     try {
-      const res = await fetch(`${API}/api/v1/optimise`, {
+      const { getLatestLocation } = await import('../lib/shared-location');
+      const loc = getLatestLocation();
+      if (loc) { depotLat = loc.latitude; depotLng = loc.longitude; }
+    } catch { /* non-fatal */ }
+    try {
+      const res = await fetch(`${API}/api/v1/routes/optimise`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          depot:                { lat: 0, lng: 0 },
-          stops:                stops.map((s: any) => ({
-                                  id: s.id, address: s.address,
-                                  lat: s.lat ?? 0, lng: s.lng ?? 0,
-                                  parcelCount: s.parcelCount ?? 1,
-                                })),
-          vehicleProfileKey:    vehicle?.profileKey ?? 'TRANSIT_LWB_GB',
-          plannedDepartureTime: departureDate.toISOString(),
+          stops: stops.map((s: any) => {
+            const hasCoords = s.lat && s.lng && !(s.lat === 0 && s.lng === 0);
+            return { id: s.id, address: s.address, ...(hasCoords ? { lat: s.lat, lng: s.lng } : {}), parcelCount: s.parcelCount ?? 1, serviceMinutes: 3, notes: s.notes };
+          }),
+          config: { vehicleId, depotLat, depotLng, returnToDepot: false, shiftStartEpoch: Math.floor(departureDate.getTime() / 1000) },
         }),
       });
-      const data = res.ok ? await res.json() : null;
-      const routeId = data?.routeId ?? `offline-${Date.now()}`;
-      useShiftStore.getState().startShift(
-        data?.optimized?.orderedStops ?? stops,
-        vehicleId,
-        routeId,
-      );
+      if (res.ok) {
+        const json = await res.json();
+        const payload = json?.data ?? json;
+        if (payload?.orderedStops?.length) setStops(payload.orderedStops);
+        if (payload?.totalDurationSec)     setApiEtaSec(payload.totalDurationSec);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch { /* non-fatal — keeps existing order */ }
+    setOptimising(false);
+  }, [stops, departureDate, optimising]);
+
+  const handleStartShift = useCallback(async () => {
+    if (!stops.length) return;
+    setStarting(true);
+    const vehicle   = useShiftStore.getState().vehicle;
+    const vehicleId = vehicle?.id ?? useShiftStore.getState().vehicleId ?? 'lwb_van';
+    const token     = useAuthStore.getState().token ?? '';
+
+    // If the driver didn't remove any stops, shift-start already optimised the
+    // order — skip the redundant second API call and start immediately.
+    const stopsUnchanged = stops.length === originalStopIds.size
+      && stops.every((s: any) => originalStopIds.has(s.id));
+    if (stopsUnchanged) {
+      const routeId = `offline-${Date.now()}`;
+      useShiftStore.getState().startShift(stops as any, vehicleId, routeId);
+      useShiftStore.getState().clearStagedStops();
+      setStarting(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace('/hud');
+      return;
+    }
+
+    // Best-effort GPS depot — falls back to 0,0 only when no fix
+    let depotLat = 0, depotLng = 0;
+    try {
+      const { getLatestLocation } = await import('../lib/shared-location');
+      const loc = getLatestLocation();
+      if (loc) { depotLat = loc.latitude; depotLng = loc.longitude; }
+    } catch { /* non-fatal */ }
+
+    try {
+      const res = await fetch(`${API}/api/v1/routes/optimise`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          stops: stops.map((s: any) => {
+            const hasCoords = s.lat && s.lng && !(s.lat === 0 && s.lng === 0);
+            return {
+              id: s.id, address: s.address,
+              ...(hasCoords ? { lat: s.lat, lng: s.lng } : {}),
+              parcelCount: s.parcelCount ?? 1,
+              serviceMinutes: 3,
+              notes: s.notes,
+            };
+          }),
+          config: {
+            vehicleId,
+            depotLat,
+            depotLng,
+            returnToDepot: false,
+            shiftStartEpoch: Math.floor(departureDate.getTime() / 1000),
+            shiftEndEpoch:   Math.floor(departureDate.getTime() / 1000) + 10 * 3600,
+          },
+        }),
+      });
+      const json = res.ok ? await res.json() : null;
+      const payload  = json?.data ?? json;
+      const routeId  = payload?.routeId ?? `offline-${Date.now()}`;
+      const ordered  = payload?.orderedStops ?? stops;
+      if (payload?.totalDurationSec) setApiEtaSec(payload.totalDurationSec);
+      useShiftStore.getState().startShift(ordered, vehicleId, routeId);
     } catch {
       useShiftStore.getState().startShift(stops as any, vehicleId, `offline-${Date.now()}`);
     } finally {
@@ -91,10 +172,17 @@ export default function RouteReviewScreen() {
   }, [stops, departureDate]);
 
   const totalParcels = stops.reduce((n: number, s: any) => n + (s.parcelCount ?? 1), 0);
-  const etaMins      = stops.length * 3;
-  const etaHrs       = Math.floor(etaMins / 60);
-  const etaMinsRem   = etaMins % 60;
-  const etaDisplay   = etaHrs > 0 ? `~${etaHrs}h ${etaMinsRem}m` : `~${etaMins}m`;
+  // Use API duration when available; fall back to 3 min/stop estimate
+  const etaMins    = apiEtaSec != null ? Math.round(apiEtaSec / 60) : stops.length * 3;
+  const etaHrs     = Math.floor(etaMins / 60);
+  const etaMinsRem = etaMins % 60;
+  const etaDisplay = etaHrs > 0 ? `~${etaHrs}h ${etaMinsRem}m` : `~${etaMins}m`;
+
+  const { status: offlineStatus, progress: offlineProgress, download: downloadOffline } = useOfflineMap();
+  const handleDownloadOffline = useCallback(() => {
+    const packName = `route-${Date.now()}`;
+    downloadOffline(stops, packName);
+  }, [stops, downloadOffline]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -116,6 +204,39 @@ export default function RouteReviewScreen() {
           📦  Swipe left on any stop you don't have parcels for to remove it
         </Text>
       </View>
+
+      {/* OFFLINE MAP BANNER — shown until download completes */}
+      {offlineStatus !== 'complete' && (
+        <View style={[styles.offlineBanner, {
+          backgroundColor: offlineStatus === 'error' ? '#3a1a1a' : '#1a2a3a',
+        }]}>
+          {offlineStatus === 'downloading' ? (
+            <>
+              <ActivityIndicator color="#4a9eff" size="small" style={{ marginRight: 8 }} />
+              <Text style={styles.offlineText}>
+                Downloading offline maps… {offlineProgress}%
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.offlineText}>
+                {offlineStatus === 'error'
+                  ? '⚠️  Map download failed — navigation needs data signal'
+                  : '📥  No signal area? Download maps to use offline'}
+              </Text>
+              {offlineStatus !== 'error' && (
+                <TouchableOpacity
+                  style={styles.offlineBtn}
+                  onPress={handleDownloadOffline}
+                  disabled={stops.length === 0}
+                >
+                  <Text style={styles.offlineBtnText}>Download</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      )}
 
       {/* STATS BAR */}
       <View style={styles.statsBar}>
@@ -186,19 +307,37 @@ export default function RouteReviewScreen() {
         <Text style={[styles.departureNote, { color: colors.subtext }]}>
           Departing at {departureDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
-        <TouchableOpacity
-          style={[styles.startBtn, {
-            backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
-          }]}
-          onPress={handleStartShift}
-          disabled={stops.length === 0 || starting}
-          accessibilityRole="button"
-          accessibilityLabel={`Start shift with ${stops.length} stops`}
-        >
-          {starting
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.startBtnText}>Start Shift  →</Text>}
-        </TouchableOpacity>
+        <View style={styles.footerRow}>
+          <TouchableOpacity
+            style={[styles.reoptBtn, { borderColor: colors.green }]}
+            onPress={handleReoptimise}
+            disabled={stops.length === 0 || optimising || starting}
+            accessibilityRole="button"
+            accessibilityLabel="Re-optimise stop order"
+          >
+            {optimising
+              ? <ActivityIndicator color={colors.green} size="small" />
+              : (
+                <>
+                  <Text style={[styles.reoptBtnText, { color: colors.green }]}>Re-optimize</Text>
+                  <Text style={[styles.reoptBtnSub, { color: colors.subtext }]}>Finds the fastest order</Text>
+                </>
+              )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.startBtn, {
+              backgroundColor: stops.length > 0 ? colors.green : '#1c2a37',
+            }]}
+            onPress={handleStartShift}
+            disabled={stops.length === 0 || starting || optimising}
+            accessibilityRole="button"
+            accessibilityLabel={`Start shift with ${stops.length} stops`}
+          >
+            {starting
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.startBtnText}>Start Shift  →</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
 
     </View>
@@ -239,6 +378,16 @@ const styles = StyleSheet.create({
   snackUndo:       { color: '#4fc3f7', fontWeight: '800', fontSize: 14 },
   footer:          { paddingHorizontal: 16, paddingTop: 12 },
   departureNote:   { fontSize: 12, textAlign: 'center', marginBottom: 8 },
-  startBtn:        { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  footerRow:       { flexDirection: 'row', gap: 10 },
+  reoptBtn:        { height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, paddingHorizontal: 20 },
+  reoptBtnText:    { fontSize: 15, fontWeight: '700' },
+  reoptBtnSub:     { fontSize: 10, marginTop: 1 },
+  startBtn:        { flex: 1, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   startBtnText:    { color: '#fff', fontSize: 18, fontWeight: '800' },
+  offlineBanner:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
+                     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#0d1c2a' },
+  offlineText:     { flex: 1, fontSize: 12, color: '#a0c4e8', lineHeight: 16 },
+  offlineBtn:      { marginLeft: 10, backgroundColor: '#1c4a7a', borderRadius: 8,
+                     paddingHorizontal: 12, paddingVertical: 6 },
+  offlineBtnText:  { color: '#7ec8ff', fontSize: 12, fontWeight: '700' },
 });

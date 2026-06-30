@@ -24,7 +24,7 @@ import { useShiftStore } from '../store/shift';
 import { useAuthStore } from '../lib/auth';
 import { useOfflineQueue } from './useOfflineQueue';
 
-const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.app')
+const BASE_URL  = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.mjmaps.co.uk')
   .replace(/^https/, 'wss')
   .replace(/^http/, 'ws');
 
@@ -126,12 +126,19 @@ export function useWebSocket(driverId: string | null, routeId: string | null) {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active' && !wsRef.current) {
+      if (state === 'background' || state === 'inactive') {
+        // Close gracefully to stop battery drain while backgrounded.
+        // onclose will NOT schedule a retry because code 1000 is skipped.
+        wsRef.current?.close(1000);
+        wsRef.current = null;
+        setWsConnected(false);
+      } else if (state === 'active' && !wsRef.current) {
+        retryIdx.current = 0;
         connect();
       }
     });
     return () => sub.remove();
-  }, [connect]);
+  }, [connect, setWsConnected]);
 
   useEffect(() => {
     mountedRef.current = true;

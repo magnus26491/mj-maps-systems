@@ -1,16 +1,17 @@
 /**
  * useDriverLocation — device GPS subscription.
  *
- * This is the canonical foreground GPS watcher — it feeds the shared-location
- * singleton so all other GPS consumers (delivery, driving mode, navigation)
- * share the same subscription without creating multiple watchers.
+ * Adaptive accuracy: defaults to Balanced (8s / 20m) to save battery while
+ * the driver is delivering on foot. Upgrades to BestForNavigation (2s / 3m)
+ * when navigation is active — signalled via setNavHighAccuracy() in
+ * shared-location.ts. Restarts the watcher automatically on mode change.
  *
- * Also starts the background task for backend GPS pings when the app is backgrounded.
+ * Feeds the shared-location singleton so all consumers share one GPS stream.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
-import { publishLocation } from '../lib/shared-location';
+import { publishLocation, subscribeAccuracyMode } from '../lib/shared-location';
 
 export interface DriverLocation {
   lat:        number;
@@ -24,20 +25,36 @@ const BACKGROUND_TASK = 'mj-maps-location';
 
 export function useDriverLocation(): DriverLocation | null {
   const [location, setLocation] = useState<DriverLocation | null>(null);
+  const [highAccuracy, setHighAccuracy] = useState(false);
+  // Track whether background task is running so we don't start it twice
+  const bgStarted = useRef(false);
+
+  // Subscribe to navigation-driven accuracy requests
+  useEffect(() => subscribeAccuracyMode(setHighAccuracy), []);
 
   useEffect(() => {
     let sub: Location.LocationSubscription | null = null;
+    let active = true;
 
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.warn('[location] Foreground permission denied');
-        return;
+      const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
+      if (fgStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('[location] Foreground permission denied');
+          return;
+        }
       }
 
-      if (Platform.OS !== 'web') {
-        const bg = await Location.requestBackgroundPermissionsAsync();
-        if (bg.status === 'granted') {
+      // Background task only starts once — accuracy changes only affect the
+      // foreground watcher; background stays at Balanced + 10s/15m always.
+      if (Platform.OS !== 'web' && !bgStarted.current) {
+        const { status: bgCurrent } = await Location.getBackgroundPermissionsAsync();
+        if (bgCurrent === 'undetermined') {
+          await Location.requestBackgroundPermissionsAsync();
+        }
+        const { status: bgGranted } = await Location.getBackgroundPermissionsAsync();
+        if (bgGranted === 'granted') {
           await Location.startLocationUpdatesAsync(BACKGROUND_TASK, {
             accuracy:         Location.Accuracy.Balanced,
             timeInterval:     10_000,
@@ -48,15 +65,19 @@ export function useDriverLocation(): DriverLocation | null {
               notificationColor: '#4fc3f7',
             },
           }).catch(() => {});
+          bgStarted.current = true;
         }
       }
 
+      if (!active) return;
+
+      // Foreground accuracy adapts to navigation state:
+      //   Balanced      — 8s / 20m  — delivering on foot, driver parked
+      //   BestForNav    — 2s / 3m   — active turn-by-turn navigation
       sub = await Location.watchPositionAsync(
-        {
-          accuracy:         Location.Accuracy.BestForNavigation,
-          timeInterval:     3000,
-          distanceInterval: 5,
-        },
+        highAccuracy
+          ? { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000,  distanceInterval: 3  }
+          : { accuracy: Location.Accuracy.Balanced,           timeInterval: 8000,  distanceInterval: 20 },
         loc => {
           const locData: DriverLocation = {
             lat:        loc.coords.latitude,
@@ -66,7 +87,6 @@ export function useDriverLocation(): DriverLocation | null {
             accuracyM:  loc.coords.accuracy,
           };
           setLocation(locData);
-          // Feed the shared singleton so other hooks don't need their own watcher
           publishLocation({
             latitude:  loc.coords.latitude,
             longitude: loc.coords.longitude,
@@ -80,8 +100,11 @@ export function useDriverLocation(): DriverLocation | null {
       );
     })();
 
-    return () => { sub?.remove(); };
-  }, []);
+    return () => {
+      active = false;
+      sub?.remove();
+    };
+  }, [highAccuracy]); // restarts watcher when accuracy mode changes
 
   return location;
 }

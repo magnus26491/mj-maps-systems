@@ -3,7 +3,7 @@
  * FlatList with fixed item height for virtualisation performance.
  * Bottom back button stays in thumb zone.
  */
-import { useCallback, useEffect } from 'react';
+import { useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList, StyleSheet, Alert,
 } from 'react-native';
@@ -20,12 +20,16 @@ export default function StopListScreen() {
   const stops      = useShiftStore(s => s.stops);
   const isActive   = useShiftStore(s => s.isActive);
   const endShift   = useShiftStore(s => s.endShift);
-  const currentIdx = useShiftStore(s => s.currentStop?.index ?? 0);
+  const currentStop = useShiftStore(s => s.currentStop);
   const { isDriving } = useDrivingMode();
+  const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    if (currentIdx > 0) Haptics.selectionAsync();
-  }, []);
+  const jumpToCurrent = useCallback(() => {
+    if (!currentStop) return;
+    const idx = Math.max(0, currentStop.index - 1);
+    flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [currentStop]);
 
   const handleEndShift = useCallback(() => {
     Alert.alert(
@@ -43,8 +47,9 @@ export default function StopListScreen() {
   }, [endShift]);
 
   const renderStop = useCallback(({ item, index }: any) => {
-    const isDone    = index < currentIdx;
-    const isCurrent = index === currentIdx;
+    const isDone    = item.status === 'completed';
+    const isFailed  = item.status === 'failed';
+    const isCurrent = item.id === currentStop?.id;
 
     return (
       <TouchableOpacity
@@ -52,6 +57,7 @@ export default function StopListScreen() {
           styles.stopRow,
           isCurrent && styles.stopRowCurrent,
           isDone    && styles.stopRowDone,
+          isFailed  && styles.stopRowFailed,
         ]}
         activeOpacity={0.8}
         accessibilityRole="button"
@@ -62,8 +68,9 @@ export default function StopListScreen() {
           styles.indexBadge,
           isCurrent && styles.indexBadgeCurrent,
           isDone    && styles.indexBadgeDone,
+          isFailed  && styles.indexBadgeFailed,
         ]}>
-          <Text style={styles.indexText}>{isDone ? '✓' : index + 1}</Text>
+          <Text style={styles.indexText}>{isDone ? '✓' : isFailed ? '✕' : index + 1}</Text>
         </View>
 
         <View style={styles.stopInfo}>
@@ -95,7 +102,7 @@ export default function StopListScreen() {
         </View>
       </TouchableOpacity>
     );
-  }, [currentIdx]);
+  }, [currentStop]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -115,10 +122,18 @@ export default function StopListScreen() {
           <Text style={styles.backText}>‹ HUD</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{shift?.totalStops ?? 0} Stops</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity
+          style={styles.jumpBtn}
+          onPress={jumpToCurrent}
+          accessibilityRole="button"
+          accessibilityLabel="Jump to current stop"
+        >
+          <Text style={styles.jumpBtnText}>⊙ Now</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
+        ref={flatListRef}
         data={stops}
         keyExtractor={item => item.id}
         renderItem={renderStop}
@@ -127,7 +142,10 @@ export default function StopListScreen() {
         getItemLayout={(_, index) => ({
           length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index,
         })}
-        initialScrollIndex={Math.max(0, currentIdx - 1)}
+        initialScrollIndex={Math.max(0, (currentStop?.index ?? 0) - 1)}
+        onScrollToIndexFailed={({ index }) => {
+          setTimeout(() => flatListRef.current?.scrollToIndex({ index, animated: true }), 200);
+        }}
         maxToRenderPerBatch={12}
         windowSize={5}
       />
@@ -174,6 +192,7 @@ const styles = StyleSheet.create({
   },
   stopRowCurrent:     { backgroundColor: '#1a2f3f' },
   stopRowDone:        { opacity: 0.45 },
+  stopRowFailed:      { opacity: 0.45 },
   indexBadge: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: '#1c2a37', alignItems: 'center', justifyContent: 'center',
@@ -181,6 +200,7 @@ const styles = StyleSheet.create({
   },
   indexBadgeCurrent:  { backgroundColor: '#4fc3f7' },
   indexBadgeDone:     { backgroundColor: '#2e7d32' },
+  indexBadgeFailed:   { backgroundColor: '#b71c1c' },
   indexText:          { color: '#e0eaf4', fontWeight: '700', fontSize: 14 },
   stopInfo:           { flex: 1 },
   stopAddr:           { color: '#c8d8e8', fontSize: 17, fontWeight: '600', lineHeight: 24 },
@@ -195,8 +215,10 @@ const styles = StyleSheet.create({
   alertPillAmber:     { backgroundColor: '#3b2a0d' },
   alertPillText:      { fontSize: 13, fontWeight: '700', color: '#ffe082' },
   metaText:           { fontSize: 12, color: '#607080' },
+  jumpBtn:            { minWidth: 60, minHeight: 44, justifyContent: 'center', alignItems: 'flex-end' },
+  jumpBtnText:        { color: '#4fc3f7', fontSize: 13, fontWeight: '700' },
 
-  // FIX 6: End Shift footer
+  // End Shift footer
   footer: {
     borderTopWidth: 1, borderTopColor: '#1c2a37',
     paddingHorizontal: 16, paddingVertical: 14,
