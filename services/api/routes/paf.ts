@@ -159,15 +159,48 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
         const osResults = await osPlacesPostcodeCandidates(postcode);
         if (osResults.length) {
           const addresses: PafAddress[] = osResults.map(c => {
+            const tc = (s?: string) => s ? toTitleCase(s) : '';
+            const pc = c.postcode ?? postcode;
+
+            // Build line1: most specific identifier for this delivery point.
+            // Priority: organisation name → flat/unit → building name → number+street
+            const orgName  = tc(c.organisationName);
+            const subBldg  = tc(c.subBuildingName);
+            const bldgName = tc(c.buildingName);
+            const bldgNum  = c.buildingNumber ?? '';
+            const street   = tc(c.thoroughfareName ?? c.dependentThoroughfareName);
+            const town     = tc(c.postTown);
+
+            let line1: string;
+            let line2: string | undefined;
+
+            if (orgName) {
+              // Commercial: "Tesco Express" / "Unit 3B"
+              line1 = orgName;
+              // If there's also a sub-building or building, add it
+              const bldgPart = [subBldg, bldgName].filter(Boolean).join(', ');
+              const streetPart = [bldgNum, street].filter(Boolean).join(' ');
+              line2 = [bldgPart, streetPart].filter(Boolean).join(', ') || undefined;
+            } else if (subBldg) {
+              // Flat/unit within a named building: "Flat 2A, Harbour House"
+              line1 = subBldg;
+              const bldgPart  = bldgName || [bldgNum, street].filter(Boolean).join(' ');
+              line2 = bldgPart || undefined;
+            } else if (bldgName) {
+              // Named building without org: "Harbour House, 12 High Street"
+              line1 = bldgName;
+              line2 = [bldgNum, street].filter(Boolean).join(' ') || undefined;
+            } else {
+              // Standard numbered address: "12 High Street"
+              line1 = [bldgNum, street].filter(Boolean).join(' ') || toTitleCase(c.address).split(',')[0]?.trim() ?? '';
+            }
+
             const full = toTitleCase(c.address);
-            // Split "1 High Street, Southampton, SO15 3SP" → line1 + postTown
-            const parts = full.split(',').map(p => p.trim());
-            const pc    = c.postcode ?? postcode;
-            const line1 = parts[0] ?? full;
-            const postTown = parts.slice(1, -1).join(', '); // everything between line1 and postcode
+
             return {
               line1,
-              postTown,
+              line2,
+              postTown:    town || full.split(',').slice(1, -1).join(', ').trim(),
               postcode:    pc,
               fullAddress: full,
               lat:         c.lat,
