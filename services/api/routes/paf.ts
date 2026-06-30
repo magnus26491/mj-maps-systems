@@ -1,11 +1,11 @@
 /**
  * PAF Lookup — /api/v1/paf/lookup?postcode=SO15+3SP
  *
- * Returns all addresses within a UK postcode unit.
+ * Returns individual addresses within a UK postcode unit.
  *
  * Resolution order:
- *   1. OS Places API (UPRN-level, requires OS_PLACES_KEY)
- *   2. Nominatim (OSM, free, no key needed — street-level precision)
+ *   1. OS Places API (UPRN-level door coords, requires OS_PLACES_KEY)
+ *   2. OpenStreetMap Overpass — nodes/ways tagged addr:postcode=X (free)
  *   3. postcodes.io centroid (last resort — one result at postcode centre)
  */
 
@@ -13,9 +13,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../middleware/auth.js';
 import { osPlacesPostcodeCandidates } from '../../geocoding/os-places-client.js';
 
-const NOMINATIM = process.env.NOMINATIM_URL ?? 'https://nominatim.openstreetmap.org';
+const OVERPASS    = process.env.OVERPASS_URL ?? 'https://overpass-api.de/api/interpreter';
 const POSTCODES_IO = 'https://api.postcodes.io';
-const FETCH_TIMEOUT = 8_000;
+const FETCH_TIMEOUT = 10_000;
 
 interface PafAddress {
   line1:       string;
@@ -30,11 +30,16 @@ interface PafAddress {
   source?:     string;
 }
 
-async function fetchJson<T>(url: string): Promise<T | null> {
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
     const res = await fetch(url, {
+      ...init,
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
-      headers: { 'Accept': 'application/json', 'User-Agent': 'MJMaps/1.0 (contact@mjmaps.co.uk)' },
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'MJMaps/1.0 (contact@mjmaps.co.uk)',
+        ...(init?.headers as Record<string, string> ?? {}),
+      },
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
@@ -43,45 +48,72 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-interface NominatimResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-  address?: {
-    house_number?: string;
-    road?: string;
-    suburb?: string;
-    town?: string;
-    city?: string;
-    postcode?: string;
-  };
+interface OverpassElement {
+  type: 'node' | 'way' | 'relation';
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
 }
 
-async function lookupViaNominatim(postcode: string): Promise<PafAddress[]> {
-  const url = `${NOMINATIM}/search?postalcode=${encodeURIComponent(postcode)}&countrycodes=gb&format=jsonv2&addressdetails=1&limit=50`;
-  const results = await fetchJson<NominatimResult[]>(url);
-  if (!results?.length) return [];
+interface OverpassResult {
+  elements?: OverpassElement[];
+}
 
-  return results
-    .filter(r => r.address?.road)
-    .map(r => {
-      const a = r.address!;
-      const line1 = [a.house_number, a.road].filter(Boolean).join(' ');
-      const postTown = a.city ?? a.town ?? a.suburb ?? '';
-      const pc = a.postcode ?? postcode;
-      const full = [line1, postTown, pc].filter(Boolean).join(', ');
-      return {
-        line1,
-        postTown,
-        postcode: pc,
-        fullAddress: full,
-        lat: parseFloat(r.lat),
-        lng: parseFloat(r.lon),
-        source: 'nominatim',
-        confidence: 0.7,
-      };
-    })
-    .filter(a => a.line1);
+async function lookupViaOverpass(postcode: string): Promise<PafAddress[]> {
+  // Query all nodes and ways with addr:postcode matching this unit
+  const query = `[out:json][timeout:10];
+(
+  node["addr:postcode"="${postcode}"];
+  way["addr:postcode"="${postcode}"];
+);
+out center;`;
+
+  const data = await fetchJson<OverpassResult>(OVERPASS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(query)}`,
+  });
+
+  const elements = data?.elements ?? [];
+  const results: PafAddress[] = [];
+
+  for (const el of elements) {
+    const tags = el.tags ?? {};
+    const houseNum  = tags['addr:housenumber'] ?? tags['addr:flats'] ?? '';
+    const street    = tags['addr:street'] ?? '';
+    if (!street) continue; // skip unaddressed elements
+
+    const lat = el.lat ?? el.center?.lat;
+    const lng = el.lon ?? el.center?.lon;
+    if (!lat || !lng) continue;
+
+    const postTown = tags['addr:city'] ?? tags['addr:town'] ?? tags['addr:suburb'] ?? '';
+    const line1    = [houseNum, street].filter(Boolean).join(' ');
+    const pc       = tags['addr:postcode'] ?? postcode;
+    const full     = [line1, postTown, pc].filter(Boolean).join(', ');
+
+    results.push({
+      line1,
+      postTown,
+      postcode: pc,
+      fullAddress: full,
+      lat,
+      lng,
+      source: 'osm',
+      confidence: 0.8,
+    });
+  }
+
+  // Sort by house number numerically then alphabetically
+  results.sort((a, b) => {
+    const na = parseInt(a.line1) || 0;
+    const nb = parseInt(b.line1) || 0;
+    if (na !== nb) return na - nb;
+    return a.line1.localeCompare(b.line1);
+  });
+
+  return results;
 }
 
 async function lookupViaCentroid(postcode: string): Promise<PafAddress[]> {
@@ -110,10 +142,12 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
         return reply.code(400).send({ ok: false, error: 'postcode query param required' });
       }
 
-      const postcode = raw.toUpperCase().replace(/\s+/g, ' ').replace(/^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/, '$1 $2');
+      // Normalise: "so153sp" → "SO15 3SP"
+      const clean = raw.toUpperCase().replace(/\s+/g, '');
+      const postcode = clean.replace(/^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/, '$1 $2');
 
       try {
-        // 1. OS Places (UPRN-level)
+        // 1. OS Places (UPRN-level individual houses)
         const osResults = await osPlacesPostcodeCandidates(postcode);
         if (osResults.length) {
           const addresses: PafAddress[] = osResults.map(c => ({
@@ -130,13 +164,13 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
           return reply.send({ ok: true, addresses, source: 'os_places' });
         }
 
-        // 2. Nominatim fallback
-        const nomResults = await lookupViaNominatim(postcode);
-        if (nomResults.length) {
-          return reply.send({ ok: true, addresses: nomResults, source: 'nominatim' });
+        // 2. Overpass OSM — buildings/addresses tagged with this postcode
+        const osmResults = await lookupViaOverpass(postcode);
+        if (osmResults.length) {
+          return reply.send({ ok: true, addresses: osmResults, source: 'osm' });
         }
 
-        // 3. Postcode centroid only
+        // 3. postcodes.io centroid only
         const centroid = await lookupViaCentroid(postcode);
         return reply.send({ ok: true, addresses: centroid, source: 'postcode_centroid' });
       } catch (err) {
