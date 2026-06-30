@@ -14,12 +14,14 @@ config.resolver.nodeModulesPaths = [
 const reactNativeWebPath = path.resolve(__dirname, 'node_modules/react-native-web');
 
 config.resolver.extraNodeModules = {
-  'react-native': reactNativeWebPath,
-  'expo-keep-awake': path.resolve(__dirname, 'shims/expo-keep-awake.web.ts'),
-  'expo-notifications': path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
-  'expo-speech': path.resolve(__dirname, 'shims/expo-speech.web.ts'),
-  'expo-sqlite': path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
-  'react-native-maps': path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
+  'react-native':                    reactNativeWebPath,
+  'expo-keep-awake':                 path.resolve(__dirname, 'shims/expo-keep-awake.web.ts'),
+  'expo-notifications':              path.resolve(__dirname, 'shims/expo-notifications.web.ts'),
+  'expo-speech':                     path.resolve(__dirname, 'shims/expo-speech.web.ts'),
+  'expo-sqlite':                     path.resolve(__dirname, 'shims/expo-sqlite.web.ts'),
+  'expo-secure-store':               path.resolve(__dirname, 'shims/expo-secure-store.web.ts'),
+  '@react-native-community/netinfo': path.resolve(__dirname, 'shims/netinfo.web.ts'),
+  'react-native-maps':               path.resolve(__dirname, 'shims/react-native-maps.web.tsx'),
   '@maplibre/maplibre-react-native': path.resolve(__dirname, 'shims/maplibre-react-native.web.tsx'),
 };
 

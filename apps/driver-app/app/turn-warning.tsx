@@ -41,13 +41,13 @@ export function TurnWarningOverlay({ visible, reason, score, address, onDismiss 
         { language: 'en-GB', rate: 1.05 },
       );
       Animated.parallel([
-        Animated.timing(opacity,    { toValue: 1,  duration: 200, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 0,  duration: 220, useNativeDriver: true }),
+        Animated.timing(opacity,    { toValue: 1,  duration: 200, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(translateY, { toValue: 0,  duration: 220, useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(opacity,    { toValue: 0,  duration: 160, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 60, duration: 160, useNativeDriver: true }),
+        Animated.timing(opacity,    { toValue: 0,  duration: 160, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(translateY, { toValue: 60, duration: 160, useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     }
   }, [visible]);

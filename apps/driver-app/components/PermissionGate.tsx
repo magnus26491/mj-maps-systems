@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { usePermissions } from '../hooks/usePermissions';
 import { useLocale } from './LocaleProvider';
+import { useAuthStore } from '../lib/auth';
 import type { PermStatus } from '../hooks/usePermissions';
 
 const { width } = Dimensions.get('window');
@@ -26,12 +27,15 @@ interface PermStep {
   icon:      string;
   titleKey:  string;
   whyKey:    string;
+  whyText?:  string;
   critical:  boolean;
   request:   () => Promise<PermStatus>;
 }
 
 export function PermissionGate() {
   const { t } = useLocale();
+  const user = useAuthStore(s => s.user);
+  const isEnterprise = user?.planId === 'custom';
   const {
     perms, loaded,
     requestLocation, requestLocationBackground,
@@ -59,13 +63,17 @@ export function PermissionGate() {
     {
       key: 'notifications', icon: '🔔',
       titleKey: 'perm_notif_title', whyKey: 'perm_notif_why',
+      whyText: isEnterprise
+        ? undefined
+        : 'Get shift reminders and real-time route alerts — even when the screen is off.',
       critical: false, request: requestNotifications,
     },
-    {
-      key: 'camera', icon: '📷',
+    // Camera only for enterprise drivers (POD photos for fleet compliance)
+    ...(isEnterprise ? [{
+      key: 'camera' as const, icon: '📷',
       titleKey: 'perm_camera_title', whyKey: 'perm_camera_why',
       critical: false, request: requestCamera,
-    },
+    }] : []),
   ];
 
   // Skip steps that are already granted or denied (from a previous session)
@@ -90,15 +98,15 @@ export function PermissionGate() {
   function animateTransition(cb: () => void) {
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(fadeAnim,  { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: -40, duration: 180, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 0, duration: 180, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(slideAnim, { toValue: -40, duration: 180, useNativeDriver: Platform.OS !== 'web' }),
       ]),
     ]).start(() => {
       cb();
       slideAnim.setValue(40);
       Animated.parallel([
-        Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     });
   }
@@ -172,7 +180,7 @@ export function PermissionGate() {
         ]}>
           <Text style={styles.icon}>{step.icon}</Text>
           <Text style={styles.permTitle}>{t(step.titleKey as any)}</Text>
-          <Text style={styles.permWhy}>{t(step.whyKey as any)}</Text>
+          <Text style={styles.permWhy}>{step.whyText ?? t(step.whyKey as any)}</Text>
 
           {isPermanentlyDenied && (
             <View style={styles.deniedTip}>
