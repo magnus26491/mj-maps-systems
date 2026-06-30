@@ -77,6 +77,7 @@ export default function RouteBuilderScreen() {
   const handlePafSearch = useCallback(async (q: string) => {
     const formatted = formatPC(q);
     setPafLoading(true);
+    setPafResults([]);
     setPafCounts({});
     setPafError(null);
     try {
@@ -92,8 +93,12 @@ export default function RouteBuilderScreen() {
       const addresses = data.addresses ?? [];
       if (addresses.length === 0) {
         setPafError(`No addresses found for ${formatted}`);
+      } else if (data.source === 'postcode_centroid') {
+        setPafError(`No house-level data for ${formatted} — showing postcode area only`);
+        setPafResults(addresses);
+      } else {
+        setPafResults(addresses);
       }
-      setPafResults(addresses);
     } catch (e: any) {
       setPafResults([]);
       setPafError(e?.message ?? 'Could not load addresses. Check your connection.');
@@ -129,16 +134,15 @@ export default function RouteBuilderScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [pafResults]);
 
-  const handlePafCountChange = useCallback((index: number, delta: number) => {
+  const handlePafToggle = useCallback((index: number) => {
     setPafCounts(prev => {
-      const cur  = prev[index] ?? 0;
-      const next = Math.max(0, cur + delta);
-      if (next === 0) {
+      if (prev[index]) {
         const { [index]: _removed, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [index]: next };
+      return { ...prev, [index]: 1 };
     });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   const handleAddSelected = useCallback(() => {
@@ -444,46 +448,46 @@ export default function RouteBuilderScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Per-address rows with +/- stepper */}
+              {/* Per-address rows — tap to add/remove */}
               <FlatList
                 data={pafResults}
                 keyExtractor={(_, i) => String(i)}
                 style={{ maxHeight: 240 }}
                 renderItem={({ item, index }) => {
-                  const count = pafCounts[index] ?? 0;
+                  const selected = !!(pafCounts[index]);
                   return (
-                    <View style={[
-                      styles.pafRow,
-                      { borderBottomColor: colors.border },
-                      count > 0 && styles.pafRowSelected,
-                    ]}>
+                    <TouchableOpacity
+                      onPress={() => handlePafToggle(index)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      accessibilityLabel={selected ? `Remove ${item.line1}` : `Add ${item.line1}`}
+                      style={[
+                        styles.pafRow,
+                        { borderBottomColor: colors.border },
+                        selected && styles.pafRowSelected,
+                      ]}
+                    >
+                      <View style={[
+                        styles.pafToggle,
+                        selected ? { backgroundColor: colors.green, borderColor: colors.green } : { borderColor: colors.subtext },
+                      ]}>
+                        <Text style={{ color: selected ? '#fff' : 'transparent', fontSize: 13, fontWeight: '700' }}>✓</Text>
+                      </View>
                       <View style={styles.pafRowContent}>
-                        <Text style={[styles.pafLine1, { color: colors.text }]}>{item.line1}</Text>
+                        <Text style={[styles.pafLine1, { color: colors.text }]} numberOfLines={1}>{item.line1}</Text>
                         {item.line2 ? (
                           <Text style={[styles.pafLine2, { color: colors.subtext }]}>{item.line2}</Text>
                         ) : null}
                         <Text style={[styles.pafLine2, { color: colors.subtext }]}>
-                          {item.postTown}  {item.postcode}
+                          {[item.postTown, item.postcode].filter(Boolean).join('  ')}
                         </Text>
                       </View>
-                      <View style={styles.stepper}>
-                        <TouchableOpacity
-                          onPress={() => handlePafCountChange(index, -1)}
-                          style={styles.stepBtn}
-                          accessibilityLabel={`Remove ${item.line1}`}
-                        >
-                          <Text style={[styles.stepText, { color: colors.text }]}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.stepCount, { color: colors.text }]}>{count}</Text>
-                        <TouchableOpacity
-                          onPress={() => handlePafCountChange(index, 1)}
-                          style={styles.stepBtn}
-                          accessibilityLabel={`Add ${item.line1}`}
-                        >
-                          <Text style={[styles.stepText, { color: colors.text }]}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                      {selected && (
+                        <View style={styles.pafRemove}>
+                          <Text style={{ color: '#f87171', fontSize: 18, lineHeight: 20 }}>×</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                   );
                 }}
               />
@@ -722,7 +726,10 @@ const styles = StyleSheet.create({
   pafRow:            { flexDirection: 'row', alignItems: 'center',
                        paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1 },
   pafRowSelected:    { backgroundColor: '#1a2f1a' },
-  pafRowContent:     { flex: 1, marginRight: 12 },
+  pafRowContent:     { flex: 1, marginHorizontal: 10 },
+  pafToggle:         { width: 24, height: 24, borderRadius: 12, borderWidth: 2,
+                       justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  pafRemove:         { width: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
   pafLine1:          { fontSize: 15, fontWeight: '600' },
   pafLine2:          { fontSize: 12, marginTop: 2 },
   pafFooter:         { flexDirection: 'row', alignItems: 'center',
