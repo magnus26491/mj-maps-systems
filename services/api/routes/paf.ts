@@ -287,7 +287,7 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
               line2 = [bldgNum, street].filter(Boolean).join(' ') || undefined;
             } else {
               // Standard numbered address: "12 High Street"
-              line1 = [bldgNum, street].filter(Boolean).join(' ') || toTitleCase(c.address).split(',')[0]?.trim() ?? '';
+              line1 = [bldgNum, street].filter(Boolean).join(' ') || toTitleCase(c.address).split(',')[0].trim();
             }
 
             const full = toTitleCase(c.address);

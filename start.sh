@@ -32,8 +32,10 @@ else
 fi
 echo ""
 echo "[mj-maps-api] --- Optional services ---"
-echo "[mj-maps-api] REDIS:      $(if [ -n "$REDIS_URL" ]; then echo 'SET'; else echo 'not set (graceful degradation - no cache)'; fi)"
-echo "[mj-maps-api] GEOAPIFY:   $(if [ -n "$GEOAPIFY_API_KEY" ]; then echo 'SET'; else echo 'not set (geocoding falls back to basic mode)'; fi)"
+echo "[mj-maps-api] REDIS:       $(if [ -n "$REDIS_URL" ]; then echo 'SET'; else echo 'not set (graceful degradation - no cache)'; fi)"
+echo "[mj-maps-api] OS_PLACES:   $(if [ -n "$OS_PLACES_KEY" ]; then echo 'SET (UPRN-level address lookup enabled)'; else echo 'not set (falling back to Nominatim - less accurate)'; fi)"
+echo "[mj-maps-api] W3W:         $(if [ -n "$WHAT3WORDS_API_KEY" ]; then echo 'SET'; else echo 'not set (what3words door pins disabled)'; fi)"
+echo "[mj-maps-api] GEOAPIFY:    $(if [ -n "$GEOAPIFY_API_KEY" ]; then echo 'SET'; else echo 'not set (geocoding falls back to basic mode)'; fi)"
 echo "[mj-maps-api] R2:          $(if [ -n "$R2_ENDPOINT" ]; then echo 'SET'; else echo 'not set (POD uploads will fail)'; fi)"
 echo ""
 echo "[mj-maps-api] --- Build artifacts ---"

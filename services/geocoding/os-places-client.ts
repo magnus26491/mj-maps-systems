@@ -23,8 +23,8 @@ interface OsDpa {
   UPRN: string;
   ADDRESS: string;
   POSTCODE?: string;
-  LAT?: number;
-  LNG?: number;
+  LAT?: number | string;
+  LNG?: number | string;
   X_COORDINATE?: number;
   Y_COORDINATE?: number;
   ORGANISATION_NAME?: string;
@@ -54,9 +54,9 @@ async function osGet<T>(url: string): Promise<T> {
 }
 
 function extractCoords(dpa: OsDpa): { lat: number; lng: number } | null {
-  if (typeof dpa.LAT === 'number' && typeof dpa.LNG === 'number') {
-    return { lat: dpa.LAT, lng: dpa.LNG };
-  }
+  const lat = typeof dpa.LAT === 'number' ? dpa.LAT : parseFloat(dpa.LAT as string);
+  const lng = typeof dpa.LNG === 'number' ? dpa.LNG : parseFloat(dpa.LNG as string);
+  if (isFinite(lat) && isFinite(lng)) return { lat, lng };
   return null;
 }
 
