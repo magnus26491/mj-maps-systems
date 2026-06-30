@@ -87,8 +87,8 @@ function WebNavigationScreen() {
   const { stops }  = useShiftStore();
   const stop = stops.find(s => s.id === stopId);
 
-  const lat = stop?.pin?.lat ?? stop?.lat ?? 0;
-  const lng = stop?.pin?.lng ?? stop?.lng ?? 0;
+  const lat = stop?.lat ?? 0;
+  const lng = stop?.lng ?? 0;
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
   return (

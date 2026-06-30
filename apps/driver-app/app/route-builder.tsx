@@ -336,7 +336,7 @@ export default function RouteBuilderScreen() {
     if (!stops.length) return;
     if (isAddMode) {
       const { addStop } = useShiftStore.getState();
-      stops.forEach(stop => addStop(stop));
+      stops.forEach(stop => addStop(stop as any));
       router.back();
       return;
     }
@@ -369,7 +369,7 @@ export default function RouteBuilderScreen() {
     if (!name || !stops.length) return;
 
     const count = await countSavedRoutes();
-    if (plan !== 'enterprise' && count >= 10) {
+    if (plan !== 'custom' && count >= 10) {
       Alert.alert(
         'Route limit reached',
         "You've reached the 10 route limit on Pro. Delete a saved route to add more.",
