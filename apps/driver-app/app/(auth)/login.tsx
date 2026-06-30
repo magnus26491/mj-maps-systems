@@ -25,7 +25,12 @@ export default function LoginScreen() {
       await setAuth(res.accessToken, res.refreshToken, user);
       router.replace('/(app)/');
     } catch (e: any) {
-      setError(e.message ?? 'Login failed. Check your credentials.');
+      const msg: string = e?.message ?? '';
+      // Only surface clean API error strings to the user.
+      // Raw JS errors (crashes, "is not a function", etc.) become a generic message.
+      const isCleanApiError = msg.length > 0 && msg.length < 100
+        && !msg.includes(' is not ') && !msg.includes('Cannot ') && !msg.includes('undefined');
+      setError(isCleanApiError ? msg : 'Sign in failed. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
