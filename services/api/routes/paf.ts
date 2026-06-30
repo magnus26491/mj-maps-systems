@@ -168,7 +168,7 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
             const subBldg  = tc(c.subBuildingName);
             const bldgName = tc(c.buildingName);
             const bldgNum  = c.buildingNumber ?? '';
-            const street   = tc(c.thoroughfareName ?? c.dependentThoroughfareName);
+            const street   = [tc(c.dependentThoroughfareName), tc(c.thoroughfareName)].filter(Boolean).join(', ');
             const town     = tc(c.postTown);
 
             let line1: string;
@@ -200,7 +200,7 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
             return {
               line1,
               line2,
-              postTown:    town || full.split(',').slice(1, -1).join(', ').trim(),
+              postTown:    town || full.split(',').map(p => p.trim()).slice(-2, -1)[0] || '',
               postcode:    pc,
               fullAddress: full,
               lat:         c.lat,
