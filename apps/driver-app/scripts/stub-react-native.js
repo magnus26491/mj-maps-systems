@@ -61,9 +61,15 @@ var _registry = {
     addListener: _noop, removeListeners: _noop,
   },
 };
+var _defaultStub = {
+  getConstants: function() { return {}; },
+  addListener: function() {},
+  removeListeners: function() {},
+  removeListener: function() {},
+};
 module.exports = {
   get: function(name) { return _registry[name] || null; },
-  getEnforcing: function(name) { return _registry[name] || {}; },
+  getEnforcing: function(name) { return _registry[name] || _defaultStub; },
   register: function(name, m) { _registry[name] = m; },
 };
 `,
