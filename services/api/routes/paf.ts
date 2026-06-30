@@ -182,10 +182,10 @@ export const pafRoute: FastifyPluginAsync = async (fastify) => {
               const streetPart = [bldgNum, street].filter(Boolean).join(' ');
               line2 = [bldgPart, streetPart].filter(Boolean).join(', ') || undefined;
             } else if (subBldg) {
-              // Flat/unit within a named building: "Flat 2A, Harbour House"
+              // Flat/unit within a named building or street: "Flat 2A, Harbour House" / "Flat 2A, 12 High Street"
               line1 = subBldg;
-              const bldgPart  = bldgName || [bldgNum, street].filter(Boolean).join(' ');
-              line2 = bldgPart || undefined;
+              const streetPart = [bldgNum, street].filter(Boolean).join(' ');
+              line2 = [bldgName, streetPart].filter(Boolean).join(', ') || undefined;
             } else if (bldgName) {
               // Named building without org: "Harbour House, 12 High Street"
               line1 = bldgName;
