@@ -17,7 +17,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Platform, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
-import * as Camera from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PermStatus = 'undetermined' | 'granted' | 'denied';
@@ -102,11 +102,16 @@ export function usePermissions() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    // Load saved non-camera permissions from storage.
+    // Camera is seeded synchronously from the live expo-camera hook value below.
     loadSaved().then(p => {
-      setPerms(p);
+      const camStatus = camPerm?.status ?? p.camera;
+      setPerms({ ...p, camera: mapStatus(camStatus) });
       setLoaded(true);
     });
-  }, []);
+    // camPerm is initialised on first render by useCameraPermissions() below,
+    // so this effect re-runs when it resolves — giving accurate live camera state.
+  }, [camPerm?.status]);
 
   const updateAndSave = useCallback((patch: Partial<PermissionState>) => {
     setPerms(prev => {
@@ -160,19 +165,23 @@ export function usePermissions() {
     }
   }, [updateAndSave]);
 
-  // ── Request camera ─────────────────────────────────────────────────────────
+  // ── Camera permissions (via useCameraPermissions hook — v15 API) ─────────
+  // expo-camera v15 removed static Camera.requestCameraPermissionsAsync().
+  // useCameraPermissions() returns [permission, request, get] — call request().
+  const [camPerm, requestCamPerm] = useCameraPermissions();
+
   const requestCamera = useCallback(async (): Promise<PermStatus> => {
     if (Platform.OS === 'web') { updateAndSave({ camera: 'granted' }); return 'granted'; }
     try {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      const s = mapStatus(status as string);
+      const result = await requestCamPerm();
+      const s = mapStatus(result.status);
       updateAndSave({ camera: s });
       return s;
     } catch {
       updateAndSave({ camera: 'denied' });
       return 'denied';
     }
-  }, [updateAndSave]);
+  }, [updateAndSave, requestCamPerm]);
 
   // ── Open system settings ───────────────────────────────────────────────────
   const openSettings = useCallback(() => {
