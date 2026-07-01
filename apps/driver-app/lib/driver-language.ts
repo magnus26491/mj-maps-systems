@@ -47,8 +47,8 @@ export function translateParkingRisk(
   }
   
   // Find parking risk
-  const parkingRisk = guardian?.risks.find(r => r.category === 'PARKING');
-  const parkingFactor = prediction?.riskFactors.find(r => r.category === 'PARKING');
+  const parkingRisk = guardian?.risks.find((r: any) => r.category === 'PARKING');
+  const parkingFactor = prediction?.riskFactors.find((r: any) => r.category === 'PARKING');
   
   if (!parkingRisk && !parkingFactor) {
     return {
@@ -113,8 +113,8 @@ export function translateAccessRisk(
   prediction: DeliveryPrediction | null,
   guardian: DriverGuardianResult | null
 ): AccessTranslation {
-  const accessRisk = guardian?.risks.find(r => r.category === 'ACCESS');
-  const accessFactor = prediction?.riskFactors.find(r => r.category === 'ACCESS');
+  const accessRisk = guardian?.risks.find((r: any) => r.category === 'ACCESS');
+  const accessFactor = prediction?.riskFactors.find((r: any) => r.category === 'ACCESS');
   
   if (!accessRisk && !accessFactor) {
     return {
@@ -186,8 +186,8 @@ export function translateTrafficRisk(
   prediction: DeliveryPrediction | null,
   guardian: DriverGuardianResult | null
 ): TrafficTranslation {
-  const trafficRisk = guardian?.risks.find(r => r.category === 'TRAFFIC');
-  const trafficFactor = prediction?.riskFactors.find(r => r.category === 'TRAFFIC');
+  const trafficRisk = guardian?.risks.find((r: any) => r.category === 'TRAFFIC');
+  const trafficFactor = prediction?.riskFactors.find((r: any) => r.category === 'TRAFFIC');
   
   if (!trafficRisk && !trafficFactor) {
     return {
@@ -198,7 +198,7 @@ export function translateTrafficRisk(
   }
   
   const severity = trafficRisk?.severity ?? trafficFactor?.severity ?? 'LOW';
-  const delay = trafficRisk?.expectedImpact?.delayMinutes ?? trafficFactor?.expectedImpact?.delayMinutes ?? 5;
+  const delay = (trafficRisk?.expectedImpact as any)?.delayMinutes ?? (trafficFactor?.expectedImpact as any)?.delayMinutes ?? 5;
   
   if (severity === 'LOW') {
     return {
@@ -242,7 +242,7 @@ export interface WeatherTranslation {
 export function translateWeatherRisk(
   guardian: DriverGuardianResult | null
 ): WeatherTranslation {
-  const weatherRisk = guardian?.risks.find(r => r.category === 'WEATHER');
+  const weatherRisk = guardian?.risks.find((r: any) => r.category === 'WEATHER');
   
   if (!weatherRisk) {
     return {
@@ -316,9 +316,9 @@ export function translateDeliveryRisk(
     };
   }
   
-  const probability = prediction.completionProbability;
+  const probability = prediction.completionProbability ?? 1;
   const dataQuality = prediction.dataQuality;
-  
+
   // Only warn if low probability AND good data
   if (probability >= 0.85 || dataQuality !== 'HIGH') {
     return {
@@ -340,7 +340,7 @@ export function translateDeliveryRisk(
   
   // Low probability
   const failureRisk = prediction.failureRisk;
-  const topReason = failureRisk?.reasons?.[0] ?? '';
+  const topReason = (failureRisk as any)?.reasons?.[0] ?? '';
   
   return {
     showWarning: true,
@@ -441,7 +441,7 @@ export function translateUnifiedWarning(
 export function translateNormalStop(
   prediction: DeliveryPrediction | null
 ): { title: string; message: string } {
-  if (prediction && prediction.completionProbability >= 0.9) {
+  if (prediction && (prediction.completionProbability ?? 0) >= 0.9) {
     return {
       title: 'NEXT DELIVERY',
       message: 'Expected to go smoothly.',

@@ -23,7 +23,7 @@ export function PhotoCapture({ onCapture, captured }: PhotoCaptureProps) {
     if (status !== 'granted') return;
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.75,
       allowsEditing: false,
       cameraType: ImagePicker.CameraType.back,

@@ -14,8 +14,6 @@
  *   - useDrivingMode        → speed-based driving detection
  *   - useNavigation         → nav polyline tracking + off-route detection
  */
-import type { LocationCoordinates } from 'expo-location';
-
 export interface SharedLocation {
   latitude:  number;
   longitude:  number;
@@ -54,7 +52,7 @@ export function subscribeAccuracyMode(cb: AccuracyListener): () => void {
  * Called by useDriverLocation on every GPS fix to broadcast to all subscribers.
  * Also sets latestLocation so getLatestLocation() returns a fresh value.
  */
-export function publishLocation(loc: LocationCoordinates & { timestamp: number }): void {
+export function publishLocation(loc: { latitude: number; longitude: number; heading?: number | null; speed?: number | null; accuracy?: number | null; altitude?: number | null; timestamp: number }): void {
   latestLocation = {
     latitude:  loc.latitude,
     longitude: loc.longitude,

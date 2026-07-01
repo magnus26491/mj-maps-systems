@@ -9,11 +9,14 @@ import {
   TouchableOpacity,
   Dimensions,
   type TextStyle,
-  type NamedStyles,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Linking from 'expo-linking';
-import { useTheme, DARK_THEME } from '../../components/ThemeContext';
+import { useTheme, DARK } from '../../components/ThemeContext';
+
+type NamedStyles<T> = { [P in keyof T]: TextStyle | ViewStyle | ImageStyle };
+type ViewStyle = import('react-native').ViewStyle;
+type ImageStyle = import('react-native').ImageStyle;
 import { SlideToConfirm } from '../../components/SlideToConfirm';
 import { StopPoint } from '../../store/deliveryStore';
 
@@ -22,7 +25,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ─── Colours — static fallback for StyleSheet.create (runs at module load) ──────
 // Dynamic theme colours used in component bodies via useTheme().
 // COLORS kept for backwards-compat for non-component usages.
-export const COLORS = DARK_THEME;
+export const COLORS = {
+  ...DARK.app,
+  // Aliases used across delivery screens
+  green:     DARK.app.success,
+  red:       DARK.app.danger,
+  amber:     DARK.app.warning,
+};
 
 // ─── Shared text styles ────────────────────────────────────────────────────────
 

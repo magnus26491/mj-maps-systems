@@ -65,7 +65,7 @@ async function reconcileWithOs(stored: PermissionState): Promise<PermissionState
     if (s !== 'undetermined' && stored.notifications === 'undetermined') updates.notifications = s;
   } catch { /* ignore */ }
   try {
-    const { status } = await Camera.getCameraPermissionsAsync();
+    const { status } = await (Camera as any).getCameraPermissionsAsync();
     const s = mapStatus(status as string);
     if (s !== 'undetermined' && stored.camera === 'undetermined') updates.camera = s;
   } catch { /* ignore */ }
@@ -164,7 +164,7 @@ export function usePermissions() {
   const requestCamera = useCallback(async (): Promise<PermStatus> => {
     if (Platform.OS === 'web') { updateAndSave({ camera: 'granted' }); return 'granted'; }
     try {
-      const { status } = await Camera.requestCameraPermissionsAsync();
+      const { status } = await (Camera as any).requestCameraPermissionsAsync();
       const s = mapStatus(status as string);
       updateAndSave({ camera: s });
       return s;

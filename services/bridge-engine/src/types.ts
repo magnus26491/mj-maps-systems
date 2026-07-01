@@ -35,6 +35,8 @@ export interface RoadRestriction {
   /** Whether a driver has confirmed this restriction exists */
   driverVerified: boolean;
   source:      'osm' | 'os_opendata' | 'driver_reported';
+  /** OSM layer of this restriction's way — 0=ground, 1+=elevated, −1=below */
+  layer:       number;
 }
 
 export interface RouteSegment {

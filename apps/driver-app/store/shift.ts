@@ -31,7 +31,8 @@ export interface DeliveryStop {
   failReason?:  string | null;
   // TODO: w3w — 3-word address for last-metre precision (e.g. "///filled.count.soap").
   // Populate via GET https://api.what3words.com/v3/convert-to-3wa when stop is loaded.
-  w3w?:         string | null;
+  w3w?:             string | null;
+  communityWarning?: string | null; // consensus note from ≥2 drivers at this address
 }
 
 export interface Shift {

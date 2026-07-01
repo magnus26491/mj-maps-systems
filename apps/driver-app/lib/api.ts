@@ -231,6 +231,74 @@ export async function apiGetInsightsSummary(driverId: string): Promise<InsightsS
   return apiFetch<InsightsSummary>(`/api/v1/drivers/${encodeURIComponent(driverId)}/insights/summary`);
 }
 
+// ── Community consensus ───────────────────────────────────────────────────────
+
+export interface CommunityCheck {
+  hasConsensus: boolean;
+  categories:   Array<{ id: string; emoji: string; label: string; driverCount: number }>;
+  note:         string | null;
+}
+
+/**
+ * Check community consensus for an address string (no stop ID required).
+ * Used at route-build time to warn before the stop is added.
+ * Cached server-side for 1 hour. Never throws — returns hasConsensus:false on any error.
+ */
+export async function apiCheckCommunity(address: string): Promise<CommunityCheck> {
+  try {
+    const res = await apiFetch<{ ok: boolean } & CommunityCheck>(
+      `/api/v1/community/address?q=${encodeURIComponent(address)}`,
+    );
+    return res;
+  } catch {
+    return { hasConsensus: false, categories: [], note: null };
+  }
+}
+
+// ── Weather ──────────────────────────────────────────────────────────────────
+
+export interface WeatherData {
+  tempC:         number;
+  description:   string;
+  weatherCode:   number;
+  windMph:       number;
+  gustMph:       number;
+  precipMm:      number;
+  isDay:         boolean;
+  riskLevel:     'GREEN' | 'AMBER' | 'RED';
+  drivingAdvice: string;
+  fetchedAt:     string;
+}
+
+export async function apiGetWeather(lat: number, lng: number): Promise<WeatherData> {
+  const res = await apiFetch<{ ok: boolean; data: WeatherData }>(
+    `/api/v1/driver/weather?lat=${lat}&lng=${lng}`,
+  );
+  return res.data;
+}
+
+// ── Roadworks ─────────────────────────────────────────────────────────────────
+
+export interface RoadworksItem {
+  title:    string;
+  description: string;
+  link:     string;
+  pubDate:  string | null;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+}
+
+export interface RoadworksData {
+  items:     RoadworksItem[];
+  total:     number;
+  fetchedAt: string;
+  source:    string;
+}
+
+export async function apiGetRoadworks(): Promise<RoadworksData> {
+  const res = await apiFetch<{ ok: boolean; data: RoadworksData }>('/api/v1/driver/roadworks');
+  return res.data;
+}
+
 // ── Generic API client (for DeleteAccountModal) ─────────────────────────────
 interface ApiClient {
   delete: (path: string, token: string | null) => Promise<{ ok: boolean; json: () => Promise<{ message?: string }> }>;

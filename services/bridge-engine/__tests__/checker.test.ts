@@ -24,6 +24,7 @@ const lowBridge: RoadRestriction = {
   value: 3.0,
   description: 'Max height: 3.0m',
   driverVerified: true, source: 'osm',
+  layer: 1,
 };
 
 const weightBridge: RoadRestriction = {
@@ -32,6 +33,7 @@ const weightBridge: RoadRestriction = {
   value: 3.5,
   description: 'Max weight: 3.5t',
   driverVerified: false, source: 'osm',
+  layer: 1,
 };
 
 const narrowGate: RoadRestriction = {
@@ -40,6 +42,7 @@ const narrowGate: RoadRestriction = {
   value: 2.1,
   description: 'Max width: 2.1m',
   driverVerified: false, source: 'driver_reported',
+  layer: 0,
 };
 
 const privateRoad: RoadRestriction = {
@@ -48,6 +51,7 @@ const privateRoad: RoadRestriction = {
   value: null,
   description: 'Private road',
   driverVerified: false, source: 'osm',
+  layer: 0,
 };
 
 describe('checkRestrictions — Luton Van', () => {

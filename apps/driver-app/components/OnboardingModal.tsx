@@ -19,17 +19,22 @@ const SLIDES = [
   {
     icon:  '📍',
     title: 'Add stops your way',
-    body:  'Type a postcode, paste a whole list, or tap the map. Tap Optimise and we calculate the fastest order for your shift.',
+    body:  'Type a postcode, paste a whole list, or search an address. The fastest order for your shift is calculated automatically.',
   },
   {
     icon:  '🗺️',
     title: 'Your HUD guides you',
-    body:  'Turn warnings fire before you reach a tight road. Access notes are read aloud when you approach each stop.',
+    body:  'Turn warnings fire before you reach a tight road. Community notes from other drivers are read aloud as you approach each stop.',
   },
   {
     icon:  '✅',
     title: 'Swipe to deliver',
-    body:  'Slide the Deliver button when you\'ve dropped the parcel. Failed? We track the reason and push it to dispatch.',
+    body:  "Slide the Deliver button when you've dropped the parcel. If a delivery fails, pick the reason and we log it for you.",
+  },
+  {
+    icon:  '⚠️',
+    title: 'Flag a difficult stop',
+    body:  "Tap DD on the HUD if a stop was tricky — no parking, a gate code, stairs, a dog. One tap. Future drivers will see your warning before they arrive.",
   },
 ];
 

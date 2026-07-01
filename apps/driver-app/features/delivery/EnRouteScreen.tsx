@@ -46,8 +46,8 @@ export function EnRouteScreen({ onOpenDetails, onOpenSettings }: EnRouteScreenPr
   const vehicleProfile = useVehicleStore(s => s.vehicleProfile);
 
   // Get turn score from the fixed useTurnScore hook
-  const vehicleId = vehicleProfile?.profileKey ?? null;
-  const { alert, score, reason } = useTurnScore(currentStop, vehicleId);
+  const vehicleId = vehicleProfile ?? null;
+  const { alert, score, reason } = useTurnScore(currentStop as any, vehicleId);
 
   useDeliveryLocation();
 
